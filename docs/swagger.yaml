@@ -67,75 +67,177 @@ definitions:
     required:
     - token
     type: object
-  handlers.CreateAdminRequest:
+  fiber.Map:
+    additionalProperties: true
+    type: object
+  github_com_the-monkeys_monkeys-identity_internal_models.APIKey:
     properties:
-      display_name:
+      allowed_ip_ranges:
+        items:
+          type: string
+        type: array
+      created_at:
         type: string
-      email:
+      created_by:
+        type: string
+      expires_at:
+        type: string
+      id:
+        type: string
+      key_id:
+        type: string
+      last_used_at:
+        type: string
+      name:
         type: string
       organization_id:
         type: string
-      password:
-        minLength: 8
-        type: string
-      username:
-        maxLength: 50
-        minLength: 3
-        type: string
-    required:
-    - display_name
-    - email
-    - organization_id
-    - password
-    - username
-    type: object
-  handlers.LoginRequest:
-    properties:
-      email:
-        type: string
-      password:
-        minLength: 6
-        type: string
-    required:
-    - email
-    - password
-    type: object
-  handlers.LoginResponse:
-    properties:
-      access_token:
-        type: string
-      expires_in:
+      rate_limit_per_hour:
         type: integer
-      refresh_token:
+      scopes:
+        items:
+          type: string
+        type: array
+      service_account_id:
         type: string
-      token_type:
+      status:
         type: string
-      user:
-        $ref: '#/definitions/models.User'
+      usage_count:
+        type: integer
     type: object
-  handlers.RegisterRequest:
+  github_com_the-monkeys_monkeys-identity_internal_models.Group:
     properties:
-      display_name:
+      attributes:
+        description: JSONB as string
         type: string
-      email:
+      created_at:
+        type: string
+      deleted_at:
+        type: string
+      description:
+        type: string
+      group_type:
+        type: string
+      id:
+        type: string
+      max_members:
+        type: integer
+      name:
         type: string
       organization_id:
         type: string
-      password:
-        minLength: 8
+      parent_group_id:
         type: string
-      username:
-        maxLength: 50
-        minLength: 3
+      status:
         type: string
-    required:
-    - display_name
-    - email
-    - organization_id
-    - password
-    - username
+      updated_at:
+        type: string
     type: object
-  models.User:
+  github_com_the-monkeys_monkeys-identity_internal_models.Organization:
+    properties:
+      billing_tier:
+        type: string
+      created_at:
+        type: string
+      deleted_at:
+        type: string
+      description:
+        type: string
+      id:
+        type: string
+      max_resources:
+        type: integer
+      max_users:
+        type: integer
+      metadata:
+        description: JSONB as string
+        type: string
+      name:
+        type: string
+      parent_id:
+        type: string
+      settings:
+        description: JSONB as string
+        type: string
+      slug:
+        type: string
+      status:
+        type: string
+      updated_at:
+        type: string
+    type: object
+  github_com_the-monkeys_monkeys-identity_internal_models.Role:
+    properties:
+      assume_role_policy:
+        description: JSONB as string
+        type: string
+      created_at:
+        type: string
+      deleted_at:
+        type: string
+      description:
+        type: string
+      id:
+        type: string
+      is_system_role:
+        type: boolean
+      max_session_duration:
+        type: string
+      name:
+        type: string
+      organization_id:
+        type: string
+      path:
+        type: string
+      permissions_boundary:
+        type: string
+      role_type:
+        type: string
+      status:
+        type: string
+      tags:
+        description: JSONB as string
+        type: string
+      trust_policy:
+        description: JSONB as string
+        type: string
+      updated_at:
+        type: string
+    type: object
+  github_com_the-monkeys_monkeys-identity_internal_models.ServiceAccount:
+    properties:
+      allowed_ip_ranges:
+        items:
+          type: string
+        type: array
+      attributes:
+        description: JSONB as string
+        type: string
+      created_at:
+        type: string
+      deleted_at:
+        type: string
+      description:
+        type: string
+      id:
+        type: string
+      key_rotation_policy:
+        description: JSONB as string
+        type: string
+      last_key_rotation:
+        type: string
+      max_token_lifetime:
+        type: string
+      name:
+        type: string
+      organization_id:
+        type: string
+      status:
+        type: string
+      updated_at:
+        type: string
+    type: object
+  github_com_the-monkeys_monkeys-identity_internal_models.User:
     properties:
       attributes:
         description: JSONB as string
@@ -180,7 +282,79 @@ definitions:
       username:
         type: string
     type: object
-host: localhost:3000
+  internal_handlers.CreateAdminRequest:
+    properties:
+      email:
+        type: string
+      fullName:
+        type: string
+      organization_id:
+        type: string
+      password:
+        minLength: 8
+        type: string
+      username:
+        maxLength: 50
+        minLength: 3
+        type: string
+    required:
+    - email
+    - fullName
+    - password
+    - username
+    type: object
+  internal_handlers.LoginRequest:
+    properties:
+      email:
+        type: string
+      password:
+        minLength: 6
+        type: string
+    required:
+    - email
+    - password
+    type: object
+  internal_handlers.LoginResponse:
+    properties:
+      access_token:
+        type: string
+      expires_in:
+        type: integer
+      refresh_token:
+        type: string
+      token_type:
+        type: string
+      user:
+        $ref: '#/definitions/github_com_the-monkeys_monkeys-identity_internal_models.User'
+    type: object
+  internal_handlers.RegisterRequest:
+    properties:
+      display_name:
+        type: string
+      email:
+        type: string
+      organization_id:
+        type: string
+      password:
+        minLength: 8
+        type: string
+      username:
+        maxLength: 50
+        minLength: 3
+        type: string
+    required:
+    - display_name
+    - email
+    - organization_id
+    - password
+    - username
+    type: object
+  internal_handlers.updateSettingsRequest:
+    properties:
+      settings:
+        type: string
+    type: object
+host: localhost:8080
 info:
   contact:
     email: support@themonkeys.com
@@ -196,6 +370,309 @@ info:
   title: Monkeys Identity & Access Management API
   version: "1.0"
 paths:
+  /access-reviews:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve all access reviews (placeholder)
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Access reviews list placeholder
+          schema:
+            $ref: '#/definitions/fiber.Map'
+      security:
+      - BearerAuth: []
+      summary: List access reviews
+      tags:
+      - Access Reviews
+    post:
+      consumes:
+      - application/json
+      description: Initiate a new access review (placeholder)
+      parameters:
+      - description: Access review definition
+        in: body
+        name: request
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Access review created placeholder
+          schema:
+            $ref: '#/definitions/fiber.Map'
+      security:
+      - BearerAuth: []
+      summary: Create access review
+      tags:
+      - Access Reviews
+  /access-reviews/{id}:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve a specific access review (placeholder)
+      parameters:
+      - description: Access Review ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Access review retrieved placeholder
+          schema:
+            $ref: '#/definitions/fiber.Map'
+      security:
+      - BearerAuth: []
+      summary: Get access review
+      tags:
+      - Access Reviews
+    put:
+      consumes:
+      - application/json
+      description: Modify an existing access review (placeholder)
+      parameters:
+      - description: Access Review ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Updated access review
+        in: body
+        name: request
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Access review updated placeholder
+          schema:
+            $ref: '#/definitions/fiber.Map'
+      security:
+      - BearerAuth: []
+      summary: Update access review
+      tags:
+      - Access Reviews
+  /access-reviews/{id}/complete:
+    post:
+      consumes:
+      - application/json
+      description: Mark an access review as complete (placeholder)
+      parameters:
+      - description: Access Review ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Access review completed placeholder
+          schema:
+            $ref: '#/definitions/fiber.Map'
+      security:
+      - BearerAuth: []
+      summary: Complete access review
+      tags:
+      - Access Reviews
+  /admin/health-check:
+    get:
+      consumes:
+      - application/json
+      description: Perform a health check across subsystems (placeholder)
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: System health placeholder
+          schema:
+            $ref: '#/definitions/fiber.Map'
+      security:
+      - BearerAuth: []
+      summary: System health check
+      tags:
+      - Admin
+  /admin/maintenance-mode:
+    delete:
+      consumes:
+      - application/json
+      description: Disable maintenance mode and resume normal operations (placeholder)
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Maintenance mode disabled placeholder
+          schema:
+            $ref: '#/definitions/fiber.Map'
+      security:
+      - BearerAuth: []
+      summary: Disable maintenance mode
+      tags:
+      - Admin
+    post:
+      consumes:
+      - application/json
+      description: Enable maintenance mode restricting operations (placeholder)
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Maintenance mode enabled placeholder
+          schema:
+            $ref: '#/definitions/fiber.Map'
+      security:
+      - BearerAuth: []
+      summary: Enable maintenance mode
+      tags:
+      - Admin
+  /admin/settings:
+    get:
+      description: Retrieve system-wide global settings
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Global settings retrieved
+          schema:
+            $ref: '#/definitions/SuccessResponse'
+      security:
+      - BearerAuth: []
+      summary: Get global settings
+      tags:
+      - System Administration
+    put:
+      consumes:
+      - application/json
+      description: Update system-wide global settings
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Global settings updated
+          schema:
+            $ref: '#/definitions/SuccessResponse'
+      security:
+      - BearerAuth: []
+      summary: Update global settings
+      tags:
+      - System Administration
+  /admin/stats:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve overall system statistics (placeholder)
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: System stats placeholder
+          schema:
+            $ref: '#/definitions/fiber.Map'
+      security:
+      - BearerAuth: []
+      summary: Get system stats
+      tags:
+      - Admin
+  /audit/events:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve audit trail events (placeholder)
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Audit events listed placeholder
+          schema:
+            $ref: '#/definitions/fiber.Map'
+      security:
+      - BearerAuth: []
+      summary: List audit events
+      tags:
+      - Audit & Compliance
+  /audit/events/{id}:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve details of a specific audit event (placeholder)
+      parameters:
+      - description: Audit Event ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Audit event retrieved placeholder
+          schema:
+            $ref: '#/definitions/fiber.Map'
+      security:
+      - BearerAuth: []
+      summary: Get audit event
+      tags:
+      - Audit & Compliance
+  /audit/reports/access:
+    get:
+      consumes:
+      - application/json
+      description: Generate a comprehensive access report (placeholder)
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Access report placeholder
+          schema:
+            $ref: '#/definitions/fiber.Map'
+      security:
+      - BearerAuth: []
+      summary: Generate access report
+      tags:
+      - Audit & Compliance
+  /audit/reports/compliance:
+    get:
+      consumes:
+      - application/json
+      description: Generate compliance posture report (placeholder)
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Compliance report placeholder
+          schema:
+            $ref: '#/definitions/fiber.Map'
+      security:
+      - BearerAuth: []
+      summary: Generate compliance report
+      tags:
+      - Audit & Compliance
+  /audit/reports/policy-usage:
+    get:
+      consumes:
+      - application/json
+      description: Generate policy usage metrics (placeholder)
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Policy usage report placeholder
+          schema:
+            $ref: '#/definitions/fiber.Map'
+      security:
+      - BearerAuth: []
+      summary: Generate policy usage report
+      tags:
+      - Audit & Compliance
   /auth/create-admin:
     post:
       consumes:
@@ -207,7 +684,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/handlers.CreateAdminRequest'
+          $ref: '#/definitions/internal_handlers.CreateAdminRequest'
       produces:
       - application/json
       responses:
@@ -275,14 +752,14 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/handlers.LoginRequest'
+          $ref: '#/definitions/internal_handlers.LoginRequest'
       produces:
       - application/json
       responses:
         "200":
           description: Successfully authenticated
           schema:
-            $ref: '#/definitions/handlers.LoginResponse'
+            $ref: '#/definitions/internal_handlers.LoginResponse'
         "400":
           description: Invalid request format
           schema:
@@ -339,7 +816,7 @@ paths:
         "200":
           description: New access token generated
           schema:
-            $ref: '#/definitions/handlers.LoginResponse'
+            $ref: '#/definitions/internal_handlers.LoginResponse'
         "400":
           description: Invalid request format
           schema:
@@ -366,7 +843,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/handlers.RegisterRequest'
+          $ref: '#/definitions/internal_handlers.RegisterRequest'
       produces:
       - application/json
       responses:
@@ -491,6 +968,1883 @@ paths:
       summary: Verify email
       tags:
       - Authentication
+  /authz/bulk-check:
+    post:
+      consumes:
+      - application/json
+      description: Check multiple action/resource pairs (placeholder)
+      parameters:
+      - description: Bulk permission check request
+        in: body
+        name: request
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Bulk permission check placeholder
+          schema:
+            $ref: '#/definitions/fiber.Map'
+      security:
+      - BearerAuth: []
+      summary: Bulk check permissions
+      tags:
+      - Authorization
+  /authz/check:
+    post:
+      consumes:
+      - application/json
+      description: Check if a principal is allowed an action on a resource (placeholder)
+      parameters:
+      - description: Permission check request
+        in: body
+        name: request
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Permission check placeholder
+          schema:
+            $ref: '#/definitions/fiber.Map'
+      security:
+      - BearerAuth: []
+      summary: Check permission
+      tags:
+      - Authorization
+  /authz/effective-permissions:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve effective permissions for authenticated principal (placeholder)
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Effective permissions placeholder
+          schema:
+            $ref: '#/definitions/fiber.Map'
+      security:
+      - BearerAuth: []
+      summary: Get effective permissions
+      tags:
+      - Authorization
+  /authz/simulate-access:
+    post:
+      consumes:
+      - application/json
+      description: Simulate an access decision for a hypothetical request (placeholder)
+      parameters:
+      - description: Access simulation request
+        in: body
+        name: request
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Access simulation placeholder
+          schema:
+            $ref: '#/definitions/fiber.Map'
+      security:
+      - BearerAuth: []
+      summary: Simulate access
+      tags:
+      - Authorization
+  /groups:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve groups with pagination and optional organization filtering
+      parameters:
+      - description: Number of groups to return (default 50)
+        in: query
+        name: limit
+        type: integer
+      - description: Number of groups to skip (default 0)
+        in: query
+        name: offset
+        type: integer
+      - description: Sort by field (name, created_at)
+        in: query
+        name: sort
+        type: string
+      - description: Sort order (asc, desc)
+        in: query
+        name: order
+        type: string
+      - description: Filter by organization ID
+        in: query
+        name: organization_id
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Groups retrieved successfully
+          schema:
+            $ref: '#/definitions/SuccessResponse'
+        "400":
+          description: Invalid query parameters
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: List groups
+      tags:
+      - Group Management
+    post:
+      consumes:
+      - application/json
+      description: Create a new group within an organization
+      parameters:
+      - description: Group details
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_the-monkeys_monkeys-identity_internal_models.Group'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Group created successfully
+          schema:
+            $ref: '#/definitions/SuccessResponse'
+        "400":
+          description: Invalid request body or validation errors
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Create group
+      tags:
+      - Group Management
+  /groups/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Soft delete a group by marking it deleted
+      parameters:
+      - description: Group ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Group deleted successfully
+          schema:
+            $ref: '#/definitions/SuccessResponse'
+        "400":
+          description: Invalid group ID
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "404":
+          description: Group not found
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Delete group
+      tags:
+      - Group Management
+    get:
+      consumes:
+      - application/json
+      description: Retrieve detailed information about a specific group
+      parameters:
+      - description: Group ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Group retrieved successfully
+          schema:
+            $ref: '#/definitions/SuccessResponse'
+        "400":
+          description: Invalid group ID
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "404":
+          description: Group not found
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get group
+      tags:
+      - Group Management
+    put:
+      consumes:
+      - application/json
+      description: Update a group's properties
+      parameters:
+      - description: Group ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Updated group details
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_the-monkeys_monkeys-identity_internal_models.Group'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Group updated successfully
+          schema:
+            $ref: '#/definitions/SuccessResponse'
+        "400":
+          description: Invalid request body
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "404":
+          description: Group not found
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Update group
+      tags:
+      - Group Management
+  /groups/{id}/members:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve all members of a group
+      parameters:
+      - description: Group ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Group members retrieved successfully
+          schema:
+            $ref: '#/definitions/SuccessResponse'
+        "400":
+          description: Invalid group ID
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: List group members
+      tags:
+      - Group Management
+    post:
+      consumes:
+      - application/json
+      description: Add a principal (user or service account) to a group
+      parameters:
+      - description: Group ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Membership details
+        in: body
+        name: request
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Group member added successfully
+          schema:
+            $ref: '#/definitions/SuccessResponse'
+        "400":
+          description: Invalid request body
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Add group member
+      tags:
+      - Group Management
+  /groups/{id}/members/{user_id}:
+    delete:
+      consumes:
+      - application/json
+      description: Remove a principal from a group membership
+      parameters:
+      - description: Group ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Principal ID
+        in: path
+        name: user_id
+        required: true
+        type: string
+      - description: Principal type (user or service_account)
+        in: query
+        name: principal_type
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Group member removed successfully
+          schema:
+            $ref: '#/definitions/SuccessResponse'
+        "400":
+          description: Invalid parameters
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "404":
+          description: Membership not found
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Remove group member
+      tags:
+      - Group Management
+  /groups/{id}/permissions:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve aggregated allow/deny permissions derived from member
+        role assignments
+      parameters:
+      - description: Group ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Group permissions retrieved successfully
+          schema:
+            $ref: '#/definitions/SuccessResponse'
+        "400":
+          description: Invalid group ID
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get group permissions
+      tags:
+      - Group Management
+  /organizations:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve paginated list of organizations
+      parameters:
+      - description: Items per page (1-1000)
+        in: query
+        name: limit
+        type: integer
+      - description: Offset for pagination
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Organizations retrieved
+          schema:
+            $ref: '#/definitions/SuccessResponse'
+        "400":
+          description: Invalid pagination parameters
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: List organizations
+      tags:
+      - Organization Management
+    post:
+      consumes:
+      - application/json
+      description: Create a new organization (tenant)
+      parameters:
+      - description: Organization details
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_the-monkeys_monkeys-identity_internal_models.Organization'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Organization created
+          schema:
+            $ref: '#/definitions/SuccessResponse'
+        "400":
+          description: Validation error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "409":
+          description: Organization already exists
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Create organization
+      tags:
+      - Organization Management
+  /organizations/{id}:
+    delete:
+      description: Soft delete an organization
+      parameters:
+      - description: Organization ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Organization deleted
+          schema:
+            $ref: '#/definitions/SuccessResponse'
+        "400":
+          description: Invalid organization ID
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "404":
+          description: Organization not found
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Delete organization
+      tags:
+      - Organization Management
+    get:
+      description: Retrieve an organization by ID
+      parameters:
+      - description: Organization ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Organization retrieved
+          schema:
+            $ref: '#/definitions/SuccessResponse'
+        "400":
+          description: Invalid organization ID
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "404":
+          description: Organization not found
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get organization
+      tags:
+      - Organization Management
+    put:
+      consumes:
+      - application/json
+      description: Update organization attributes
+      parameters:
+      - description: Organization ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Updated organization
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_the-monkeys_monkeys-identity_internal_models.Organization'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Organization updated
+          schema:
+            $ref: '#/definitions/SuccessResponse'
+        "400":
+          description: Invalid request
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "404":
+          description: Organization not found
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Update organization
+      tags:
+      - Organization Management
+  /organizations/{id}/groups:
+    get:
+      description: List all groups belonging to an organization
+      parameters:
+      - description: Organization ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Groups retrieved
+          schema:
+            $ref: '#/definitions/SuccessResponse'
+        "400":
+          description: Invalid organization ID
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: List organization groups
+      tags:
+      - Organization Management
+  /organizations/{id}/policies:
+    get:
+      description: List all policies within an organization
+      parameters:
+      - description: Organization ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Policies retrieved
+          schema:
+            $ref: '#/definitions/SuccessResponse'
+        "400":
+          description: Invalid organization ID
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: List organization policies
+      tags:
+      - Organization Management
+  /organizations/{id}/resources:
+    get:
+      description: List all resources owned by an organization
+      parameters:
+      - description: Organization ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Resources retrieved
+          schema:
+            $ref: '#/definitions/SuccessResponse'
+        "400":
+          description: Invalid organization ID
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: List organization resources
+      tags:
+      - Organization Management
+  /organizations/{id}/roles:
+    get:
+      description: List all roles defined in an organization
+      parameters:
+      - description: Organization ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Roles retrieved
+          schema:
+            $ref: '#/definitions/SuccessResponse'
+        "400":
+          description: Invalid organization ID
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: List organization roles
+      tags:
+      - Organization Management
+  /organizations/{id}/settings:
+    get:
+      description: Retrieve settings JSON for an organization
+      parameters:
+      - description: Organization ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Settings retrieved
+          schema:
+            $ref: '#/definitions/SuccessResponse'
+        "400":
+          description: Invalid organization ID
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "404":
+          description: Organization not found
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get organization settings
+      tags:
+      - Organization Management
+    put:
+      consumes:
+      - application/json
+      description: Update settings JSON for an organization
+      parameters:
+      - description: Organization ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Updated settings payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handlers.updateSettingsRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Settings updated
+          schema:
+            $ref: '#/definitions/SuccessResponse'
+        "400":
+          description: Invalid request
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "404":
+          description: Organization not found
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Update organization settings
+      tags:
+      - Organization Management
+  /organizations/{id}/users:
+    get:
+      description: List all users belonging to an organization
+      parameters:
+      - description: Organization ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Users retrieved
+          schema:
+            $ref: '#/definitions/SuccessResponse'
+        "400":
+          description: Invalid organization ID
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: List organization users
+      tags:
+      - Organization Management
+  /policies:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve all policies (placeholder)
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Policies listed placeholder
+          schema:
+            $ref: '#/definitions/fiber.Map'
+      security:
+      - BearerAuth: []
+      summary: List policies
+      tags:
+      - Policy Management
+    post:
+      consumes:
+      - application/json
+      description: Create a new policy (placeholder)
+      parameters:
+      - description: Policy definition
+        in: body
+        name: request
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Policy created placeholder
+          schema:
+            $ref: '#/definitions/fiber.Map'
+      security:
+      - BearerAuth: []
+      summary: Create policy
+      tags:
+      - Policy Management
+  /policies/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete (deactivate) a policy (placeholder)
+      parameters:
+      - description: Policy ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Policy deleted placeholder
+          schema:
+            $ref: '#/definitions/fiber.Map'
+      security:
+      - BearerAuth: []
+      summary: Delete policy
+      tags:
+      - Policy Management
+    get:
+      consumes:
+      - application/json
+      description: Retrieve a specific policy (placeholder)
+      parameters:
+      - description: Policy ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Policy retrieved placeholder
+          schema:
+            $ref: '#/definitions/fiber.Map'
+      security:
+      - BearerAuth: []
+      summary: Get policy
+      tags:
+      - Policy Management
+    put:
+      consumes:
+      - application/json
+      description: Update an existing policy (placeholder)
+      parameters:
+      - description: Policy ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Updated policy
+        in: body
+        name: request
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Policy updated placeholder
+          schema:
+            $ref: '#/definitions/fiber.Map'
+      security:
+      - BearerAuth: []
+      summary: Update policy
+      tags:
+      - Policy Management
+  /policies/{id}/approve:
+    post:
+      consumes:
+      - application/json
+      description: Approve a pending policy version (placeholder)
+      parameters:
+      - description: Policy ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Policy approved placeholder
+          schema:
+            $ref: '#/definitions/fiber.Map'
+      security:
+      - BearerAuth: []
+      summary: Approve policy
+      tags:
+      - Policy Management
+  /policies/{id}/rollback:
+    post:
+      consumes:
+      - application/json
+      description: Rollback policy to a specified version (placeholder)
+      parameters:
+      - description: Policy ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Policy rollback placeholder
+          schema:
+            $ref: '#/definitions/fiber.Map'
+      security:
+      - BearerAuth: []
+      summary: Rollback policy
+      tags:
+      - Policy Management
+  /policies/{id}/simulate:
+    post:
+      consumes:
+      - application/json
+      description: Simulate the effect of a policy against a hypothetical request
+        (placeholder)
+      parameters:
+      - description: Policy ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Simulation input
+        in: body
+        name: request
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Policy simulation placeholder
+          schema:
+            $ref: '#/definitions/fiber.Map'
+      security:
+      - BearerAuth: []
+      summary: Simulate policy
+      tags:
+      - Policy Management
+  /policies/{id}/versions:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve all versions of a policy (placeholder)
+      parameters:
+      - description: Policy ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Policy versions placeholder
+          schema:
+            $ref: '#/definitions/fiber.Map'
+      security:
+      - BearerAuth: []
+      summary: List policy versions
+      tags:
+      - Policy Management
+  /resources:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve all resources with pagination support (future enhancement)
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Resources listed placeholder
+          schema:
+            $ref: '#/definitions/fiber.Map'
+      security:
+      - BearerAuth: []
+      summary: List resources
+      tags:
+      - Resource Management
+    post:
+      consumes:
+      - application/json
+      description: Create a new managed resource (placeholder)
+      parameters:
+      - description: Resource details
+        in: body
+        name: request
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Resource created placeholder
+          schema:
+            $ref: '#/definitions/fiber.Map'
+      security:
+      - BearerAuth: []
+      summary: Create resource
+      tags:
+      - Resource Management
+  /resources/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a resource (placeholder)
+      parameters:
+      - description: Resource ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Resource deleted placeholder
+          schema:
+            $ref: '#/definitions/fiber.Map'
+      security:
+      - BearerAuth: []
+      summary: Delete resource
+      tags:
+      - Resource Management
+    get:
+      consumes:
+      - application/json
+      description: Retrieve details of a specific resource (placeholder)
+      parameters:
+      - description: Resource ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Resource retrieved placeholder
+          schema:
+            $ref: '#/definitions/fiber.Map'
+      security:
+      - BearerAuth: []
+      summary: Get resource
+      tags:
+      - Resource Management
+    put:
+      consumes:
+      - application/json
+      description: Update properties of a resource (placeholder)
+      parameters:
+      - description: Resource ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Updated resource details
+        in: body
+        name: request
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Resource updated placeholder
+          schema:
+            $ref: '#/definitions/fiber.Map'
+      security:
+      - BearerAuth: []
+      summary: Update resource
+      tags:
+      - Resource Management
+  /resources/{id}/access-log:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve access events for a resource (placeholder)
+      parameters:
+      - description: Resource ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Access log placeholder
+          schema:
+            $ref: '#/definitions/fiber.Map'
+      security:
+      - BearerAuth: []
+      summary: Get resource access log
+      tags:
+      - Resource Management
+  /resources/{id}/permissions:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve permissions for a resource (placeholder)
+      parameters:
+      - description: Resource ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Resource permissions placeholder
+          schema:
+            $ref: '#/definitions/fiber.Map'
+      security:
+      - BearerAuth: []
+      summary: Get resource permissions
+      tags:
+      - Resource Management
+    post:
+      consumes:
+      - application/json
+      description: Apply permissions to a resource (placeholder)
+      parameters:
+      - description: Resource ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Permissions definition
+        in: body
+        name: request
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Permissions set placeholder
+          schema:
+            $ref: '#/definitions/fiber.Map'
+      security:
+      - BearerAuth: []
+      summary: Set resource permissions
+      tags:
+      - Resource Management
+  /resources/{id}/share:
+    delete:
+      consumes:
+      - application/json
+      description: Remove sharing permissions (placeholder)
+      parameters:
+      - description: Resource ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Resource unshared placeholder
+          schema:
+            $ref: '#/definitions/fiber.Map'
+      security:
+      - BearerAuth: []
+      summary: Unshare resource
+      tags:
+      - Resource Management
+    post:
+      consumes:
+      - application/json
+      description: Share a resource with a user or group (placeholder)
+      parameters:
+      - description: Resource ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Share details
+        in: body
+        name: request
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Resource shared placeholder
+          schema:
+            $ref: '#/definitions/fiber.Map'
+      security:
+      - BearerAuth: []
+      summary: Share resource
+      tags:
+      - Resource Management
+  /roles:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve all roles with pagination, sorting, and filtering options
+      parameters:
+      - description: 'Number of roles to return (default: 50)'
+        in: query
+        name: limit
+        type: integer
+      - description: 'Number of roles to skip (default: 0)'
+        in: query
+        name: offset
+        type: integer
+      - description: Sort by field (name, created_at, updated_at, role_type)
+        in: query
+        name: sort
+        type: string
+      - description: Sort order (asc, desc)
+        in: query
+        name: order
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Roles retrieved successfully
+          schema:
+            $ref: '#/definitions/SuccessResponse'
+        "400":
+          description: Invalid query parameters
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: List roles
+      tags:
+      - Role Management
+    post:
+      consumes:
+      - application/json
+      description: Create a new role with policies and permissions
+      parameters:
+      - description: Role details
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_the-monkeys_monkeys-identity_internal_models.Role'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Role created successfully
+          schema:
+            $ref: '#/definitions/SuccessResponse'
+        "400":
+          description: Invalid request format or validation errors
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "409":
+          description: Role already exists
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Create role
+      tags:
+      - Role Management
+  /roles/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a role and remove all associated assignments
+      parameters:
+      - description: Role ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Role deleted successfully
+          schema:
+            $ref: '#/definitions/SuccessResponse'
+        "400":
+          description: Invalid role ID
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "404":
+          description: Role not found
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Delete role
+      tags:
+      - Role Management
+    get:
+      consumes:
+      - application/json
+      description: Retrieve detailed information about a specific role
+      parameters:
+      - description: Role ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Role retrieved successfully
+          schema:
+            $ref: '#/definitions/SuccessResponse'
+        "400":
+          description: Invalid role ID
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "404":
+          description: Role not found
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get role
+      tags:
+      - Role Management
+    put:
+      consumes:
+      - application/json
+      description: Update an existing role's properties and metadata
+      parameters:
+      - description: Role ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Updated role details
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_the-monkeys_monkeys-identity_internal_models.Role'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Role updated successfully
+          schema:
+            $ref: '#/definitions/SuccessResponse'
+        "400":
+          description: Invalid request format or validation errors
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "404":
+          description: Role not found
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Update role
+      tags:
+      - Role Management
+  /service-accounts:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve a paginated list of service accounts with filtering and
+        sorting options
+      parameters:
+      - description: 'Page number (default: 1)'
+        in: query
+        name: page
+        type: integer
+      - description: 'Items per page (default: 10, max: 100)'
+        in: query
+        name: limit
+        type: integer
+      - description: 'Sort field (default: created_at)'
+        in: query
+        name: sort
+        type: string
+      - description: 'Sort order: asc or desc (default: desc)'
+        in: query
+        name: order
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Successfully retrieved service accounts list
+          schema:
+            $ref: '#/definitions/SuccessResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: List service accounts
+      tags:
+      - Service Accounts
+    post:
+      consumes:
+      - application/json
+      description: Create a new service account with specified details
+      parameters:
+      - description: Service account data
+        in: body
+        name: serviceAccount
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_the-monkeys_monkeys-identity_internal_models.ServiceAccount'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Service account created successfully
+          schema:
+            $ref: '#/definitions/SuccessResponse'
+        "400":
+          description: Invalid input data
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "409":
+          description: Service account already exists
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Create service account
+      tags:
+      - Service Accounts
+  /service-accounts/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a service account and revoke all its API keys
+      parameters:
+      - description: Service account ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Service account deleted successfully
+          schema:
+            $ref: '#/definitions/SuccessResponse'
+        "404":
+          description: Service account not found
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Delete service account
+      tags:
+      - Service Accounts
+    get:
+      consumes:
+      - application/json
+      description: Retrieve a specific service account by its ID
+      parameters:
+      - description: Service account ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Service account retrieved successfully
+          schema:
+            $ref: '#/definitions/SuccessResponse'
+        "404":
+          description: Service account not found
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get service account
+      tags:
+      - Service Accounts
+    put:
+      consumes:
+      - application/json
+      description: Update an existing service account with new information
+      parameters:
+      - description: Service account ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Updated service account data
+        in: body
+        name: serviceAccount
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_the-monkeys_monkeys-identity_internal_models.ServiceAccount'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Service account updated successfully
+          schema:
+            $ref: '#/definitions/SuccessResponse'
+        "400":
+          description: Invalid input data
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "404":
+          description: Service account not found
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Update service account
+      tags:
+      - Service Accounts
+  /service-accounts/{id}/keys:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve all API keys for the specified service account
+      parameters:
+      - description: Service account ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: API keys retrieved successfully
+          schema:
+            $ref: '#/definitions/SuccessResponse'
+        "404":
+          description: Service account not found
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: List API keys
+      tags:
+      - Service Accounts
+    post:
+      consumes:
+      - application/json
+      description: Generate a new API key for the specified service account
+      parameters:
+      - description: Service account ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: API key configuration
+        in: body
+        name: apiKey
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_the-monkeys_monkeys-identity_internal_models.APIKey'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: API key generated successfully
+          schema:
+            $ref: '#/definitions/SuccessResponse'
+        "400":
+          description: Invalid input data
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "404":
+          description: Service account not found
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Generate API key
+      tags:
+      - Service Accounts
+  /service-accounts/{id}/keys/{key_id}:
+    delete:
+      consumes:
+      - application/json
+      description: Revoke a specific API key for the service account
+      parameters:
+      - description: Service account ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: API key ID
+        in: path
+        name: key_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: API key revoked successfully
+          schema:
+            $ref: '#/definitions/SuccessResponse'
+        "404":
+          description: API key not found
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Revoke API key
+      tags:
+      - Service Accounts
+  /service-accounts/{id}/rotate-keys:
+    post:
+      consumes:
+      - application/json
+      description: Rotate all API keys for the specified service account
+      parameters:
+      - description: Service account ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Keys rotated successfully
+          schema:
+            $ref: '#/definitions/SuccessResponse'
+        "404":
+          description: Service account not found
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Rotate service account keys
+      tags:
+      - Service Accounts
+  /sessions:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve sessions associated with the current principal (placeholder)
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Sessions list placeholder
+          schema:
+            $ref: '#/definitions/fiber.Map'
+      security:
+      - BearerAuth: []
+      summary: List sessions
+      tags:
+      - Session Management
+  /sessions/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Invalidate a specific session (placeholder)
+      parameters:
+      - description: Session ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Session revoked placeholder
+          schema:
+            $ref: '#/definitions/fiber.Map'
+      security:
+      - BearerAuth: []
+      summary: Revoke session
+      tags:
+      - Session Management
+    get:
+      consumes:
+      - application/json
+      description: Retrieve a specific session (placeholder)
+      parameters:
+      - description: Session ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Session retrieved placeholder
+          schema:
+            $ref: '#/definitions/fiber.Map'
+      security:
+      - BearerAuth: []
+      summary: Get session
+      tags:
+      - Session Management
+  /sessions/{id}/extend:
+    post:
+      consumes:
+      - application/json
+      description: Extend the expiration of a session (placeholder)
+      parameters:
+      - description: Session ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Session extended placeholder
+          schema:
+            $ref: '#/definitions/fiber.Map'
+      security:
+      - BearerAuth: []
+      summary: Extend session
+      tags:
+      - Session Management
+  /sessions/current:
+    delete:
+      consumes:
+      - application/json
+      description: Invalidate the current session (placeholder)
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Current session revoked placeholder
+          schema:
+            $ref: '#/definitions/fiber.Map'
+      security:
+      - BearerAuth: []
+      summary: Revoke current session
+      tags:
+      - Session Management
+    get:
+      consumes:
+      - application/json
+      description: Retrieve details of the current session (placeholder)
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Current session placeholder
+          schema:
+            $ref: '#/definitions/fiber.Map'
+      security:
+      - BearerAuth: []
+      summary: Get current session
+      tags:
+      - Session Management
   /users:
     get:
       consumes:
