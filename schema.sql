@@ -468,7 +468,7 @@ WITH RECURSIVE org_tree AS (
         parent_id,
         0 as level,
         ARRAY[id] as path,
-        name as full_path
+        name::TEXT as full_path
     FROM organizations 
     WHERE parent_id IS NULL AND status = 'active'
     
