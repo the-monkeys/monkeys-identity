@@ -9,17 +9,17 @@ import (
 	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
 	"github.com/the-monkeys/monkeys-identity/internal/config"
-	"github.com/the-monkeys/monkeys-identity/internal/database"
 	"github.com/the-monkeys/monkeys-identity/internal/models"
+	"github.com/the-monkeys/monkeys-identity/internal/queries"
 	"github.com/the-monkeys/monkeys-identity/pkg/logger"
 	"golang.org/x/crypto/bcrypt"
 )
 
 type AuthHandler struct {
-	db     *database.DB
-	redis  *redis.Client
-	logger *logger.Logger
-	config *config.Config
+	queries *queries.Queries
+	redis   *redis.Client
+	logger  *logger.Logger
+	config  *config.Config
 }
 
 type LoginRequest struct {
@@ -43,12 +43,12 @@ type LoginResponse struct {
 	User         models.User `json:"user"`
 }
 
-func NewAuthHandler(db *database.DB, redis *redis.Client, logger *logger.Logger, config *config.Config) *AuthHandler {
+func NewAuthHandler(queries *queries.Queries, redis *redis.Client, logger *logger.Logger, config *config.Config) *AuthHandler {
 	return &AuthHandler{
-		db:     db,
-		redis:  redis,
-		logger: logger,
-		config: config,
+		queries: queries,
+		redis:   redis,
+		logger:  logger,
+		config:  config,
 	}
 }
 
@@ -84,7 +84,7 @@ func (h *AuthHandler) Login(c *fiber.Ctx) error {
 	}
 
 	// Get user from database
-	user, err := h.getUserByEmail(req.Email)
+	user, err := h.queries.Auth.GetUserByEmail(req.Email)
 	if err != nil {
 		h.logger.Warn("User not found: %s", req.Email)
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
@@ -122,12 +122,12 @@ func (h *AuthHandler) Login(c *fiber.Ctx) error {
 
 	// Create session
 	sessionID := uuid.New().String()
-	if err := h.createSession(sessionID, user.ID, accessToken); err != nil {
+	if err := h.queries.Auth.CreateSession(sessionID, user.ID, accessToken); err != nil {
 		h.logger.Error("Failed to create session: %v", err)
 	}
 
 	// Update last login
-	h.updateLastLogin(user.ID)
+	h.queries.Auth.UpdateLastLogin(user.ID)
 
 	// Log successful login
 	h.logger.Info("User logged in successfully: %s", user.Email)
@@ -167,7 +167,7 @@ func (h *AuthHandler) Register(c *fiber.Ctx) error {
 	}
 
 	// Check if user already exists
-	existingUser, _ := h.getUserByEmail(req.Email)
+	existingUser, _ := h.queries.Auth.GetUserByEmail(req.Email)
 	if existingUser != nil {
 		return c.Status(fiber.StatusConflict).JSON(fiber.Map{
 			"error":   "User with this email already exists",
@@ -199,7 +199,7 @@ func (h *AuthHandler) Register(c *fiber.Ctx) error {
 		UpdatedAt:      time.Now(),
 	}
 
-	if err := h.createUser(user); err != nil {
+	if err := h.queries.Auth.CreateUser(user); err != nil {
 		h.logger.Error("Failed to create user: %v", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error":   "Failed to create user account",
@@ -209,9 +209,7 @@ func (h *AuthHandler) Register(c *fiber.Ctx) error {
 
 	// Generate email verification token
 	verificationToken := uuid.New().String()
-	ctx := context.Background()
-	verifyKey := "email_verification:" + verificationToken
-	err = h.redis.Set(ctx, verifyKey, user.ID, time.Hour*24).Err()
+	err = h.queries.Auth.SetEmailVerificationToken(user.ID, verificationToken, time.Hour*24)
 	if err != nil {
 		h.logger.Error("Failed to store verification token: %v", err)
 	}
@@ -273,7 +271,7 @@ func (h *AuthHandler) RefreshToken(c *fiber.Ctx) error {
 	}
 
 	userID := claims["user_id"].(string)
-	user, err := h.getUserByID(userID)
+	user, err := h.queries.Auth.GetUserByID(userID)
 	if err != nil {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
 			"error":   "User not found",
@@ -364,77 +362,7 @@ func (h *AuthHandler) Logout(c *fiber.Ctx) error {
 	})
 }
 
-// Database operations
-func (h *AuthHandler) getUserByEmail(email string) (*models.User, error) {
-	query := `
-		SELECT id, username, email, display_name, organization_id, password_hash, 
-		       status, email_verified, created_at, updated_at, last_login
-		FROM users WHERE email = $1 AND deleted_at IS NULL
-	`
-
-	var user models.User
-	var lastLogin *time.Time
-
-	err := h.db.QueryRow(query, email).Scan(
-		&user.ID, &user.Username, &user.Email, &user.DisplayName,
-		&user.OrganizationID, &user.PasswordHash, &user.Status,
-		&user.EmailVerified, &user.CreatedAt, &user.UpdatedAt, &lastLogin,
-	)
-
-	if err != nil {
-		return nil, err
-	}
-
-	if lastLogin != nil {
-		user.LastLogin = *lastLogin
-	}
-
-	return &user, nil
-}
-
-func (h *AuthHandler) getUserByID(id string) (*models.User, error) {
-	query := `
-		SELECT id, username, email, display_name, organization_id, password_hash, 
-		       status, email_verified, created_at, updated_at, last_login
-		FROM users WHERE id = $1 AND deleted_at IS NULL
-	`
-
-	var user models.User
-	var lastLogin *time.Time
-
-	err := h.db.QueryRow(query, id).Scan(
-		&user.ID, &user.Username, &user.Email, &user.DisplayName,
-		&user.OrganizationID, &user.PasswordHash, &user.Status,
-		&user.EmailVerified, &user.CreatedAt, &user.UpdatedAt, &lastLogin,
-	)
-
-	if err != nil {
-		return nil, err
-	}
-
-	if lastLogin != nil {
-		user.LastLogin = *lastLogin
-	}
-
-	return &user, nil
-}
-
-func (h *AuthHandler) createUser(user *models.User) error {
-	query := `
-		INSERT INTO users (id, username, email, display_name, organization_id, 
-		                   password_hash, status, email_verified, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-	`
-
-	_, err := h.db.Exec(query,
-		user.ID, user.Username, user.Email, user.DisplayName,
-		user.OrganizationID, user.PasswordHash, user.Status,
-		user.EmailVerified, user.CreatedAt, user.UpdatedAt,
-	)
-
-	return err
-}
-
+// generateTokens creates JWT access and refresh tokens for a user
 func (h *AuthHandler) generateTokens(user *models.User) (string, string, int64, error) {
 	now := time.Now()
 	accessTokenExpiry := now.Add(time.Hour * 1)       // 1 hour
@@ -477,26 +405,6 @@ func (h *AuthHandler) generateTokens(user *models.User) (string, string, int64, 
 	return accessTokenString, refreshTokenString, expiresIn, nil
 }
 
-func (h *AuthHandler) createSession(sessionID, userID, token string) error {
-	ctx := context.Background()
-	sessionKey := "session:" + sessionID
-
-	sessionData := map[string]interface{}{
-		"user_id":    userID,
-		"token":      token,
-		"created_at": time.Now().Unix(),
-	}
-
-	// Store session in Redis with 24 hour expiry
-	return h.redis.HMSet(ctx, sessionKey, sessionData).Err()
-}
-
-func (h *AuthHandler) updateLastLogin(userID string) error {
-	query := `UPDATE users SET last_login = $1 WHERE id = $2`
-	_, err := h.db.Exec(query, time.Now(), userID)
-	return err
-}
-
 // MFA placeholder methods
 func (h *AuthHandler) SetupMFA(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{"message": "MFA setup endpoint"})
@@ -537,7 +445,7 @@ func (h *AuthHandler) ForgotPassword(c *fiber.Ctx) error {
 	}
 
 	// Check if user exists
-	user, err := h.getUserByEmail(req.Email)
+	user, err := h.queries.Auth.GetUserByEmail(req.Email)
 	if err != nil {
 		// Return success even if user doesn't exist (security best practice)
 		return c.JSON(fiber.Map{
@@ -550,9 +458,7 @@ func (h *AuthHandler) ForgotPassword(c *fiber.Ctx) error {
 	resetToken := uuid.New().String()
 
 	// Store reset token in Redis with 1 hour expiry
-	ctx := context.Background()
-	resetKey := "password_reset:" + resetToken
-	err = h.redis.Set(ctx, resetKey, user.ID, time.Hour).Err()
+	err = h.queries.Auth.SetPasswordResetToken(user.ID, resetToken, time.Hour)
 	if err != nil {
 		h.logger.Error("Failed to store reset token: %v", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
@@ -593,9 +499,7 @@ func (h *AuthHandler) ResetPassword(c *fiber.Ctx) error {
 	}
 
 	// Verify reset token
-	ctx := context.Background()
-	resetKey := "password_reset:" + req.Token
-	userID, err := h.redis.Get(ctx, resetKey).Result()
+	userID, err := h.queries.Auth.GetPasswordResetToken(req.Token)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error":   "Invalid or expired reset token",
@@ -614,8 +518,7 @@ func (h *AuthHandler) ResetPassword(c *fiber.Ctx) error {
 	}
 
 	// Update password in database
-	query := `UPDATE users SET password_hash = $1, password_changed_at = $2, updated_at = $3 WHERE id = $4`
-	_, err = h.db.Exec(query, string(hashedPassword), time.Now(), time.Now(), userID)
+	err = h.queries.Auth.UpdatePassword(userID, string(hashedPassword))
 	if err != nil {
 		h.logger.Error("Failed to update password: %v", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
@@ -625,7 +528,7 @@ func (h *AuthHandler) ResetPassword(c *fiber.Ctx) error {
 	}
 
 	// Delete the reset token
-	h.redis.Del(ctx, resetKey)
+	h.queries.Auth.DeletePasswordResetToken(req.Token)
 
 	// Invalidate all user sessions
 	h.invalidateUserSessions(userID)
@@ -661,9 +564,7 @@ func (h *AuthHandler) VerifyEmail(c *fiber.Ctx) error {
 	}
 
 	// Verify email verification token
-	ctx := context.Background()
-	verifyKey := "email_verification:" + req.Token
-	userID, err := h.redis.Get(ctx, verifyKey).Result()
+	userID, err := h.queries.Auth.GetEmailVerificationToken(req.Token)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error":   "Invalid or expired verification token",
@@ -672,8 +573,7 @@ func (h *AuthHandler) VerifyEmail(c *fiber.Ctx) error {
 	}
 
 	// Update email verification status
-	query := `UPDATE users SET email_verified = true, updated_at = $1 WHERE id = $2`
-	_, err = h.db.Exec(query, time.Now(), userID)
+	err = h.queries.Auth.UpdateEmailVerification(userID, true)
 	if err != nil {
 		h.logger.Error("Failed to verify email: %v", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
@@ -683,7 +583,7 @@ func (h *AuthHandler) VerifyEmail(c *fiber.Ctx) error {
 	}
 
 	// Delete the verification token
-	h.redis.Del(ctx, verifyKey)
+	h.queries.Auth.DeleteEmailVerificationToken(req.Token)
 
 	h.logger.Info("Email verified for user: %s", userID)
 
@@ -716,7 +616,7 @@ func (h *AuthHandler) ResendVerification(c *fiber.Ctx) error {
 	}
 
 	// Check if user exists
-	user, err := h.getUserByEmail(req.Email)
+	user, err := h.queries.Auth.GetUserByEmail(req.Email)
 	if err != nil {
 		// Return success even if user doesn't exist (security best practice)
 		return c.JSON(fiber.Map{
@@ -737,9 +637,7 @@ func (h *AuthHandler) ResendVerification(c *fiber.Ctx) error {
 	verificationToken := uuid.New().String()
 
 	// Store verification token in Redis with 24 hour expiry
-	ctx := context.Background()
-	verifyKey := "email_verification:" + verificationToken
-	err = h.redis.Set(ctx, verifyKey, user.ID, time.Hour*24).Err()
+	err = h.queries.Auth.SetEmailVerificationToken(user.ID, verificationToken, time.Hour*24)
 	if err != nil {
 		h.logger.Error("Failed to store verification token: %v", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{

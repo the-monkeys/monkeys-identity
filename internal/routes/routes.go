@@ -7,6 +7,7 @@ import (
 	"github.com/the-monkeys/monkeys-identity/internal/database"
 	"github.com/the-monkeys/monkeys-identity/internal/handlers"
 	"github.com/the-monkeys/monkeys-identity/internal/middleware"
+	"github.com/the-monkeys/monkeys-identity/internal/queries"
 	"github.com/the-monkeys/monkeys-identity/pkg/logger"
 )
 
@@ -20,8 +21,11 @@ func SetupRoutes(
 	// Initialize middleware
 	authMiddleware := middleware.NewAuthMiddleware(cfg.JWTSecret)
 
+	// Initialize queries
+	q := queries.New(db, redis)
+
 	// Initialize handlers
-	authHandler := handlers.NewAuthHandler(db, redis, logger, cfg)
+	authHandler := handlers.NewAuthHandler(q, redis, logger, cfg)
 	userHandler := handlers.NewUserHandler(db, redis, logger)
 	organizationHandler := handlers.NewOrganizationHandler(db, redis, logger)
 	groupHandler := handlers.NewGroupHandler(db, redis, logger)
