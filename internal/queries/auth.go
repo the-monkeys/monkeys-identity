@@ -20,6 +20,8 @@ type AuthQueries interface {
 	GetUserByEmail(email string) (*models.User, error)
 	GetUserByID(id string) (*models.User, error)
 	CreateUser(user *models.User) error
+	CreateAdminUser(user *models.User) error
+	CheckAdminExists() (bool, error)
 	UpdateUser(user *models.User) error
 	UpdateLastLogin(userID string) error
 	UpdatePassword(userID, passwordHash string) error
@@ -172,6 +174,90 @@ func (q *authQueries) CreateUser(user *models.User) error {
 	)
 
 	return err
+}
+
+// CreateAdminUser creates a new admin user with all privileges
+func (q *authQueries) CreateAdminUser(user *models.User) error {
+	// Start transaction
+	tx, err := q.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	// Create default organization if it doesn't exist
+	orgQuery := `
+		INSERT INTO organizations (id, name, slug, status, created_at, updated_at)
+		VALUES ($1, 'Default Organization', 'default', 'active', $2, $3)
+		ON CONFLICT (slug) DO NOTHING
+	`
+	_, err = tx.ExecContext(q.ctx, orgQuery, user.OrganizationID, time.Now(), time.Now())
+	if err != nil {
+		return err
+	}
+
+	// Create user
+	userQuery := `
+		INSERT INTO users (id, username, email, display_name, organization_id, 
+		                   password_hash, status, email_verified, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+	`
+
+	_, err = tx.ExecContext(q.ctx, userQuery,
+		user.ID, user.Username, user.Email, user.DisplayName,
+		user.OrganizationID, user.PasswordHash, user.Status,
+		user.EmailVerified, user.CreatedAt, user.UpdatedAt,
+	)
+	if err != nil {
+		return err
+	}
+
+	// Create admin role if it doesn't exist
+	roleQuery := `
+		INSERT INTO roles (id, name, description, organization_id, created_at, updated_at)
+		VALUES (gen_random_uuid(), 'admin', 'Administrator with full system access', $1, $2, $3)
+		ON CONFLICT (name, organization_id) DO NOTHING
+	`
+	_, err = tx.ExecContext(q.ctx, roleQuery, user.OrganizationID, time.Now(), time.Now())
+	if err != nil {
+		return err
+	}
+
+	// Get the admin role ID
+	var roleID string
+	getRoleQuery := `SELECT id FROM roles WHERE name = 'admin' AND organization_id = $1`
+	err = tx.QueryRowContext(q.ctx, getRoleQuery, user.OrganizationID).Scan(&roleID)
+	if err != nil {
+		return err
+	}
+
+	// Assign admin role to user
+	assignRoleQuery := `
+		INSERT INTO role_assignments (id, role_id, principal_id, principal_type, assigned_at, assigned_by)
+		VALUES (gen_random_uuid(), $1, $2, 'user', $3, $2)
+	`
+	_, err = tx.ExecContext(q.ctx, assignRoleQuery, roleID, user.ID, time.Now())
+	if err != nil {
+		return err
+	}
+
+	return tx.Commit()
+}
+
+// CheckAdminExists checks if any admin user exists in the system
+func (q *authQueries) CheckAdminExists() (bool, error) {
+	query := `
+		SELECT EXISTS(
+			SELECT 1 FROM role_assignments ra
+			JOIN roles r ON ra.role_id = r.id
+			WHERE r.name = 'admin' AND r.deleted_at IS NULL
+			AND ra.principal_type = 'user'
+		)
+	`
+
+	var exists bool
+	err := q.queryRow(query).Scan(&exists)
+	return exists, err
 }
 
 // UpdateUser updates an existing user

@@ -52,6 +52,9 @@ func SetupRoutes(
 	auth.Post("/verify-email", authHandler.VerifyEmail)
 	auth.Post("/resend-verification", authHandler.ResendVerification)
 
+	// Bootstrap admin creation (no auth required for initial setup)
+	auth.Post("/create-admin", authHandler.CreateAdminUser)
+
 	// MFA routes
 	mfa := auth.Group("/mfa")
 	mfa.Post("/setup", authMiddleware.RequireAuth(), authHandler.SetupMFA)

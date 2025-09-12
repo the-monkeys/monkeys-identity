@@ -43,6 +43,14 @@ type LoginResponse struct {
 	User         models.User `json:"user"`
 }
 
+type CreateAdminRequest struct {
+	Username       string `json:"username" validate:"required,min=3,max=50"`
+	Email          string `json:"email" validate:"required,email"`
+	Password       string `json:"password" validate:"required,min=8"`
+	DisplayName    string `json:"fullName" validate:"required"`
+	OrganizationID string `json:"organization_id,omitempty"`
+}
+
 func NewAuthHandler(queries *queries.Queries, redis *redis.Client, logger *logger.Logger, config *config.Config) *AuthHandler {
 	return &AuthHandler{
 		queries: queries,
@@ -359,6 +367,109 @@ func (h *AuthHandler) Logout(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{
 		"success": true,
 		"message": "Successfully logged out",
+	})
+}
+
+// CreateAdminUser creates an admin user with all privileges (bootstrap endpoint)
+//
+//	@Summary		Create admin user
+//	@Description	Create an admin user with all privileges for initial system setup
+//	@Tags			Authentication
+//	@Accept			json
+//	@Produce		json
+//	@Param			request	body		CreateAdminRequest	true	"Admin user creation details"
+//	@Success		201		{object}	SuccessResponse		"Admin user created successfully"
+//	@Failure		400		{object}	ErrorResponse		"Invalid request format or validation error"
+//	@Failure		409		{object}	ErrorResponse		"User already exists or admin already exists"
+//	@Failure		500		{object}	ErrorResponse		"Internal server error"
+//	@Router			/auth/create-admin [post]
+func (h *AuthHandler) CreateAdminUser(c *fiber.Ctx) error {
+	var req CreateAdminRequest
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error":   "Invalid request format",
+			"success": false,
+		})
+	}
+
+	// Check if any admin user already exists to prevent multiple admin creation
+	adminExists, err := h.queries.Auth.CheckAdminExists()
+	if err != nil {
+		h.logger.Error("Failed to check admin existence: %v", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error":   "Failed to verify system state",
+			"success": false,
+		})
+	}
+
+	if adminExists {
+		return c.Status(fiber.StatusConflict).JSON(fiber.Map{
+			"error":   "Admin user already exists in the system",
+			"success": false,
+		})
+	}
+
+	// Check if user already exists
+	existingUser, _ := h.queries.Auth.GetUserByEmail(req.Email)
+	if existingUser != nil {
+		return c.Status(fiber.StatusConflict).JSON(fiber.Map{
+			"error":   "User with this email already exists",
+			"success": false,
+		})
+	}
+
+	// Hash password
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+	if err != nil {
+		h.logger.Error("Failed to hash password: %v", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error":   "Failed to process password",
+			"success": false,
+		})
+	}
+
+	// Create or get default organization if not provided
+	orgID := req.OrganizationID
+	if orgID == "" {
+		// Create default organization for admin user
+		orgID = uuid.New().String()
+	}
+
+	// Create admin user
+	user := &models.User{
+		ID:             uuid.New().String(),
+		Username:       req.Username,
+		Email:          req.Email,
+		DisplayName:    req.DisplayName,
+		OrganizationID: orgID,
+		PasswordHash:   string(hashedPassword),
+		Status:         "active",
+		EmailVerified:  true, // Admin users are pre-verified
+		CreatedAt:      time.Now(),
+		UpdatedAt:      time.Now(),
+	}
+
+	// Create user and assign admin role in a transaction
+	err = h.queries.Auth.CreateAdminUser(user)
+	if err != nil {
+		h.logger.Error("Failed to create admin user: %v", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error":   "Failed to create admin user",
+			"success": false,
+		})
+	}
+
+	h.logger.Info("Admin user created successfully: %s", user.Email)
+
+	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
+		"success": true,
+		"message": "Admin user created successfully",
+		"data": fiber.Map{
+			"id":       user.ID,
+			"username": user.Username,
+			"email":    user.Email,
+			"role":     "admin",
+		},
 	})
 }
 
