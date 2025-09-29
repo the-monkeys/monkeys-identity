@@ -3,8 +3,10 @@ package queries
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
 	"github.com/the-monkeys/monkeys-identity/internal/database"
 	"github.com/the-monkeys/monkeys-identity/internal/models"
@@ -49,6 +51,9 @@ type authQueries struct {
 	tx    *sql.Tx
 	ctx   context.Context
 }
+
+// ErrOrganizationNotFound is returned when a referenced organization cannot be located
+var ErrOrganizationNotFound = errors.New("organization not found")
 
 // NewAuthQueries creates a new AuthQueries instance
 func NewAuthQueries(db *database.DB, redis *redis.Client) AuthQueries {
@@ -178,22 +183,31 @@ func (q *authQueries) CreateUser(user *models.User) error {
 
 // CreateAdminUser creates a new admin user with all privileges
 func (q *authQueries) CreateAdminUser(user *models.User) error {
-	// Start transaction
+	now := time.Now()
+
+	// Ensure the default organization exists before starting the transactional workflow
+	defaultOrgID, err := q.ensureDefaultOrganizationGlobal(now)
+	if err != nil {
+		return err
+	}
+
+	// Start transaction for the user creation flow
 	tx, err := q.db.Begin()
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback()
 
-	// Create default organization if it doesn't exist
-	orgQuery := `
-		INSERT INTO organizations (id, name, slug, status, created_at, updated_at)
-		VALUES ($1, 'Default Organization', 'default', 'active', $2, $3)
-		ON CONFLICT (slug) DO NOTHING
-	`
-	_, err = tx.ExecContext(q.ctx, orgQuery, user.OrganizationID, time.Now(), time.Now())
-	if err != nil {
-		return err
+	if user.OrganizationID == "" {
+		user.OrganizationID = defaultOrgID
+	} else {
+		exists, err := q.organizationExists(tx, user.OrganizationID)
+		if err != nil {
+			return err
+		}
+		if !exists {
+			return ErrOrganizationNotFound
+		}
 	}
 
 	// Create user
@@ -218,7 +232,7 @@ func (q *authQueries) CreateAdminUser(user *models.User) error {
 		VALUES (gen_random_uuid(), 'admin', 'Administrator with full system access', $1, $2, $3)
 		ON CONFLICT (name, organization_id) DO NOTHING
 	`
-	_, err = tx.ExecContext(q.ctx, roleQuery, user.OrganizationID, time.Now(), time.Now())
+	_, err = tx.ExecContext(q.ctx, roleQuery, user.OrganizationID, now, now)
 	if err != nil {
 		return err
 	}
@@ -236,12 +250,116 @@ func (q *authQueries) CreateAdminUser(user *models.User) error {
 		INSERT INTO role_assignments (id, role_id, principal_id, principal_type, assigned_at, assigned_by)
 		VALUES (gen_random_uuid(), $1, $2, 'user', $3, $2)
 	`
-	_, err = tx.ExecContext(q.ctx, assignRoleQuery, roleID, user.ID, time.Now())
+	policyID, err := q.ensureAdminPolicy(tx, user.OrganizationID, now)
+	if err != nil {
+		return err
+	}
+
+	if err = q.ensureRoleHasPolicy(tx, roleID, policyID, user.ID, now); err != nil {
+		return err
+	}
+
+	_, err = tx.ExecContext(q.ctx, assignRoleQuery, roleID, user.ID, now)
 	if err != nil {
 		return err
 	}
 
 	return tx.Commit()
+}
+
+func (q *authQueries) ensureDefaultOrganization(tx *sql.Tx, now time.Time) (string, error) {
+	const (
+		defaultOrgName = "Default Organization"
+		defaultOrgSlug = "default"
+	)
+
+	orgQuery := `
+		INSERT INTO organizations (id, name, slug, status, created_at, updated_at)
+		VALUES ($1, $2, $3, 'active', $4, $4)
+		ON CONFLICT (slug) DO UPDATE
+			SET name = EXCLUDED.name,
+			    status = EXCLUDED.status,
+			    updated_at = EXCLUDED.updated_at
+		RETURNING id
+	`
+
+	var orgID string
+	err := tx.QueryRowContext(q.ctx, orgQuery, uuid.NewString(), defaultOrgName, defaultOrgSlug, now).Scan(&orgID)
+	if err != nil {
+		return "", err
+	}
+
+	return orgID, nil
+}
+
+func (q *authQueries) ensureDefaultOrganizationGlobal(now time.Time) (string, error) {
+	tx, err := q.db.Begin()
+	if err != nil {
+		return "", err
+	}
+	defer tx.Rollback()
+
+	orgID, err := q.ensureDefaultOrganization(tx, now)
+	if err != nil {
+		return "", err
+	}
+
+	if err := tx.Commit(); err != nil {
+		return "", err
+	}
+
+	return orgID, nil
+}
+
+func (q *authQueries) ensureAdminPolicy(tx *sql.Tx, organizationID string, now time.Time) (string, error) {
+	const (
+		policyName        = "FullAccess"
+		policyDescription = "Administrator full access policy"
+		policyDocument    = `{"Version":"2024-01-01","Statement":[{"Effect":"Allow","Action":["*"],"Resource":["*"]}]}`
+	)
+
+	policyQuery := `
+		INSERT INTO policies (id, name, description, organization_id, document, policy_type, effect, is_system_policy, status, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5::jsonb, 'access', 'allow', TRUE, 'active', $6, $6)
+		ON CONFLICT (organization_id, name) DO UPDATE
+			SET description = EXCLUDED.description,
+			    document = EXCLUDED.document,
+			    updated_at = EXCLUDED.updated_at
+		RETURNING id
+	`
+
+	var policyID string
+	err := tx.QueryRowContext(q.ctx, policyQuery, uuid.NewString(), policyName, policyDescription, organizationID, policyDocument, now).Scan(&policyID)
+	if err != nil {
+		return "", err
+	}
+
+	return policyID, nil
+}
+
+func (q *authQueries) ensureRoleHasPolicy(tx *sql.Tx, roleID, policyID, actorID string, now time.Time) error {
+	attachQuery := `
+		INSERT INTO role_policies (id, role_id, policy_id, attached_at, attached_by)
+		VALUES ($1, $2, $3, $4, $5)
+		ON CONFLICT (role_id, policy_id) DO NOTHING
+	`
+
+	_, err := tx.ExecContext(q.ctx, attachQuery, uuid.NewString(), roleID, policyID, now, actorID)
+	return err
+}
+
+func (q *authQueries) organizationExists(tx *sql.Tx, organizationID string) (bool, error) {
+	query := `
+		SELECT EXISTS(
+			SELECT 1
+			FROM organizations
+			WHERE id = $1 AND deleted_at IS NULL
+		)
+	`
+
+	var exists bool
+	err := tx.QueryRowContext(q.ctx, query, organizationID).Scan(&exists)
+	return exists, err
 }
 
 // CheckAdminExists checks if any admin user exists in the system

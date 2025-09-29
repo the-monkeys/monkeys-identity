@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -47,7 +48,7 @@ type CreateAdminRequest struct {
 	Username       string `json:"username" validate:"required,min=3,max=50"`
 	Email          string `json:"email" validate:"required,email"`
 	Password       string `json:"password" validate:"required,min=8"`
-	DisplayName    string `json:"fullName" validate:"required"`
+	DisplayName    string `json:"display_name" validate:"required"`
 	OrganizationID string `json:"organization_id,omitempty"`
 }
 
@@ -428,12 +429,8 @@ func (h *AuthHandler) CreateAdminUser(c *fiber.Ctx) error {
 		})
 	}
 
-	// Create or get default organization if not provided
+	// Use provided organization or allow query layer to fall back to default
 	orgID := req.OrganizationID
-	if orgID == "" {
-		// Create default organization for admin user
-		orgID = uuid.New().String()
-	}
 
 	// Create admin user
 	user := &models.User{
@@ -452,6 +449,13 @@ func (h *AuthHandler) CreateAdminUser(c *fiber.Ctx) error {
 	// Create user and assign admin role in a transaction
 	err = h.queries.Auth.CreateAdminUser(user)
 	if err != nil {
+		if errors.Is(err, queries.ErrOrganizationNotFound) {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"error":   "Specified organization does not exist",
+				"success": false,
+			})
+		}
+
 		h.logger.Error("Failed to create admin user: %v", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error":   "Failed to create admin user",
@@ -516,19 +520,71 @@ func (h *AuthHandler) generateTokens(user *models.User) (string, string, int64, 
 	return accessTokenString, refreshTokenString, expiresIn, nil
 }
 
-// MFA placeholder methods
+// SetupMFA sets up multi-factor authentication for a user
+//
+//	@Summary		Setup MFA
+//	@Description	Set up multi-factor authentication for the authenticated user
+//	@Tags			MFA
+//	@Accept			json
+//	@Produce		json
+//	@Security		Bearer
+//	@Param			request	body		models.SetupMFARequest	true	"MFA setup details"
+//	@Success		200		{object}	models.SetupMFAResponse
+//	@Failure		400		{object}	ErrorResponse
+//	@Failure		401		{object}	ErrorResponse
+//	@Failure		500		{object}	ErrorResponse
+//	@Router			/auth/mfa/setup [post]
 func (h *AuthHandler) SetupMFA(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{"message": "MFA setup endpoint"})
 }
 
+// VerifyMFA verifies a multi-factor authentication code
+//
+//	@Summary		Verify MFA
+//	@Description	Verify multi-factor authentication code for login
+//	@Tags			MFA
+//	@Accept			json
+//	@Produce		json
+//	@Param			request	body		models.VerifyMFARequest	true	"MFA verification details"
+//	@Success		200		{object}	LoginResponse
+//	@Failure		400		{object}	ErrorResponse
+//	@Failure		401		{object}	ErrorResponse
+//	@Failure		500		{object}	ErrorResponse
+//	@Router			/auth/mfa/verify [post]
 func (h *AuthHandler) VerifyMFA(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{"message": "MFA verification endpoint"})
 }
 
+// GenerateBackupCodes generates backup codes for MFA
+//
+//	@Summary		Generate MFA backup codes
+//	@Description	Generate backup codes for multi-factor authentication recovery
+//	@Tags			MFA
+//	@Accept			json
+//	@Produce		json
+//	@Security		Bearer
+//	@Success		200	{object}	models.BackupCodesResponse
+//	@Failure		401	{object}	ErrorResponse
+//	@Failure		500	{object}	ErrorResponse
+//	@Router			/auth/mfa/backup-codes [post]
 func (h *AuthHandler) GenerateBackupCodes(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{"message": "Generate backup codes endpoint"})
 }
 
+// DisableMFA disables multi-factor authentication for a user
+//
+//	@Summary		Disable MFA
+//	@Description	Disable multi-factor authentication for the authenticated user
+//	@Tags			MFA
+//	@Accept			json
+//	@Produce		json
+//	@Security		Bearer
+//	@Param			request	body		models.DisableMFARequest	true	"MFA disable details"
+//	@Success		200		{object}	models.MessageResponse
+//	@Failure		400		{object}	ErrorResponse
+//	@Failure		401		{object}	ErrorResponse
+//	@Failure		500		{object}	ErrorResponse
+//	@Router			/auth/mfa/disable [delete]
 func (h *AuthHandler) DisableMFA(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{"message": "Disable MFA endpoint"})
 }

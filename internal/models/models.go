@@ -277,3 +277,44 @@ type GlobalSettings struct {
 	CreatedAt               time.Time `json:"created_at" db:"created_at"`
 	UpdatedAt               time.Time `json:"updated_at" db:"updated_at"`
 }
+
+// MFA Request/Response Models
+
+// SetupMFARequest represents the request to setup MFA
+type SetupMFARequest struct {
+	Method string `json:"method" validate:"required,oneof=totp sms email"`
+	Phone  string `json:"phone,omitempty" validate:"omitempty,e164"`
+}
+
+// SetupMFAResponse represents the response after setting up MFA
+type SetupMFAResponse struct {
+	Secret      string   `json:"secret,omitempty"`
+	QRCode      string   `json:"qr_code,omitempty"`
+	BackupCodes []string `json:"backup_codes"`
+	Message     string   `json:"message"`
+}
+
+// VerifyMFARequest represents the request to verify MFA code
+type VerifyMFARequest struct {
+	UserID     string `json:"user_id" validate:"required"`
+	Code       string `json:"code" validate:"required,min=6,max=8"`
+	Method     string `json:"method" validate:"required,oneof=totp sms email backup"`
+	RememberMe bool   `json:"remember_me"`
+}
+
+// DisableMFARequest represents the request to disable MFA
+type DisableMFARequest struct {
+	Password string `json:"password" validate:"required"`
+	Code     string `json:"code" validate:"required,min=6,max=8"`
+}
+
+// BackupCodesResponse represents the response with backup codes
+type BackupCodesResponse struct {
+	BackupCodes []string `json:"backup_codes"`
+	Message     string   `json:"message"`
+}
+
+// MessageResponse represents a simple message response
+type MessageResponse struct {
+	Message string `json:"message"`
+}

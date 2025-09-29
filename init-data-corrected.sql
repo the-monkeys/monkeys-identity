@@ -39,7 +39,7 @@ INSERT INTO organizations (
 ) VALUES (
     '00000000-0000-4000-8000-000000000001',
     'Default Organization',
-    'default-org',
+    'default',
     'Default organization for initial system setup',
     '{"theme": "default", "timezone": "UTC", "language": "en"}',
     'active',
@@ -191,29 +191,31 @@ INSERT INTO roles (
 -- =============================================================================
 
 -- Full Access Policy (for super admins)
-INSERT INTO policies (
+INSERT INTO groups (
     id,
     name,
     description,
     organization_id,
-    version,
-    document,
-    policy_type,
-    effect,
-    is_system_policy,
+    parent_group_id,
+    group_type,
+    attributes,
+    max_members,
     status,
     created_at,
     updated_at
 ) VALUES (
-    '00000000-0000-0000-0000-000000000001',
-    'FullAccess',
-    'Full system administrative access policy - grants all permissions',
+    '00000000-0000-4000-8000-000000000802',
+    'General Users',
+    'General users group for default access',
     '00000000-0000-4000-8000-000000000001',
-    '1.0',
-    '{
-        "version": "2024-01-01",
-        "statement": [
-            {
+    NULL,
+    'standard',
+    '{"auto_assign": true}',
+    500,
+    'active',
+    NOW(),
+    NOW()
+) ON CONFLICT (organization_id, name) DO NOTHING;
                 "effect": "allow",
                 "action": ["*"],
                 "resource": ["*"],
@@ -230,29 +232,31 @@ INSERT INTO policies (
 ) ON CONFLICT (organization_id, name) DO NOTHING;
 
 -- Read Only Access Policy 
-INSERT INTO policies (
+INSERT INTO groups (
     id,
     name,
     description,
     organization_id,
-    version,
-    document,
-    policy_type,
-    effect,
-    is_system_policy,
+    parent_group_id,
+    group_type,
+    attributes,
+    max_members,
     status,
     created_at,
     updated_at
 ) VALUES (
-    '00000000-0000-0000-0000-000000000002',
-    'ReadOnlyAccess',
-    'Read-only access to all resources',
+    '00000000-0000-4000-8000-000000000803',
+    'Security Operations',
+    'Security operations and incident response team',
     '00000000-0000-4000-8000-000000000001',
-    '1.0',
-    '{
-        "version": "2024-01-01",
-        "statement": [
-            {
+    '00000000-0000-4000-8000-000000000800',
+    'security',
+    '{"auto_assign": false}',
+    25,
+    'active',
+    NOW(),
+    NOW()
+) ON CONFLICT (organization_id, name) DO NOTHING;
                 "effect": "allow",
                 "action": [
                     "users:read",
@@ -282,12 +286,13 @@ INSERT INTO policies (
     name,
     description,
     organization_id,
-    version,
-    document,
-    policy_type,
-    effect,
-    is_system_policy,
+    parent_group_id,
+    group_type,
+    attributes,
+    max_members,
     status,
+    created_at,
+    updated_at
     created_at,
     updated_at
 ) VALUES (
@@ -295,7 +300,8 @@ INSERT INTO policies (
     'OrganizationAdminAccess',
     'Administrative access within organization scope',
     '00000000-0000-4000-8000-000000000001',
-    '1.0',
+    '{"auto_assign": false}',
+    20,
     '{
         "version": "2024-01-01",
         "statement": [
@@ -585,9 +591,10 @@ INSERT INTO groups (
     name,
     description,
     organization_id,
-    parent_id,
+    parent_group_id,
     group_type,
-    settings,
+    attributes,
+    max_members,
     status,
     created_at,
     updated_at
@@ -598,7 +605,8 @@ INSERT INTO groups (
     '00000000-0000-4000-8000-000000000001',
     NULL,
     'security',
-    '{"auto_assign": false, "max_members": 10}',
+    '{"auto_assign": false}',
+    10,
     'active',
     NOW(),
     NOW()
@@ -610,9 +618,10 @@ INSERT INTO groups (
     name,
     description,
     organization_id,
-    parent_id,
+    parent_group_id,
     group_type,
-    settings,
+    attributes,
+    max_members,
     status,
     created_at,
     updated_at
@@ -623,7 +632,8 @@ INSERT INTO groups (
     '00000000-0000-4000-8000-000000000001',
     NULL,
     'department',
-    '{"auto_assign": false, "max_members": 50}',
+    '{"auto_assign": false}',
+    50,
     'active',
     NOW(),
     NOW()
@@ -635,9 +645,10 @@ INSERT INTO groups (
     name,
     description,
     organization_id,
-    parent_id,
+    parent_group_id,
     group_type,
-    settings,
+    attributes,
+    max_members,
     status,
     created_at,
     updated_at
@@ -648,7 +659,8 @@ INSERT INTO groups (
     '00000000-0000-4000-8000-000000000001',
     NULL,
     'functional',
-    '{"auto_assign": true, "max_members": 1000}',
+    '{"auto_assign": true}',
+    1000,
     'active',
     NOW(),
     NOW()
@@ -660,9 +672,10 @@ INSERT INTO groups (
     name,
     description,
     organization_id,
-    parent_id,
+    parent_group_id,
     group_type,
-    settings,
+    attributes,
+    max_members,
     status,
     created_at,
     updated_at
@@ -673,7 +686,8 @@ INSERT INTO groups (
     '00000000-0000-4000-8000-000000000001',
     NULL,
     'security',
-    '{"auto_assign": false, "max_members": 20}',
+    '{"auto_assign": false}',
+    20,
     'active',
     NOW(),
     NOW()
@@ -689,7 +703,7 @@ INSERT INTO resources (
     name,
     description,
     organization_id,
-    resource_type,
+    type,
     arn,
     attributes,
     tags,
@@ -716,7 +730,7 @@ INSERT INTO resources (
     name,
     description,
     organization_id,
-    resource_type,
+    type,
     arn,
     attributes,
     tags,
@@ -743,7 +757,7 @@ INSERT INTO resources (
     name,
     description,
     organization_id,
-    resource_type,
+    type,
     arn,
     attributes,
     tags,
@@ -770,7 +784,7 @@ INSERT INTO resources (
     name,
     description,
     organization_id,
-    resource_type,
+    type,
     arn,
     attributes,
     tags,
@@ -797,7 +811,7 @@ INSERT INTO resources (
     name,
     description,
     organization_id,
-    resource_type,
+    type,
     arn,
     attributes,
     tags,

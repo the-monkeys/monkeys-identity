@@ -31,7 +31,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Retrieve all access reviews (placeholder)",
+                "description": "Retrieve access reviews with filtering options",
                 "consumes": [
                     "application/json"
                 ],
@@ -42,11 +42,73 @@ const docTemplate = `{
                     "Access Reviews"
                 ],
                 "summary": "List access reviews",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Organization ID",
+                        "name": "organization_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Reviewer ID",
+                        "name": "reviewer_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Review status",
+                        "name": "status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Start time (RFC3339)",
+                        "name": "start_time",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "End time (RFC3339)",
+                        "name": "end_time",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Limit (default: 50, max: 100)",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Offset (default: 0)",
+                        "name": "offset",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
-                        "description": "Access reviews list placeholder",
+                        "description": "Access reviews retrieved successfully",
                         "schema": {
                             "$ref": "#/definitions/fiber.Map"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request parameters",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
                         }
                     }
                 }
@@ -57,7 +119,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Initiate a new access review (placeholder)",
+                "description": "Create a new access review for periodic permission audits",
                 "consumes": [
                     "application/json"
                 ],
@@ -70,20 +132,38 @@ const docTemplate = `{
                 "summary": "Create access review",
                 "parameters": [
                     {
-                        "description": "Access review definition",
-                        "name": "request",
+                        "description": "Access review data",
+                        "name": "review",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "type": "object"
+                            "$ref": "#/definitions/github_com_the-monkeys_monkeys-identity_internal_models.AccessReview"
                         }
                     }
                 ],
                 "responses": {
-                    "200": {
-                        "description": "Access review created placeholder",
+                    "201": {
+                        "description": "Access review created successfully",
                         "schema": {
-                            "$ref": "#/definitions/fiber.Map"
+                            "$ref": "#/definitions/github_com_the-monkeys_monkeys-identity_internal_models.AccessReview"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request data",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
                         }
                     }
                 }
@@ -96,7 +176,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Retrieve a specific access review (placeholder)",
+                "description": "Retrieve details of a specific access review by ID",
                 "consumes": [
                     "application/json"
                 ],
@@ -118,9 +198,33 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "Access review retrieved placeholder",
+                        "description": "Access review retrieved successfully",
                         "schema": {
-                            "$ref": "#/definitions/fiber.Map"
+                            "$ref": "#/definitions/github_com_the-monkeys_monkeys-identity_internal_models.AccessReview"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid review ID",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Access review not found",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
                         }
                     }
                 }
@@ -131,7 +235,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Modify an existing access review (placeholder)",
+                "description": "Update an existing access review",
                 "consumes": [
                     "application/json"
                 ],
@@ -151,20 +255,44 @@ const docTemplate = `{
                         "required": true
                     },
                     {
-                        "description": "Updated access review",
-                        "name": "request",
+                        "description": "Updated access review data",
+                        "name": "review",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "type": "object"
+                            "$ref": "#/definitions/github_com_the-monkeys_monkeys-identity_internal_models.AccessReview"
                         }
                     }
                 ],
                 "responses": {
                     "200": {
-                        "description": "Access review updated placeholder",
+                        "description": "Access review updated successfully",
                         "schema": {
-                            "$ref": "#/definitions/fiber.Map"
+                            "$ref": "#/definitions/github_com_the-monkeys_monkeys-identity_internal_models.AccessReview"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request data",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Access review not found",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
                         }
                     }
                 }
@@ -177,7 +305,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Mark an access review as complete (placeholder)",
+                "description": "Mark an access review as completed with findings and recommendations",
                 "consumes": [
                     "application/json"
                 ],
@@ -195,13 +323,46 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "description": "Completion data",
+                        "name": "completion",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "object"
+                        }
                     }
                 ],
                 "responses": {
                     "200": {
-                        "description": "Access review completed placeholder",
+                        "description": "Access review completed successfully",
                         "schema": {
                             "$ref": "#/definitions/fiber.Map"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request data",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Access review not found",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
                         }
                     }
                 }
@@ -214,7 +375,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Perform a health check across subsystems (placeholder)",
+                "description": "Perform comprehensive health checks on all system components",
                 "consumes": [
                     "application/json"
                 ],
@@ -227,9 +388,21 @@ const docTemplate = `{
                 "summary": "System health check",
                 "responses": {
                     "200": {
-                        "description": "System health placeholder",
+                        "description": "Health check completed successfully",
                         "schema": {
                             "$ref": "#/definitions/fiber.Map"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
                         }
                     }
                 }
@@ -242,7 +415,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Enable maintenance mode restricting operations (placeholder)",
+                "description": "Enable system-wide maintenance mode to restrict access",
                 "consumes": [
                     "application/json"
                 ],
@@ -255,9 +428,21 @@ const docTemplate = `{
                 "summary": "Enable maintenance mode",
                 "responses": {
                     "200": {
-                        "description": "Maintenance mode enabled placeholder",
+                        "description": "Maintenance mode enabled successfully",
                         "schema": {
                             "$ref": "#/definitions/fiber.Map"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
                         }
                     }
                 }
@@ -268,7 +453,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Disable maintenance mode and resume normal operations (placeholder)",
+                "description": "Disable system-wide maintenance mode to restore normal access",
                 "consumes": [
                     "application/json"
                 ],
@@ -281,9 +466,21 @@ const docTemplate = `{
                 "summary": "Disable maintenance mode",
                 "responses": {
                     "200": {
-                        "description": "Maintenance mode disabled placeholder",
+                        "description": "Maintenance mode disabled successfully",
                         "schema": {
                             "$ref": "#/definitions/fiber.Map"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
                         }
                     }
                 }
@@ -310,6 +507,12 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/SuccessResponse"
                         }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
                     }
                 }
             },
@@ -330,11 +533,34 @@ const docTemplate = `{
                     "System Administration"
                 ],
                 "summary": "Update global settings",
+                "parameters": [
+                    {
+                        "description": "Global settings to update",
+                        "name": "settings",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/github_com_the-monkeys_monkeys-identity_internal_models.GlobalSettings"
+                        }
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "Global settings updated",
                         "schema": {
                             "$ref": "#/definitions/SuccessResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request body",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
                         }
                     }
                 }
@@ -347,7 +573,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Retrieve overall system statistics (placeholder)",
+                "description": "Retrieve comprehensive system statistics for administrators",
                 "consumes": [
                     "application/json"
                 ],
@@ -357,12 +583,24 @@ const docTemplate = `{
                 "tags": [
                     "Admin"
                 ],
-                "summary": "Get system stats",
+                "summary": "Get system statistics",
                 "responses": {
                     "200": {
-                        "description": "System stats placeholder",
+                        "description": "System statistics retrieved successfully",
                         "schema": {
                             "$ref": "#/definitions/fiber.Map"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
                         }
                     }
                 }
@@ -375,7 +613,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Retrieve audit trail events (placeholder)",
+                "description": "Retrieve audit trail events with filtering and pagination",
                 "consumes": [
                     "application/json"
                 ],
@@ -386,11 +624,91 @@ const docTemplate = `{
                     "Audit \u0026 Compliance"
                 ],
                 "summary": "List audit events",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Organization ID",
+                        "name": "organization_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Principal (User) ID",
+                        "name": "principal_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Action filter",
+                        "name": "action",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Resource type filter",
+                        "name": "resource_type",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Result filter (success/failure)",
+                        "name": "result",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Severity filter",
+                        "name": "severity",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Start time (RFC3339)",
+                        "name": "start_time",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "End time (RFC3339)",
+                        "name": "end_time",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Limit (default: 50, max: 100)",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Offset (default: 0)",
+                        "name": "offset",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
-                        "description": "Audit events listed placeholder",
+                        "description": "Audit events retrieved successfully",
                         "schema": {
                             "$ref": "#/definitions/fiber.Map"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request parameters",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
                         }
                     }
                 }
@@ -403,7 +721,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Retrieve details of a specific audit event (placeholder)",
+                "description": "Retrieve details of a specific audit event by ID",
                 "consumes": [
                     "application/json"
                 ],
@@ -425,9 +743,33 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "Audit event retrieved placeholder",
+                        "description": "Audit event retrieved successfully",
                         "schema": {
-                            "$ref": "#/definitions/fiber.Map"
+                            "$ref": "#/definitions/github_com_the-monkeys_monkeys-identity_internal_models.AuditEvent"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid event ID",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Audit event not found",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
                         }
                     }
                 }
@@ -440,7 +782,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Generate a comprehensive access report (placeholder)",
+                "description": "Generate a comprehensive access report with user activity metrics",
                 "consumes": [
                     "application/json"
                 ],
@@ -451,11 +793,61 @@ const docTemplate = `{
                     "Audit \u0026 Compliance"
                 ],
                 "summary": "Generate access report",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Organization ID",
+                        "name": "organization_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Start time (RFC3339)",
+                        "name": "start_time",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "End time (RFC3339)",
+                        "name": "end_time",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Specific user ID",
+                        "name": "user_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Include detailed user activity",
+                        "name": "include_details",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
-                        "description": "Access report placeholder",
+                        "description": "Access report generated successfully",
                         "schema": {
-                            "$ref": "#/definitions/fiber.Map"
+                            "$ref": "#/definitions/github_com_the-monkeys_monkeys-identity_internal_queries.AccessReportData"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request parameters",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
                         }
                     }
                 }
@@ -468,7 +860,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Generate compliance posture report (placeholder)",
+                "description": "Generate compliance posture report with security metrics and violations",
                 "consumes": [
                     "application/json"
                 ],
@@ -479,11 +871,59 @@ const docTemplate = `{
                     "Audit \u0026 Compliance"
                 ],
                 "summary": "Generate compliance report",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Organization ID",
+                        "name": "organization_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Start time (RFC3339)",
+                        "name": "start_time",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "End time (RFC3339)",
+                        "name": "end_time",
+                        "in": "query"
+                    },
+                    {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "collectionFormat": "csv",
+                        "description": "Compliance standards (SOX, PCI-DSS, GDPR)",
+                        "name": "standards",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
-                        "description": "Compliance report placeholder",
+                        "description": "Compliance report generated successfully",
                         "schema": {
-                            "$ref": "#/definitions/fiber.Map"
+                            "$ref": "#/definitions/github_com_the-monkeys_monkeys-identity_internal_queries.ComplianceReportData"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request parameters",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
                         }
                     }
                 }
@@ -496,7 +936,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Generate policy usage metrics (placeholder)",
+                "description": "Generate policy usage metrics and effectiveness analysis",
                 "consumes": [
                     "application/json"
                 ],
@@ -507,11 +947,55 @@ const docTemplate = `{
                     "Audit \u0026 Compliance"
                 ],
                 "summary": "Generate policy usage report",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Organization ID",
+                        "name": "organization_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Start time (RFC3339)",
+                        "name": "start_time",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "End time (RFC3339)",
+                        "name": "end_time",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Specific policy ID",
+                        "name": "policy_id",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
-                        "description": "Policy usage report placeholder",
+                        "description": "Policy usage report generated successfully",
                         "schema": {
-                            "$ref": "#/definitions/fiber.Map"
+                            "$ref": "#/definitions/github_com_the-monkeys_monkeys-identity_internal_queries.PolicyUsageReportData"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request parameters",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
                         }
                     }
                 }
@@ -703,6 +1187,212 @@ const docTemplate = `{
                     },
                     "500": {
                         "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/mfa/backup-codes": {
+            "post": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
+                "description": "Generate backup codes for multi-factor authentication recovery",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "MFA"
+                ],
+                "summary": "Generate MFA backup codes",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_the-monkeys_monkeys-identity_internal_models.BackupCodesResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/mfa/disable": {
+            "delete": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
+                "description": "Disable multi-factor authentication for the authenticated user",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "MFA"
+                ],
+                "summary": "Disable MFA",
+                "parameters": [
+                    {
+                        "description": "MFA disable details",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/github_com_the-monkeys_monkeys-identity_internal_models.DisableMFARequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_the-monkeys_monkeys-identity_internal_models.MessageResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/mfa/setup": {
+            "post": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
+                "description": "Set up multi-factor authentication for the authenticated user",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "MFA"
+                ],
+                "summary": "Setup MFA",
+                "parameters": [
+                    {
+                        "description": "MFA setup details",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/github_com_the-monkeys_monkeys-identity_internal_models.SetupMFARequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_the-monkeys_monkeys-identity_internal_models.SetupMFAResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/mfa/verify": {
+            "post": {
+                "description": "Verify multi-factor authentication code for login",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "MFA"
+                ],
+                "summary": "Verify MFA",
+                "parameters": [
+                    {
+                        "description": "MFA verification details",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/github_com_the-monkeys_monkeys-identity_internal_models.VerifyMFARequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handlers.LoginResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
                         "schema": {
                             "$ref": "#/definitions/ErrorResponse"
                         }
@@ -977,7 +1667,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Check multiple action/resource pairs (placeholder)",
+                "description": "Check multiple action/resource pairs efficiently",
                 "consumes": [
                     "application/json"
                 ],
@@ -995,15 +1685,38 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "type": "object"
+                            "type": "object",
+                            "properties": {
+                                "requests": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/definitions/github_com_the-monkeys_monkeys-identity_internal_queries.PermissionCheckRequest"
+                                    }
+                                }
+                            }
                         }
                     }
                 ],
                 "responses": {
                     "200": {
-                        "description": "Bulk permission check placeholder",
+                        "description": "Bulk permission check completed",
                         "schema": {
-                            "$ref": "#/definitions/fiber.Map"
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/github_com_the-monkeys_monkeys-identity_internal_queries.PermissionCheckResult"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
                         }
                     }
                 }
@@ -1016,7 +1729,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Check if a principal is allowed an action on a resource (placeholder)",
+                "description": "Check if a principal is allowed an action on a resource",
                 "consumes": [
                     "application/json"
                 ],
@@ -1034,15 +1747,27 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "type": "object"
+                            "$ref": "#/definitions/github_com_the-monkeys_monkeys-identity_internal_queries.PermissionCheckRequest"
                         }
                     }
                 ],
                 "responses": {
                     "200": {
-                        "description": "Permission check placeholder",
+                        "description": "Permission check completed",
                         "schema": {
-                            "$ref": "#/definitions/fiber.Map"
+                            "$ref": "#/definitions/github_com_the-monkeys_monkeys-identity_internal_queries.PermissionCheckResult"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
                         }
                     }
                 }
@@ -1055,7 +1780,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Retrieve effective permissions for authenticated principal (placeholder)",
+                "description": "Retrieve effective permissions for authenticated principal",
                 "consumes": [
                     "application/json"
                 ],
@@ -1066,11 +1791,43 @@ const docTemplate = `{
                     "Authorization"
                 ],
                 "summary": "Get effective permissions",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Principal ID (if not provided, uses current user)",
+                        "name": "principal_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Principal type (user, group, role)",
+                        "name": "principal_type",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Organization ID",
+                        "name": "organization_id",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
-                        "description": "Effective permissions placeholder",
+                        "description": "Effective permissions retrieved",
                         "schema": {
-                            "$ref": "#/definitions/fiber.Map"
+                            "$ref": "#/definitions/github_com_the-monkeys_monkeys-identity_internal_queries.EffectivePermissions"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
                         }
                     }
                 }
@@ -1083,7 +1840,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Simulate an access decision for a hypothetical request (placeholder)",
+                "description": "Simulate an access decision for a hypothetical request",
                 "consumes": [
                     "application/json"
                 ],
@@ -1101,15 +1858,27 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "type": "object"
+                            "$ref": "#/definitions/github_com_the-monkeys_monkeys-identity_internal_queries.PermissionCheckRequest"
                         }
                     }
                 ],
                 "responses": {
                     "200": {
-                        "description": "Access simulation placeholder",
+                        "description": "Access simulation completed",
                         "schema": {
-                            "$ref": "#/definitions/fiber.Map"
+                            "$ref": "#/definitions/github_com_the-monkeys_monkeys-identity_internal_queries.PermissionCheckResult"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
                         }
                     }
                 }
@@ -2252,7 +3021,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Retrieve all policies (placeholder)",
+                "description": "Retrieve all policies with pagination and filtering",
                 "consumes": [
                     "application/json"
                 ],
@@ -2263,11 +3032,55 @@ const docTemplate = `{
                     "Policy Management"
                 ],
                 "summary": "List policies",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Number of policies per page (default: 50)",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Number of policies to skip (default: 0)",
+                        "name": "offset",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Field to sort by (created_at, name, status)",
+                        "name": "sort_by",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Sort order (asc, desc)",
+                        "name": "order",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by organization ID",
+                        "name": "organization_id",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
-                        "description": "Policies listed placeholder",
+                        "description": "Policies listed successfully",
                         "schema": {
-                            "$ref": "#/definitions/fiber.Map"
+                            "$ref": "#/definitions/github_com_the-monkeys_monkeys-identity_internal_queries.ListResult-github_com_the-monkeys_monkeys-identity_internal_models_Policy"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request parameters",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
                         }
                     }
                 }
@@ -2278,7 +3091,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Create a new policy (placeholder)",
+                "description": "Create a new policy with document validation",
                 "consumes": [
                     "application/json"
                 ],
@@ -2296,15 +3109,78 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "type": "object"
+                            "$ref": "#/definitions/github_com_the-monkeys_monkeys-identity_internal_models.Policy"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Policy created successfully",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_the-monkeys_monkeys-identity_internal_models.Policy"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request or policy document",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/policies/simulate": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Simulate the effect of a policy against hypothetical requests",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Policy Management"
+                ],
+                "summary": "Simulate policy",
+                "parameters": [
+                    {
+                        "description": "Simulation input",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/github_com_the-monkeys_monkeys-identity_internal_queries.PolicySimulationRequest"
                         }
                     }
                 ],
                 "responses": {
                     "200": {
-                        "description": "Policy created placeholder",
+                        "description": "Policy simulation completed",
                         "schema": {
-                            "$ref": "#/definitions/fiber.Map"
+                            "$ref": "#/definitions/github_com_the-monkeys_monkeys-identity_internal_queries.PolicySimulationResult"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid simulation request",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
                         }
                     }
                 }
@@ -2317,7 +3193,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Retrieve a specific policy (placeholder)",
+                "description": "Retrieve a specific policy by ID",
                 "consumes": [
                     "application/json"
                 ],
@@ -2339,9 +3215,27 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "Policy retrieved placeholder",
+                        "description": "Policy retrieved successfully",
                         "schema": {
-                            "$ref": "#/definitions/fiber.Map"
+                            "$ref": "#/definitions/github_com_the-monkeys_monkeys-identity_internal_models.Policy"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid policy ID",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Policy not found",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
                         }
                     }
                 }
@@ -2352,7 +3246,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Update an existing policy (placeholder)",
+                "description": "Update an existing policy and create new version if document changed",
                 "consumes": [
                     "application/json"
                 ],
@@ -2377,15 +3271,33 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "type": "object"
+                            "$ref": "#/definitions/github_com_the-monkeys_monkeys-identity_internal_models.Policy"
                         }
                     }
                 ],
                 "responses": {
                     "200": {
-                        "description": "Policy updated placeholder",
+                        "description": "Policy updated successfully",
                         "schema": {
-                            "$ref": "#/definitions/fiber.Map"
+                            "$ref": "#/definitions/github_com_the-monkeys_monkeys-identity_internal_models.Policy"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request or policy document",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Policy not found",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
                         }
                     }
                 }
@@ -2396,7 +3308,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Delete (deactivate) a policy (placeholder)",
+                "description": "Soft delete a policy (mark as deleted, change status)",
                 "consumes": [
                     "application/json"
                 ],
@@ -2418,9 +3330,27 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "Policy deleted placeholder",
+                        "description": "Policy deleted successfully",
                         "schema": {
-                            "$ref": "#/definitions/fiber.Map"
+                            "$ref": "#/definitions/SuccessResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid policy ID",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Policy not found",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
                         }
                     }
                 }
@@ -2433,7 +3363,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Approve a pending policy version (placeholder)",
+                "description": "Approve a pending policy version for activation",
                 "consumes": [
                     "application/json"
                 ],
@@ -2455,9 +3385,27 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "Policy approved placeholder",
+                        "description": "Policy approved successfully",
                         "schema": {
-                            "$ref": "#/definitions/fiber.Map"
+                            "$ref": "#/definitions/SuccessResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid policy ID or policy not in draft status",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Policy not found",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
                         }
                     }
                 }
@@ -2470,7 +3418,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Rollback policy to a specified version (placeholder)",
+                "description": "Rollback policy to a specified version",
                 "consumes": [
                     "application/json"
                 ],
@@ -2488,59 +3436,45 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Policy rollback placeholder",
-                        "schema": {
-                            "$ref": "#/definitions/fiber.Map"
-                        }
-                    }
-                }
-            }
-        },
-        "/policies/{id}/simulate": {
-            "post": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Simulate the effect of a policy against a hypothetical request (placeholder)",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Policy Management"
-                ],
-                "summary": "Simulate policy",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Policy ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
                     },
                     {
-                        "description": "Simulation input",
+                        "description": "Version to rollback to",
                         "name": "request",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "type": "object"
+                            "type": "object",
+                            "properties": {
+                                "version": {
+                                    "type": "string"
+                                }
+                            }
                         }
                     }
                 ],
                 "responses": {
                     "200": {
-                        "description": "Policy simulation placeholder",
+                        "description": "Policy rolled back successfully",
                         "schema": {
-                            "$ref": "#/definitions/fiber.Map"
+                            "$ref": "#/definitions/SuccessResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request or version",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Policy or version not found",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
                         }
                     }
                 }
@@ -2553,7 +3487,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Retrieve all versions of a policy (placeholder)",
+                "description": "Retrieve all versions of a policy with history",
                 "consumes": [
                     "application/json"
                 ],
@@ -2575,9 +3509,30 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "Policy versions placeholder",
+                        "description": "Policy versions retrieved",
                         "schema": {
-                            "$ref": "#/definitions/fiber.Map"
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/github_com_the-monkeys_monkeys-identity_internal_queries.PolicyVersion"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid policy ID",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Policy not found",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
                         }
                     }
                 }
@@ -2590,7 +3545,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Retrieve all resources with pagination support (future enhancement)",
+                "description": "Retrieve all resources with pagination support",
                 "consumes": [
                     "application/json"
                 ],
@@ -2601,11 +3556,43 @@ const docTemplate = `{
                     "Resource Management"
                 ],
                 "summary": "List resources",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Filter by organization ID",
+                        "name": "organization_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by resource type",
+                        "name": "type",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Number of resources to return (default 20)",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Number of resources to skip (default 0)",
+                        "name": "offset",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
-                        "description": "Resources listed placeholder",
+                        "description": "Resources listed successfully",
                         "schema": {
-                            "$ref": "#/definitions/fiber.Map"
+                            "$ref": "#/definitions/SuccessResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
                         }
                     }
                 }
@@ -2616,7 +3603,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Create a new managed resource (placeholder)",
+                "description": "Create a new managed resource",
                 "consumes": [
                     "application/json"
                 ],
@@ -2634,15 +3621,27 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "type": "object"
+                            "$ref": "#/definitions/github_com_the-monkeys_monkeys-identity_internal_models.Resource"
                         }
                     }
                 ],
                 "responses": {
-                    "200": {
-                        "description": "Resource created placeholder",
+                    "201": {
+                        "description": "Resource created successfully",
                         "schema": {
-                            "$ref": "#/definitions/fiber.Map"
+                            "$ref": "#/definitions/SuccessResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request body or validation errors",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
                         }
                     }
                 }
@@ -2655,7 +3654,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Retrieve details of a specific resource (placeholder)",
+                "description": "Retrieve details of a specific resource",
                 "consumes": [
                     "application/json"
                 ],
@@ -2677,9 +3676,27 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "Resource retrieved placeholder",
+                        "description": "Resource retrieved successfully",
                         "schema": {
-                            "$ref": "#/definitions/fiber.Map"
+                            "$ref": "#/definitions/SuccessResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid resource ID",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource not found",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
                         }
                     }
                 }
@@ -2690,7 +3707,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Update properties of a resource (placeholder)",
+                "description": "Update properties of a resource",
                 "consumes": [
                     "application/json"
                 ],
@@ -2715,15 +3732,33 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "type": "object"
+                            "$ref": "#/definitions/github_com_the-monkeys_monkeys-identity_internal_models.Resource"
                         }
                     }
                 ],
                 "responses": {
                     "200": {
-                        "description": "Resource updated placeholder",
+                        "description": "Resource updated successfully",
                         "schema": {
-                            "$ref": "#/definitions/fiber.Map"
+                            "$ref": "#/definitions/SuccessResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request body or resource ID",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource not found",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
                         }
                     }
                 }
@@ -2734,7 +3769,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Delete a resource (placeholder)",
+                "description": "Delete a resource",
                 "consumes": [
                     "application/json"
                 ],
@@ -2756,9 +3791,27 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "Resource deleted placeholder",
+                        "description": "Resource deleted successfully",
                         "schema": {
-                            "$ref": "#/definitions/fiber.Map"
+                            "$ref": "#/definitions/SuccessResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid resource ID",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource not found",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
                         }
                     }
                 }
@@ -2771,7 +3824,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Retrieve access events for a resource (placeholder)",
+                "description": "Retrieve access events for a resource",
                 "consumes": [
                     "application/json"
                 ],
@@ -2789,13 +3842,43 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Number of log entries to return (default 50)",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Number of log entries to skip (default 0)",
+                        "name": "offset",
+                        "in": "query"
                     }
                 ],
                 "responses": {
                     "200": {
-                        "description": "Access log placeholder",
+                        "description": "Access log retrieved successfully",
                         "schema": {
-                            "$ref": "#/definitions/fiber.Map"
+                            "$ref": "#/definitions/SuccessResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid resource ID",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource not found",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
                         }
                     }
                 }
@@ -2808,7 +3891,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Retrieve permissions for a resource (placeholder)",
+                "description": "Retrieve permissions for a resource",
                 "consumes": [
                     "application/json"
                 ],
@@ -2830,9 +3913,27 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "Resource permissions placeholder",
+                        "description": "Resource permissions retrieved successfully",
                         "schema": {
-                            "$ref": "#/definitions/fiber.Map"
+                            "$ref": "#/definitions/SuccessResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid resource ID",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource not found",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
                         }
                     }
                 }
@@ -2843,7 +3944,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Apply permissions to a resource (placeholder)",
+                "description": "Apply permissions to a resource",
                 "consumes": [
                     "application/json"
                 ],
@@ -2874,9 +3975,27 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "Permissions set placeholder",
+                        "description": "Permissions set successfully",
                         "schema": {
-                            "$ref": "#/definitions/fiber.Map"
+                            "$ref": "#/definitions/SuccessResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request body or resource ID",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource not found",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
                         }
                     }
                 }
@@ -2889,7 +4008,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Share a resource with a user or group (placeholder)",
+                "description": "Share a resource with a user or group",
                 "consumes": [
                     "application/json"
                 ],
@@ -2920,9 +4039,27 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "Resource shared placeholder",
+                        "description": "Resource shared successfully",
                         "schema": {
-                            "$ref": "#/definitions/fiber.Map"
+                            "$ref": "#/definitions/SuccessResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request body or resource ID",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource not found",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
                         }
                     }
                 }
@@ -2933,7 +4070,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Remove sharing permissions (placeholder)",
+                "description": "Remove sharing permissions",
                 "consumes": [
                     "application/json"
                 ],
@@ -2951,13 +4088,40 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "description": "Unshare details",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "object"
+                        }
                     }
                 ],
                 "responses": {
                     "200": {
-                        "description": "Resource unshared placeholder",
+                        "description": "Resource unshared successfully",
                         "schema": {
-                            "$ref": "#/definitions/fiber.Map"
+                            "$ref": "#/definitions/SuccessResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request body or resource ID",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource not found",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
                         }
                     }
                 }
@@ -3750,7 +4914,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Retrieve sessions associated with the current principal (placeholder)",
+                "description": "Retrieve sessions associated with the current principal",
                 "consumes": [
                     "application/json"
                 ],
@@ -3761,11 +4925,49 @@ const docTemplate = `{
                     "Session Management"
                 ],
                 "summary": "List sessions",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Number of sessions per page (default: 50)",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Number of sessions to skip (default: 0)",
+                        "name": "offset",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Field to sort by (last_used_at, issued_at, expires_at)",
+                        "name": "sort_by",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Sort order (asc, desc)",
+                        "name": "order",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
-                        "description": "Sessions list placeholder",
+                        "description": "Sessions listed successfully",
                         "schema": {
-                            "$ref": "#/definitions/fiber.Map"
+                            "$ref": "#/definitions/github_com_the-monkeys_monkeys-identity_internal_queries.ListResult-github_com_the-monkeys_monkeys-identity_internal_models_Session"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request parameters",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
                         }
                     }
                 }
@@ -3778,7 +4980,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Retrieve details of the current session (placeholder)",
+                "description": "Retrieve details of the current session from JWT token",
                 "consumes": [
                     "application/json"
                 ],
@@ -3791,9 +4993,21 @@ const docTemplate = `{
                 "summary": "Get current session",
                 "responses": {
                     "200": {
-                        "description": "Current session placeholder",
+                        "description": "Current session retrieved successfully",
                         "schema": {
-                            "$ref": "#/definitions/fiber.Map"
+                            "$ref": "#/definitions/github_com_the-monkeys_monkeys-identity_internal_models.Session"
+                        }
+                    },
+                    "401": {
+                        "description": "No active session",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
                         }
                     }
                 }
@@ -3804,7 +5018,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Invalidate the current session (placeholder)",
+                "description": "Invalidate the current session (logout)",
                 "consumes": [
                     "application/json"
                 ],
@@ -3817,9 +5031,21 @@ const docTemplate = `{
                 "summary": "Revoke current session",
                 "responses": {
                     "200": {
-                        "description": "Current session revoked placeholder",
+                        "description": "Current session revoked successfully",
                         "schema": {
-                            "$ref": "#/definitions/fiber.Map"
+                            "$ref": "#/definitions/SuccessResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "No active session",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
                         }
                     }
                 }
@@ -3832,7 +5058,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Retrieve a specific session (placeholder)",
+                "description": "Retrieve a specific session by ID",
                 "consumes": [
                     "application/json"
                 ],
@@ -3854,9 +5080,33 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "Session retrieved placeholder",
+                        "description": "Session retrieved successfully",
                         "schema": {
-                            "$ref": "#/definitions/fiber.Map"
+                            "$ref": "#/definitions/github_com_the-monkeys_monkeys-identity_internal_models.Session"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid session ID",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Access denied",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Session not found",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
                         }
                     }
                 }
@@ -3867,7 +5117,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Invalidate a specific session (placeholder)",
+                "description": "Invalidate a specific session (admin only)",
                 "consumes": [
                     "application/json"
                 ],
@@ -3889,9 +5139,33 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "Session revoked placeholder",
+                        "description": "Session revoked successfully",
                         "schema": {
-                            "$ref": "#/definitions/fiber.Map"
+                            "$ref": "#/definitions/SuccessResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid session ID",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Access denied",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Session not found",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
                         }
                     }
                 }
@@ -3904,7 +5178,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Extend the expiration of a session (placeholder)",
+                "description": "Extend the expiration of a session",
                 "consumes": [
                     "application/json"
                 ],
@@ -3922,13 +5196,50 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "description": "Extension duration (e.g., '2h', '30m')",
+                        "name": "request",
+                        "in": "body",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "duration": {
+                                    "type": "string"
+                                }
+                            }
+                        }
                     }
                 ],
                 "responses": {
                     "200": {
-                        "description": "Session extended placeholder",
+                        "description": "Session extended successfully",
                         "schema": {
-                            "$ref": "#/definitions/fiber.Map"
+                            "$ref": "#/definitions/github_com_the-monkeys_monkeys-identity_internal_models.Session"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request or session ID",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Access denied",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Session not found",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
                         }
                     }
                 }
@@ -4683,6 +5994,193 @@ const docTemplate = `{
                 }
             }
         },
+        "github_com_the-monkeys_monkeys-identity_internal_models.AccessReview": {
+            "type": "object",
+            "properties": {
+                "completed_at": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "due_date": {
+                    "type": "string"
+                },
+                "findings": {
+                    "description": "JSONB as string",
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "organization_id": {
+                    "type": "string"
+                },
+                "recommendations": {
+                    "description": "JSONB as string",
+                    "type": "string"
+                },
+                "reviewer_id": {
+                    "type": "string"
+                },
+                "scope": {
+                    "description": "JSONB as string",
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_the-monkeys_monkeys-identity_internal_models.AuditEvent": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string"
+                },
+                "additional_context": {
+                    "description": "JSONB as string",
+                    "type": "string"
+                },
+                "error_message": {
+                    "type": "string"
+                },
+                "event_id": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "ip_address": {
+                    "type": "string"
+                },
+                "organization_id": {
+                    "type": "string"
+                },
+                "principal_id": {
+                    "type": "string"
+                },
+                "principal_type": {
+                    "type": "string"
+                },
+                "request_id": {
+                    "type": "string"
+                },
+                "resource_arn": {
+                    "type": "string"
+                },
+                "resource_id": {
+                    "type": "string"
+                },
+                "resource_type": {
+                    "type": "string"
+                },
+                "result": {
+                    "type": "string"
+                },
+                "session_id": {
+                    "type": "string"
+                },
+                "severity": {
+                    "type": "string"
+                },
+                "timestamp": {
+                    "type": "string"
+                },
+                "user_agent": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_the-monkeys_monkeys-identity_internal_models.BackupCodesResponse": {
+            "type": "object",
+            "properties": {
+                "backup_codes": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "message": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_the-monkeys_monkeys-identity_internal_models.DisableMFARequest": {
+            "type": "object",
+            "required": [
+                "code",
+                "password"
+            ],
+            "properties": {
+                "code": {
+                    "type": "string",
+                    "maxLength": 8,
+                    "minLength": 6
+                },
+                "password": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_the-monkeys_monkeys-identity_internal_models.GlobalSettings": {
+            "type": "object",
+            "properties": {
+                "allow_registration": {
+                    "type": "boolean"
+                },
+                "audit_log_retention_days": {
+                    "type": "integer"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "email_verification_required": {
+                    "type": "boolean"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "maintenance_message": {
+                    "type": "string"
+                },
+                "maintenance_mode": {
+                    "type": "boolean"
+                },
+                "max_session_duration": {
+                    "description": "in minutes",
+                    "type": "integer"
+                },
+                "max_users_per_organization": {
+                    "type": "integer"
+                },
+                "password_min_length": {
+                    "type": "integer"
+                },
+                "require_mfa": {
+                    "type": "boolean"
+                },
+                "settings": {
+                    "description": "JSONB for additional flexible settings",
+                    "type": "string"
+                },
+                "token_expiration_minutes": {
+                    "type": "integer"
+                },
+                "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
         "github_com_the-monkeys_monkeys-identity_internal_models.Group": {
             "type": "object",
             "properties": {
@@ -4721,6 +6219,14 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_the-monkeys_monkeys-identity_internal_models.MessageResponse": {
+            "type": "object",
+            "properties": {
+                "message": {
                     "type": "string"
                 }
             }
@@ -4770,6 +6276,137 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_the-monkeys_monkeys-identity_internal_models.Policy": {
+            "type": "object",
+            "properties": {
+                "approved_at": {
+                    "type": "string"
+                },
+                "approved_by": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "created_by": {
+                    "type": "string"
+                },
+                "deleted_at": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "document": {
+                    "description": "JSONB as string",
+                    "type": "string"
+                },
+                "effect": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "is_system_policy": {
+                    "type": "boolean"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "organization_id": {
+                    "type": "string"
+                },
+                "policy_type": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "version": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_the-monkeys_monkeys-identity_internal_models.Resource": {
+            "type": "object",
+            "properties": {
+                "access_level": {
+                    "type": "string"
+                },
+                "accessed_at": {
+                    "type": "string"
+                },
+                "arn": {
+                    "type": "string"
+                },
+                "attributes": {
+                    "description": "JSONB as string",
+                    "type": "string"
+                },
+                "checksum": {
+                    "type": "string"
+                },
+                "content_type": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "deleted_at": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "encryption_key_id": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "lifecycle_policy": {
+                    "description": "JSONB as string",
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "organization_id": {
+                    "type": "string"
+                },
+                "owner_id": {
+                    "type": "string"
+                },
+                "owner_type": {
+                    "type": "string"
+                },
+                "parent_resource_id": {
+                    "type": "string"
+                },
+                "size_bytes": {
+                    "type": "integer"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "tags": {
+                    "description": "JSONB as string",
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "version": {
                     "type": "string"
                 }
             }
@@ -4879,6 +6516,110 @@ const docTemplate = `{
                 }
             }
         },
+        "github_com_the-monkeys_monkeys-identity_internal_models.Session": {
+            "type": "object",
+            "properties": {
+                "assumed_role_id": {
+                    "type": "string"
+                },
+                "context": {
+                    "description": "JSONB as string",
+                    "type": "string"
+                },
+                "device_fingerprint": {
+                    "type": "string"
+                },
+                "expires_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "ip_address": {
+                    "type": "string"
+                },
+                "issued_at": {
+                    "type": "string"
+                },
+                "last_used_at": {
+                    "type": "string"
+                },
+                "location": {
+                    "description": "JSONB as string",
+                    "type": "string"
+                },
+                "mfa_methods_used": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "mfa_verified": {
+                    "type": "boolean"
+                },
+                "organization_id": {
+                    "type": "string"
+                },
+                "permissions": {
+                    "description": "JSONB as string",
+                    "type": "string"
+                },
+                "principal_id": {
+                    "type": "string"
+                },
+                "principal_type": {
+                    "type": "string"
+                },
+                "session_token": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "user_agent": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_the-monkeys_monkeys-identity_internal_models.SetupMFARequest": {
+            "type": "object",
+            "required": [
+                "method"
+            ],
+            "properties": {
+                "method": {
+                    "type": "string",
+                    "enum": [
+                        "totp",
+                        "sms",
+                        "email"
+                    ]
+                },
+                "phone": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_the-monkeys_monkeys-identity_internal_models.SetupMFAResponse": {
+            "type": "object",
+            "properties": {
+                "backup_codes": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "message": {
+                    "type": "string"
+                },
+                "qr_code": {
+                    "type": "string"
+                },
+                "secret": {
+                    "type": "string"
+                }
+            }
+        },
         "github_com_the-monkeys_monkeys-identity_internal_models.User": {
             "type": "object",
             "properties": {
@@ -4942,6 +6683,672 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "username": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_the-monkeys_monkeys-identity_internal_models.VerifyMFARequest": {
+            "type": "object",
+            "required": [
+                "code",
+                "method",
+                "user_id"
+            ],
+            "properties": {
+                "code": {
+                    "type": "string",
+                    "maxLength": 8,
+                    "minLength": 6
+                },
+                "method": {
+                    "type": "string",
+                    "enum": [
+                        "totp",
+                        "sms",
+                        "email",
+                        "backup"
+                    ]
+                },
+                "remember_me": {
+                    "type": "boolean"
+                },
+                "user_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_the-monkeys_monkeys-identity_internal_queries.AccessReportData": {
+            "type": "object",
+            "properties": {
+                "generated_at": {
+                    "type": "string"
+                },
+                "period": {
+                    "type": "object",
+                    "properties": {
+                        "end_time": {
+                            "type": "string"
+                        },
+                        "start_time": {
+                            "type": "string"
+                        }
+                    }
+                },
+                "summary": {
+                    "type": "object",
+                    "properties": {
+                        "active_users": {
+                            "type": "integer"
+                        },
+                        "failed_logins": {
+                            "type": "integer"
+                        },
+                        "successful_logins": {
+                            "type": "integer"
+                        },
+                        "top_actions": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/github_com_the-monkeys_monkeys-identity_internal_queries.ActionCount"
+                            }
+                        },
+                        "top_resources": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/github_com_the-monkeys_monkeys-identity_internal_queries.ResourceAccessCount"
+                            }
+                        },
+                        "total_actions": {
+                            "type": "integer"
+                        },
+                        "total_sessions": {
+                            "type": "integer"
+                        },
+                        "total_users": {
+                            "type": "integer"
+                        }
+                    }
+                },
+                "user_activity": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/github_com_the-monkeys_monkeys-identity_internal_queries.UserActivitySummary"
+                    }
+                }
+            }
+        },
+        "github_com_the-monkeys_monkeys-identity_internal_queries.ActionCount": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string"
+                },
+                "count": {
+                    "type": "integer"
+                }
+            }
+        },
+        "github_com_the-monkeys_monkeys-identity_internal_queries.ComplianceReportData": {
+            "type": "object",
+            "properties": {
+                "generated_at": {
+                    "type": "string"
+                },
+                "period": {
+                    "type": "object",
+                    "properties": {
+                        "end_time": {
+                            "type": "string"
+                        },
+                        "start_time": {
+                            "type": "string"
+                        }
+                    }
+                },
+                "policy_checks": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/github_com_the-monkeys_monkeys-identity_internal_queries.PolicyCheckResult"
+                    }
+                },
+                "recommendations": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "security_events": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/github_com_the-monkeys_monkeys-identity_internal_queries.SecurityEventSummary"
+                    }
+                },
+                "summary": {
+                    "type": "object",
+                    "properties": {
+                        "access_violations": {
+                            "type": "integer"
+                        },
+                        "compliance_score": {
+                            "type": "number"
+                        },
+                        "critical_violations": {
+                            "type": "integer"
+                        },
+                        "failed_checks": {
+                            "type": "integer"
+                        },
+                        "high_risk_events": {
+                            "type": "integer"
+                        },
+                        "passed_checks": {
+                            "type": "integer"
+                        },
+                        "policy_violations": {
+                            "type": "integer"
+                        },
+                        "total_checks": {
+                            "type": "integer"
+                        },
+                        "violations_by_category": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "integer"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "github_com_the-monkeys_monkeys-identity_internal_queries.EffectivePermission": {
+            "type": "object",
+            "properties": {
+                "actions": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "conditions": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "effect": {
+                    "type": "string"
+                },
+                "resource": {
+                    "type": "string"
+                },
+                "source": {
+                    "description": "policy name or role",
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_the-monkeys_monkeys-identity_internal_queries.EffectivePermissions": {
+            "type": "object",
+            "properties": {
+                "generated_at": {
+                    "type": "string"
+                },
+                "permissions": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/github_com_the-monkeys_monkeys-identity_internal_queries.EffectivePermission"
+                    }
+                },
+                "principal_id": {
+                    "type": "string"
+                },
+                "principal_type": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_the-monkeys_monkeys-identity_internal_queries.ListResult-github_com_the-monkeys_monkeys-identity_internal_models_Policy": {
+            "type": "object",
+            "properties": {
+                "has_more": {
+                    "type": "boolean"
+                },
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/github_com_the-monkeys_monkeys-identity_internal_models.Policy"
+                    }
+                },
+                "limit": {
+                    "type": "integer"
+                },
+                "offset": {
+                    "type": "integer"
+                },
+                "total": {
+                    "type": "integer"
+                },
+                "total_pages": {
+                    "type": "integer"
+                }
+            }
+        },
+        "github_com_the-monkeys_monkeys-identity_internal_queries.ListResult-github_com_the-monkeys_monkeys-identity_internal_models_Session": {
+            "type": "object",
+            "properties": {
+                "has_more": {
+                    "type": "boolean"
+                },
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/github_com_the-monkeys_monkeys-identity_internal_models.Session"
+                    }
+                },
+                "limit": {
+                    "type": "integer"
+                },
+                "offset": {
+                    "type": "integer"
+                },
+                "total": {
+                    "type": "integer"
+                },
+                "total_pages": {
+                    "type": "integer"
+                }
+            }
+        },
+        "github_com_the-monkeys_monkeys-identity_internal_queries.PermissionCheckRequest": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string"
+                },
+                "context": {
+                    "$ref": "#/definitions/github_com_the-monkeys_monkeys-identity_internal_queries.PolicyEvaluationContext"
+                },
+                "principal_id": {
+                    "type": "string"
+                },
+                "principal_type": {
+                    "type": "string"
+                },
+                "resource": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_the-monkeys_monkeys-identity_internal_queries.PermissionCheckResult": {
+            "type": "object",
+            "properties": {
+                "allowed": {
+                    "type": "boolean"
+                },
+                "decision": {
+                    "type": "string"
+                },
+                "evaluation": {
+                    "$ref": "#/definitions/github_com_the-monkeys_monkeys-identity_internal_queries.PolicyEvaluationResult"
+                },
+                "policies": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "request": {
+                    "$ref": "#/definitions/github_com_the-monkeys_monkeys-identity_internal_queries.PermissionCheckRequest"
+                }
+            }
+        },
+        "github_com_the-monkeys_monkeys-identity_internal_queries.PolicyCheckResult": {
+            "type": "object",
+            "properties": {
+                "details": {
+                    "type": "string"
+                },
+                "policy_name": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_the-monkeys_monkeys-identity_internal_queries.PolicyDetailedUsage": {
+            "type": "object",
+            "properties": {
+                "allows": {
+                    "type": "integer"
+                },
+                "avg_response_ms": {
+                    "type": "number"
+                },
+                "denies": {
+                    "type": "integer"
+                },
+                "evaluations": {
+                    "type": "integer"
+                },
+                "last_used": {
+                    "type": "string"
+                },
+                "policy_id": {
+                    "type": "string"
+                },
+                "policy_name": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "version": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_the-monkeys_monkeys-identity_internal_queries.PolicyEvaluationContext": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string"
+                },
+                "environment": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "principal": {
+                    "type": "string"
+                },
+                "request_time": {
+                    "type": "string"
+                },
+                "resource": {
+                    "type": "string"
+                },
+                "session_id": {
+                    "type": "string"
+                },
+                "source_ip": {
+                    "type": "string"
+                },
+                "user_agent": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_the-monkeys_monkeys-identity_internal_queries.PolicyEvaluationResult": {
+            "type": "object",
+            "properties": {
+                "conditions": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "boolean"
+                    }
+                },
+                "decision": {
+                    "description": "final decision after combining policies",
+                    "type": "string"
+                },
+                "effect": {
+                    "description": "allow, deny, not_applicable",
+                    "type": "string"
+                },
+                "matched_policy": {
+                    "type": "string"
+                },
+                "metadata": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "reasons": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "github_com_the-monkeys_monkeys-identity_internal_queries.PolicySimulationRequest": {
+            "type": "object",
+            "properties": {
+                "context": {
+                    "$ref": "#/definitions/github_com_the-monkeys_monkeys-identity_internal_queries.PolicyEvaluationContext"
+                },
+                "policy_document": {
+                    "type": "string"
+                },
+                "test_cases": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/github_com_the-monkeys_monkeys-identity_internal_queries.PolicySimulationTestCase"
+                    }
+                }
+            }
+        },
+        "github_com_the-monkeys_monkeys-identity_internal_queries.PolicySimulationResult": {
+            "type": "object",
+            "properties": {
+                "errors": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "evaluation": {
+                    "$ref": "#/definitions/github_com_the-monkeys_monkeys-identity_internal_queries.PolicyEvaluationResult"
+                },
+                "policy_id": {
+                    "type": "string"
+                },
+                "test_results": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/github_com_the-monkeys_monkeys-identity_internal_queries.PolicyTestResult"
+                    }
+                },
+                "valid": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "github_com_the-monkeys_monkeys-identity_internal_queries.PolicySimulationTestCase": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string"
+                },
+                "context": {
+                    "$ref": "#/definitions/github_com_the-monkeys_monkeys-identity_internal_queries.PolicyEvaluationContext"
+                },
+                "expected": {
+                    "description": "allow, deny, not_applicable",
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "principal": {
+                    "type": "string"
+                },
+                "resource": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_the-monkeys_monkeys-identity_internal_queries.PolicyTestResult": {
+            "type": "object",
+            "properties": {
+                "message": {
+                    "type": "string"
+                },
+                "passed": {
+                    "type": "boolean"
+                },
+                "result": {
+                    "$ref": "#/definitions/github_com_the-monkeys_monkeys-identity_internal_queries.PolicyEvaluationResult"
+                },
+                "test_case": {
+                    "$ref": "#/definitions/github_com_the-monkeys_monkeys-identity_internal_queries.PolicySimulationTestCase"
+                }
+            }
+        },
+        "github_com_the-monkeys_monkeys-identity_internal_queries.PolicyUsageItem": {
+            "type": "object",
+            "properties": {
+                "allow_count": {
+                    "type": "integer"
+                },
+                "deny_count": {
+                    "type": "integer"
+                },
+                "effectiveness_rate": {
+                    "type": "number"
+                },
+                "policy_id": {
+                    "type": "string"
+                },
+                "policy_name": {
+                    "type": "string"
+                },
+                "usage_count": {
+                    "type": "integer"
+                }
+            }
+        },
+        "github_com_the-monkeys_monkeys-identity_internal_queries.PolicyUsageReportData": {
+            "type": "object",
+            "properties": {
+                "generated_at": {
+                    "type": "string"
+                },
+                "period": {
+                    "type": "object",
+                    "properties": {
+                        "end_time": {
+                            "type": "string"
+                        },
+                        "start_time": {
+                            "type": "string"
+                        }
+                    }
+                },
+                "policy_details": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/github_com_the-monkeys_monkeys-identity_internal_queries.PolicyDetailedUsage"
+                    }
+                },
+                "summary": {
+                    "type": "object",
+                    "properties": {
+                        "active_policies": {
+                            "type": "integer"
+                        },
+                        "allow_decisions": {
+                            "type": "integer"
+                        },
+                        "deny_decisions": {
+                            "type": "integer"
+                        },
+                        "policy_evaluations": {
+                            "type": "integer"
+                        },
+                        "top_policies": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/github_com_the-monkeys_monkeys-identity_internal_queries.PolicyUsageItem"
+                            }
+                        },
+                        "total_policies": {
+                            "type": "integer"
+                        }
+                    }
+                }
+            }
+        },
+        "github_com_the-monkeys_monkeys-identity_internal_queries.PolicyVersion": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "created_by": {
+                    "type": "string"
+                },
+                "document": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "policy_id": {
+                    "type": "string"
+                },
+                "status": {
+                    "description": "draft, active, deprecated",
+                    "type": "string"
+                },
+                "version": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_the-monkeys_monkeys-identity_internal_queries.ResourceAccessCount": {
+            "type": "object",
+            "properties": {
+                "count": {
+                    "type": "integer"
+                },
+                "resource_type": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_the-monkeys_monkeys-identity_internal_queries.SecurityEventSummary": {
+            "type": "object",
+            "properties": {
+                "count": {
+                    "type": "integer"
+                },
+                "last_occurred": {
+                    "type": "string"
+                },
+                "severity": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_the-monkeys_monkeys-identity_internal_queries.UserActivitySummary": {
+            "type": "object",
+            "properties": {
+                "action_count": {
+                    "type": "integer"
+                },
+                "last_activity": {
+                    "type": "string"
+                },
+                "session_count": {
+                    "type": "integer"
+                },
+                "top_actions": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "user_email": {
+                    "type": "string"
+                },
+                "user_id": {
                     "type": "string"
                 }
             }

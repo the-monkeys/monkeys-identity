@@ -460,11 +460,11 @@ SELECT
     u.organization_id,
     u.username,
     u.email,
-    array_agg(DISTINCT r.name) as roles,
-    array_agg(DISTINCT p.name) as policies,
-    jsonb_object_agg(p.name, p.document) as policy_documents,
-    array_agg(DISTINCT (p.document->'Action')) as allowed_actions,
-    array_agg(DISTINCT (p.document->'Resource')) as allowed_resources,
+    array_remove(array_agg(DISTINCT r.name), NULL) as roles,
+    array_remove(array_agg(DISTINCT p.name), NULL) as policies,
+    jsonb_object_agg(p.name, p.document) FILTER (WHERE p.name IS NOT NULL AND p.document IS NOT NULL) as policy_documents,
+    array_remove(array_agg(DISTINCT (p.document->'Action')) FILTER (WHERE p.document IS NOT NULL), NULL) as allowed_actions,
+    array_remove(array_agg(DISTINCT (p.document->'Resource')) FILTER (WHERE p.document IS NOT NULL), NULL) as allowed_resources,
     MAX(u.updated_at) as last_permission_change
 FROM users u
 LEFT JOIN role_assignments ra ON u.id = ra.principal_id AND ra.principal_type = 'user'
