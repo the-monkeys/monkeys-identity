@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/lib/pq"
 	"github.com/redis/go-redis/v9"
 	"github.com/the-monkeys/monkeys-identity/internal/database"
 	"github.com/the-monkeys/monkeys-identity/internal/models"
@@ -285,7 +286,7 @@ func (q *userQueries) GetUser(id string) (*models.User, error) {
 func (q *userQueries) CreateUser(user *models.User) error {
 	query := `
 		INSERT INTO users (
-			id, username, email, email_verified, display_name,
+			username, email, email_verified, display_name,
 			avatar_url, organization_id, password_hash, password_changed_at,
 			mfa_enabled, mfa_methods, mfa_backup_codes, attributes, preferences,
 			last_login, failed_login_attempts, locked_until, status,
@@ -295,11 +296,12 @@ func (q *userQueries) CreateUser(user *models.User) error {
 			$6, $7, $8, $9,
 			$10, $11, $12, $13, $14,
 			$15, $16, $17, $18,
-			$19, $20, $21
+			$19, $20
 		)
+		RETURNING id
 	`
 
-	// Set default values for nullable fields
+	// Handle nullable fields
 	var avatarURL *string
 	if user.AvatarURL != "" {
 		avatarURL = &user.AvatarURL
@@ -320,25 +322,24 @@ func (q *userQueries) CreateUser(user *models.User) error {
 	// Convert slices to JSON strings for now (simplified)
 	mfaMethodsJSON := "[]"
 	if len(user.MFAMethods) > 0 {
-		// This would need proper JSON marshaling in a real implementation
 		mfaMethodsJSON = "[]"
 	}
 	attributesJSON := "{}"
 	preferencesJSON := "{}"
 	var mfaBackupCodesStr *string
 	if user.MFABackupCodes != nil && len(user.MFABackupCodes) > 0 {
-		// For now, store as simple string - proper JSON marshaling would be needed
 		codes := strings.Join(user.MFABackupCodes, ",")
 		mfaBackupCodesStr = &codes
 	}
 
-	_, err := q.exec(query,
-		user.ID, user.Username, user.Email, user.EmailVerified, user.DisplayName,
+	err := q.db.QueryRow(query,
+		user.Username, user.Email, user.EmailVerified, user.DisplayName,
 		avatarURL, user.OrganizationID, user.PasswordHash, user.PasswordChangedAt,
 		user.MFAEnabled, mfaMethodsJSON, mfaBackupCodesStr, attributesJSON, preferencesJSON,
 		lastLogin, user.FailedLoginAttempts, lockedUntil, user.Status,
 		user.CreatedAt, user.UpdatedAt, deletedAt,
-	)
+	).Scan(&user.ID)
+
 	return err
 }
 
@@ -393,13 +394,14 @@ func (q *userQueries) UpdateUser(user *models.User) error {
 	_, err := q.exec(query,
 		user.ID, user.Username, user.Email, user.EmailVerified, user.DisplayName,
 		avatarURL, user.OrganizationID, user.PasswordHash, user.PasswordChangedAt,
-		user.MFAEnabled, mfaMethodsJSON, user.MFABackupCodes, attributesJSON, preferencesJSON,
+		user.MFAEnabled, mfaMethodsJSON, pq.Array(user.MFABackupCodes), attributesJSON, preferencesJSON,
 		lastLogin, user.FailedLoginAttempts, lockedUntil, user.Status,
 		user.UpdatedAt, deletedAt,
 	)
 	return err
 }
 
+// Todo:  have to check if it's root user and there is single root user he can't able to delete himself
 func (q *userQueries) DeleteUser(id string) error {
 	query := `
 		UPDATE users SET
