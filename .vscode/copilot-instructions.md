@@ -268,4 +268,26 @@ Error:
 - Metrics exporter (Prometheus) for auth/permission checks.
 
 ---
+## 21. GitHub MCP Server Setup
+This repository has GitHub MCP (Model Context Protocol) server configured globally to enable AI assistants to interact with GitHub repositories.
+
+**Global Configuration Location**: `%APPDATA%\Code\User\globalStorage\github.copilot\mcp-config.json`
+
+**Setup Instructions**:
+1. Create a GitHub Personal Access Token:
+   - Go to GitHub Settings → Developer settings → Personal access tokens → Tokens (classic)
+   - Generate a new token with `repo` scope (or `public_repo` for public-only access)
+   - Copy the token
+
+2. Set the environment variable in PowerShell (add to your PowerShell profile for persistence):
+   ```powershell
+   $env:GITHUB_PERSONAL_ACCESS_TOKEN = "your_token_here"
+   # Or add to your profile for persistence: notepad $PROFILE
+   ```
+
+3. Reload VS Code to activate the MCP server.
+
+**Note**: The MCP config is stored globally (not in the repository) and reads the token from environment variables. No secrets are committed to the repository.
+
+---
 This file should evolve alongside architecture changes—update it whenever a new domain or cross-cutting concern is added.

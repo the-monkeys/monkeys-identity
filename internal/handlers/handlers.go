@@ -31,17 +31,17 @@ func NewGroupHandler(db *database.DB, redis *redis.Client, logger *logger.Logger
 // ListGroups lists groups with optional filtering by organization
 //
 //	@Summary	List groups
-//	@Description	Retrieve groups with pagination and optional organization filtering
+//	@Description	Retrieve groups with pagination and optional organization filtering. Returns all active groups with metadata including total count and pagination info.
 //	@Tags		Group Management
 //	@Accept		json
 //	@Produce	json
-//	@Param		limit	query	int	false	"Number of groups to return (default 50)"
+//	@Param		limit	query	int	false	"Number of groups to return (default 50, max 200)"
 //	@Param		offset	query	int	false	"Number of groups to skip (default 0)"
 //	@Param		sort	query	string	false	"Sort by field (name, created_at)"
 //	@Param		order	query	string	false	"Sort order (asc, desc)"
-//	@Param		organization_id	query	string	false	"Filter by organization ID"
-//	@Success	200	{object}	SuccessResponse	"Groups retrieved successfully"
-//	@Failure	400	{object}	ErrorResponse	"Invalid query parameters"
+//	@Param		organization_id	query	string	false	"Filter by organization ID (UUID format)"
+//	@Success	200	{object}	SuccessResponse{data=object{items=[]models.Group,total=int,limit=int,offset=int,has_more=bool}}	"Groups retrieved successfully with pagination metadata"
+//	@Failure	400	{object}	ErrorResponse	"Invalid query parameters (invalid limit/offset)"
 //	@Failure	500	{object}	ErrorResponse	"Internal server error"
 //	@Security	BearerAuth
 //	@Router		/groups [get]
@@ -70,13 +70,14 @@ func (h *GroupHandler) ListGroups(c *fiber.Ctx) error {
 // CreateGroup creates a new group
 //
 //	@Summary	Create group
-//	@Description	Create a new group within an organization
+//	@Description	Create a new group within an organization. Group names must be unique within the organization. Required fields: name, organization_id. Optional fields are set to defaults (group_type="standard", status="active", attributes="{}").
 //	@Tags		Group Management
 //	@Accept		json
 //	@Produce	json
-//	@Param		request	body	models.Group	true	"Group details"
-//	@Success	201	{object}	SuccessResponse	"Group created successfully"
-//	@Failure	400	{object}	ErrorResponse	"Invalid request body or validation errors"
+//	@Param		request	body	object{name=string,description=string,organization_id=string,group_type=string,max_members=int}	true	"Group details - Example: {\"name\":\"Engineering Team\",\"description\":\"Engineering department group\",\"organization_id\":\"00000000-0000-4000-8000-000000000001\",\"group_type\":\"department\",\"max_members\":100}"
+//	@Success	201	{object}	SuccessResponse{data=models.Group}	"Group created successfully with generated ID and timestamps"
+//	@Failure	400	{object}	ErrorResponse{error=string,message=string}	"Invalid request body or missing required fields (name, organization_id)"
+//	@Failure	409	{object}	ErrorResponse{error=string,message=string}	"Conflict - A group with this name already exists in the organization"
 //	@Failure	500	{object}	ErrorResponse	"Internal server error"
 //	@Security	BearerAuth
 //	@Router		/groups [post]
@@ -99,6 +100,14 @@ func (h *GroupHandler) CreateGroup(c *fiber.Ctx) error {
 		g.Status = "active"
 	}
 	if err := h.queries.Group.CreateGroup(&g); err != nil {
+		// Check for unique constraint violation
+		if err == queries.ErrGroupNameConflict {
+			return c.Status(fiber.StatusConflict).JSON(ErrorResponse{
+				Status:  fiber.StatusConflict,
+				Error:   "group_already_exists",
+				Message: "A group with this name already exists in the organization",
+			})
+		}
 		h.logger.Error("create group failed: %v", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{Status: fiber.StatusInternalServerError, Error: "internal_server_error", Message: "Failed to create group"})
 	}
@@ -108,14 +117,14 @@ func (h *GroupHandler) CreateGroup(c *fiber.Ctx) error {
 // GetGroup retrieves a group by ID
 //
 //	@Summary	Get group
-//	@Description	Retrieve detailed information about a specific group
+//	@Description	Retrieve detailed information about a specific group by its UUID. Returns complete group details including all fields and timestamps.
 //	@Tags		Group Management
 //	@Accept		json
 //	@Produce	json
-//	@Param		id	path	string	true	"Group ID"
-//	@Success	200	{object}	SuccessResponse	"Group retrieved successfully"
-//	@Failure	400	{object}	ErrorResponse	"Invalid group ID"
-//	@Failure	404	{object}	ErrorResponse	"Group not found"
+//	@Param		id	path	string	true	"Group ID (UUID format)"
+//	@Success	200	{object}	SuccessResponse{data=models.Group}	"Group retrieved successfully with all details"
+//	@Failure	400	{object}	ErrorResponse	"Invalid group ID (empty or malformed)"
+//	@Failure	404	{object}	ErrorResponse	"Group not found or has been deleted"
 //	@Failure	500	{object}	ErrorResponse	"Internal server error"
 //	@Security	BearerAuth
 //	@Router		/groups/{id} [get]
@@ -138,15 +147,16 @@ func (h *GroupHandler) GetGroup(c *fiber.Ctx) error {
 // UpdateGroup updates a group's details
 //
 //	@Summary	Update group
-//	@Description	Update a group's properties
+//	@Description	Update a group's properties with partial update support. Only fields provided in the request are updated - missing fields retain their current values. Updatable fields: name, description, max_members, status. Immutable fields: id, organization_id, group_type. Group names must remain unique within the organization.
 //	@Tags		Group Management
 //	@Accept		json
 //	@Produce	json
-//	@Param		id	path	string	true	"Group ID"
-//	@Param		request	body	models.Group	true	"Updated group details"
-//	@Success	200	{object}	SuccessResponse	"Group updated successfully"
-//	@Failure	400	{object}	ErrorResponse	"Invalid request body"
-//	@Failure	404	{object}	ErrorResponse	"Group not found"
+//	@Param		id	path	string	true	"Group ID (UUID format)"
+//	@Param		request	body	object{name=string,description=string,max_members=int,status=string}	true	"Updated group details (partial) - Example: {\"name\":\"Engineering Team - Updated\",\"description\":\"Updated description\",\"max_members\":150}"
+//	@Success	200	{object}	SuccessResponse{data=models.Group}	"Group updated successfully with refreshed updated_at timestamp"
+//	@Failure	400	{object}	ErrorResponse	"Invalid request body or group ID"
+//	@Failure	404	{object}	ErrorResponse	"Group not found or has been deleted"
+//	@Failure	409	{object}	ErrorResponse{error=string,message=string}	"Conflict - A group with this name already exists in the organization"
 //	@Failure	500	{object}	ErrorResponse	"Internal server error"
 //	@Security	BearerAuth
 //	@Router		/groups/{id} [put]
@@ -155,32 +165,72 @@ func (h *GroupHandler) UpdateGroup(c *fiber.Ctx) error {
 	if id == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Status: fiber.StatusBadRequest, Error: "invalid_group_id", Message: "Group ID is required"})
 	}
-	var g models.Group
-	if err := c.BodyParser(&g); err != nil {
+
+	// Get existing group
+	existingGroup, err := h.queries.Group.GetGroup(id)
+	if err != nil {
+		if err.Error() == "group not found" {
+			return c.Status(fiber.StatusNotFound).JSON(ErrorResponse{Status: fiber.StatusNotFound, Error: "group_not_found", Message: "Group not found or deleted"})
+		}
+		h.logger.Error("get group failed: %v", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{Status: fiber.StatusInternalServerError, Error: "internal_server_error", Message: "Failed to retrieve group"})
+	}
+
+	// Parse update request
+	var updateReq struct {
+		Name        *string `json:"name"`
+		Description *string `json:"description"`
+		MaxMembers  *int    `json:"max_members"`
+		Status      *string `json:"status"`
+	}
+	if err := c.BodyParser(&updateReq); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Status: fiber.StatusBadRequest, Error: "invalid_request_body", Message: "Failed to parse request body"})
 	}
-	g.ID = id
-	if err := h.queries.Group.UpdateGroup(&g); err != nil {
+
+	// Apply updates selectively
+	if updateReq.Name != nil {
+		existingGroup.Name = *updateReq.Name
+	}
+	if updateReq.Description != nil {
+		existingGroup.Description = *updateReq.Description
+	}
+	if updateReq.MaxMembers != nil {
+		existingGroup.MaxMembers = *updateReq.MaxMembers
+	}
+	if updateReq.Status != nil {
+		existingGroup.Status = *updateReq.Status
+	}
+
+	existingGroup.ID = id
+	if err := h.queries.Group.UpdateGroup(existingGroup); err != nil {
 		if err.Error() == "group not found or deleted" {
 			return c.Status(fiber.StatusNotFound).JSON(ErrorResponse{Status: fiber.StatusNotFound, Error: "group_not_found", Message: "Group not found or deleted"})
+		}
+		// Check for unique constraint violation
+		if err == queries.ErrGroupNameConflict {
+			return c.Status(fiber.StatusConflict).JSON(ErrorResponse{
+				Status:  fiber.StatusConflict,
+				Error:   "group_name_conflict",
+				Message: "A group with this name already exists in the organization",
+			})
 		}
 		h.logger.Error("update group failed: %v", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{Status: fiber.StatusInternalServerError, Error: "internal_server_error", Message: "Failed to update group"})
 	}
-	return c.JSON(SuccessResponse{Status: fiber.StatusOK, Message: "Group updated successfully", Data: g})
+	return c.JSON(SuccessResponse{Status: fiber.StatusOK, Message: "Group updated successfully", Data: existingGroup})
 }
 
 // DeleteGroup deletes a group
 //
 //	@Summary	Delete group
-//	@Description	Soft delete a group by marking it deleted
+//	@Description	Soft delete a group by setting the deleted_at timestamp. The group remains in the database but is excluded from queries. Returns the group ID and deletion timestamp.
 //	@Tags		Group Management
 //	@Accept		json
 //	@Produce	json
-//	@Param		id	path	string	true	"Group ID"
-//	@Success	200	{object}	SuccessResponse	"Group deleted successfully"
-//	@Failure	400	{object}	ErrorResponse	"Invalid group ID"
-//	@Failure	404	{object}	ErrorResponse	"Group not found"
+//	@Param		id	path	string	true	"Group ID (UUID format)"
+//	@Success	200	{object}	SuccessResponse{data=object{group_id=string,deleted_at=string}}	"Group deleted successfully with deletion timestamp"
+//	@Failure	400	{object}	ErrorResponse	"Invalid group ID (empty or malformed)"
+//	@Failure	404	{object}	ErrorResponse	"Group not found or already deleted"
 //	@Failure	500	{object}	ErrorResponse	"Internal server error"
 //	@Security	BearerAuth
 //	@Router		/groups/{id} [delete]
@@ -202,13 +252,13 @@ func (h *GroupHandler) DeleteGroup(c *fiber.Ctx) error {
 // GetGroupMembers lists members of a group
 //
 //	@Summary	List group members
-//	@Description	Retrieve all members of a group
+//	@Description	Retrieve all active members of a group with their membership details including principal information, role in group, and join timestamps.
 //	@Tags		Group Management
 //	@Accept		json
 //	@Produce	json
-//	@Param		id	path	string	true	"Group ID"
-//	@Success	200	{object}	SuccessResponse	"Group members retrieved successfully"
-//	@Failure	400	{object}	ErrorResponse	"Invalid group ID"
+//	@Param		id	path	string	true	"Group ID (UUID format)"
+//	@Success	200	{object}	SuccessResponse{data=object{group_id=string,members=[]models.GroupMembership,count=int}}	"Group members retrieved successfully with count"
+//	@Failure	400	{object}	ErrorResponse	"Invalid group ID (empty or malformed)"
 //	@Failure	500	{object}	ErrorResponse	"Internal server error"
 //	@Security	BearerAuth
 //	@Router		/groups/{id}/members [get]
@@ -228,15 +278,15 @@ func (h *GroupHandler) GetGroupMembers(c *fiber.Ctx) error {
 // AddGroupMember adds a member to a group
 //
 //	@Summary	Add group member
-//	@Description	Add a principal (user or service account) to a group
+//	@Description	Add a principal (user or service account) to a group. Principal must exist in the system. Required fields: principal_id (UUID), principal_type (user/service_account). Optional: role_in_group (defaults to \"member\"), expires_at (RFC3339 format). Membership is automatically timestamped with joined_at and tracks who added the member.
 //	@Tags		Group Management
 //	@Accept		json
 //	@Produce	json
-//	@Param		id	path	string	true	"Group ID"
-//	@Param		request	body	object	true	"Membership details"
-//	@Success	201	{object}	SuccessResponse	"Group member added successfully"
-//	@Failure	400	{object}	ErrorResponse	"Invalid request body"
-//	@Failure	500	{object}	ErrorResponse	"Internal server error"
+//	@Param		id	path	string	true	"Group ID (UUID format)"
+//	@Param		request	body	object{principal_id=string,principal_type=string,role_in_group=string,expires_at=string}	true	"Membership details - Example: {\"principal_id\":\"39fc3320-9eab-47ea-86ea-dfc939d7159c\",\"principal_type\":\"user\",\"role_in_group\":\"member\"}"
+//	@Success	201	{object}	SuccessResponse{data=models.GroupMembership}	"Group member added successfully with generated membership ID and timestamps"
+//	@Failure	400	{object}	ErrorResponse	"Invalid request body, missing required fields, or invalid expires_at format"
+//	@Failure	500	{object}	ErrorResponse	"Internal server error or principal not found"
 //	@Security	BearerAuth
 //	@Router		/groups/{id}/members [post]
 func (h *GroupHandler) AddGroupMember(c *fiber.Ctx) error {
@@ -282,16 +332,16 @@ func (h *GroupHandler) AddGroupMember(c *fiber.Ctx) error {
 // RemoveGroupMember removes a member from a group
 //
 //	@Summary	Remove group member
-//	@Description	Remove a principal from a group membership
+//	@Description	Remove a principal from a group membership by deleting the membership record. Requires both group ID and principal ID. Principal type defaults to \"user\" if not specified.
 //	@Tags		Group Management
 //	@Accept		json
 //	@Produce	json
-//	@Param		id	path	string	true	"Group ID"
-//	@Param		user_id	path	string	true	"Principal ID"
-//	@Param		principal_type	query	string	false	"Principal type (user or service_account)"
-//	@Success	200	{object}	SuccessResponse	"Group member removed successfully"
-//	@Failure	400	{object}	ErrorResponse	"Invalid parameters"
-//	@Failure	404	{object}	ErrorResponse	"Membership not found"
+//	@Param		id	path	string	true	"Group ID (UUID format)"
+//	@Param		user_id	path	string	true	"Principal ID (UUID format) - user or service account to remove"
+//	@Param		principal_type	query	string	false	"Principal type: 'user' or 'service_account' (default: 'user')"
+//	@Success	200	{object}	SuccessResponse{data=object{group_id=string,principal_id=string,removed=bool}}	"Group member removed successfully with confirmation"
+//	@Failure	400	{object}	ErrorResponse	"Invalid parameters (missing group ID or principal ID)"
+//	@Failure	404	{object}	ErrorResponse	"Membership not found (principal is not a member of this group)"
 //	@Failure	500	{object}	ErrorResponse	"Internal server error"
 //	@Security	BearerAuth
 //	@Router		/groups/{id}/members/{user_id} [delete]
@@ -315,13 +365,13 @@ func (h *GroupHandler) RemoveGroupMember(c *fiber.Ctx) error {
 // GetGroupPermissions retrieves aggregated permissions of group members
 //
 //	@Summary	Get group permissions
-//	@Description	Retrieve aggregated allow/deny permissions derived from member role assignments
+//	@Description	Retrieve aggregated allow/deny permissions derived from member role assignments. Returns a comprehensive view of all permissions granted to group members through their assigned roles, including both allowed and denied permissions with counts in the summary.
 //	@Tags		Group Management
 //	@Accept		json
 //	@Produce	json
-//	@Param		id	path	string	true	"Group ID"
-//	@Success	200	{object}	SuccessResponse	"Group permissions retrieved successfully"
-//	@Failure	400	{object}	ErrorResponse	"Invalid group ID"
+//	@Param		id	path	string	true	"Group ID (UUID format)"
+//	@Success	200	{object}	SuccessResponse{data=object{group_id=string,permissions=string}}	"Group permissions retrieved successfully with allow/deny lists and summary counts (JSON string format)"
+//	@Failure	400	{object}	ErrorResponse	"Invalid group ID (empty or malformed)"
 //	@Failure	500	{object}	ErrorResponse	"Internal server error"
 //	@Security	BearerAuth
 //	@Router		/groups/{id}/permissions [get]
@@ -846,7 +896,7 @@ func NewPolicyHandler(db *database.DB, redis *redis.Client, logger *logger.Logge
 //	@Param		sort_by	query	string	false	"Field to sort by (created_at, name, status)"
 //	@Param		order	query	string	false	"Sort order (asc, desc)"
 //	@Param		organization_id	query	string	false	"Filter by organization ID"
-//	@Success	200	{object}	queries.ListResult[models.Policy]	"Policies listed successfully"
+//	@Success	200	{object}	SuccessResponse	"Policies listed successfully"
 //	@Failure	400	{object}	ErrorResponse	"Invalid request parameters"
 //	@Failure	500	{object}	ErrorResponse	"Internal server error"
 //	@Security	BearerAuth
@@ -2290,7 +2340,7 @@ func NewSessionHandler(db *database.DB, redis *redis.Client, logger *logger.Logg
 //	@Param		offset	query	int	false	"Number of sessions to skip (default: 0)"
 //	@Param		sort_by	query	string	false	"Field to sort by (last_used_at, issued_at, expires_at)"
 //	@Param		order	query	string	false	"Sort order (asc, desc)"
-//	@Success	200	{object}	queries.ListResult[models.Session]	"Sessions listed successfully"
+//	@Success	200	{object}	SuccessResponse	"Sessions listed successfully"
 //	@Failure	400	{object}	ErrorResponse	"Invalid request parameters"
 //	@Failure	500	{object}	ErrorResponse	"Internal server error"
 //	@Security	BearerAuth
@@ -2684,7 +2734,7 @@ func NewAuditHandler(queries *queries.Queries, logger *logger.Logger) *AuditHand
 //	@Param		end_time		query	string	false	"End time (RFC3339)"
 //	@Param		limit			query	int		false	"Limit (default: 50, max: 100)"
 //	@Param		offset			query	int		false	"Offset (default: 0)"
-//	@Success	200	{object}	fiber.Map	"Audit events retrieved successfully"
+//	@Success	200	{object}	SuccessResponse	"Audit events retrieved successfully"
 //	@Failure	400	{object}	ErrorResponse	"Invalid request parameters"
 //	@Failure	401	{object}	ErrorResponse	"Unauthorized"
 //	@Failure	500	{object}	ErrorResponse	"Internal server error"
@@ -3019,7 +3069,7 @@ func (h *AuditHandler) GeneratePolicyUsageReport(c *fiber.Ctx) error {
 //	@Param		end_time		query	string	false	"End time (RFC3339)"
 //	@Param		limit			query	int		false	"Limit (default: 50, max: 100)"
 //	@Param		offset			query	int		false	"Offset (default: 0)"
-//	@Success	200	{object}	fiber.Map	"Access reviews retrieved successfully"
+//	@Success	200	{object}	SuccessResponse	"Access reviews retrieved successfully"
 //	@Failure	400	{object}	ErrorResponse	"Invalid request parameters"
 //	@Failure	401	{object}	ErrorResponse	"Unauthorized"
 //	@Failure	500	{object}	ErrorResponse	"Internal server error"
@@ -3267,7 +3317,7 @@ func (h *AuditHandler) UpdateAccessReview(c *fiber.Ctx) error {
 //	@Produce	json
 //	@Param		id		path	string	true	"Access Review ID"
 //	@Param		completion	body	object	true	"Completion data"
-//	@Success	200	{object}	fiber.Map	"Access review completed successfully"
+//	@Success	200	{object}	SuccessResponse	"Access review completed successfully"
 //	@Failure	400	{object}	ErrorResponse	"Invalid request data"
 //	@Failure	401	{object}	ErrorResponse	"Unauthorized"
 //	@Failure	404	{object}	ErrorResponse	"Access review not found"
@@ -3324,7 +3374,7 @@ func (h *AuditHandler) CompleteAccessReview(c *fiber.Ctx) error {
 //	@Tags		Admin
 //	@Accept		json
 //	@Produce	json
-//	@Success	200	{object}	fiber.Map	"System statistics retrieved successfully"
+//	@Success	200	{object}	SuccessResponse	"System statistics retrieved successfully"
 //	@Failure	401	{object}	ErrorResponse	"Unauthorized"
 //	@Failure	500	{object}	ErrorResponse	"Internal server error"
 //	@Security	BearerAuth
@@ -3376,7 +3426,7 @@ func (h *AuditHandler) GetSystemStats(c *fiber.Ctx) error {
 //	@Tags		Admin
 //	@Accept		json
 //	@Produce	json
-//	@Success	200	{object}	fiber.Map	"Health check completed successfully"
+//	@Success	200	{object}	SuccessResponse	"Health check completed successfully"
 //	@Failure	401	{object}	ErrorResponse	"Unauthorized"
 //	@Failure	500	{object}	ErrorResponse	"Internal server error"
 //	@Security	BearerAuth
@@ -3443,7 +3493,7 @@ func (h *AuditHandler) SystemHealthCheck(c *fiber.Ctx) error {
 //	@Tags		Admin
 //	@Accept		json
 //	@Produce	json
-//	@Success	200	{object}	fiber.Map	"Maintenance mode enabled successfully"
+//	@Success	200	{object}	SuccessResponse	"Maintenance mode enabled successfully"
 //	@Failure	401	{object}	ErrorResponse	"Unauthorized"
 //	@Failure	500	{object}	ErrorResponse	"Internal server error"
 //	@Security	BearerAuth
@@ -3474,7 +3524,7 @@ func (h *AuditHandler) EnableMaintenanceMode(c *fiber.Ctx) error {
 //	@Tags		Admin
 //	@Accept		json
 //	@Produce	json
-//	@Success	200	{object}	fiber.Map	"Maintenance mode disabled successfully"
+//	@Success	200	{object}	SuccessResponse	"Maintenance mode disabled successfully"
 //	@Failure	401	{object}	ErrorResponse	"Unauthorized"
 //	@Failure	500	{object}	ErrorResponse	"Internal server error"
 //	@Security	BearerAuth

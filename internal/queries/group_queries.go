@@ -4,13 +4,18 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 
+	"github.com/lib/pq"
 	"github.com/redis/go-redis/v9"
 	"github.com/the-monkeys/monkeys-identity/internal/database"
 	"github.com/the-monkeys/monkeys-identity/internal/models"
 )
+
+// ErrGroupNameConflict is returned when attempting to create/update a group with a name that already exists in the organization
+var ErrGroupNameConflict = errors.New("group name already exists in organization")
 
 // GroupQueries defines all group management database operations
 type GroupQueries interface {
@@ -134,7 +139,17 @@ func (q *groupQueries) CreateGroup(g *models.Group) error {
 	stmt := `INSERT INTO groups (id, name, description, organization_id, parent_group_id, group_type, attributes, max_members, status)
 			 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
 			 RETURNING created_at, updated_at`
-	return q.queryRow(stmt, g.ID, g.Name, g.Description, g.OrganizationID, g.ParentGroupID, g.GroupType, g.Attributes, g.MaxMembers, g.Status).Scan(&g.CreatedAt, &g.UpdatedAt)
+	err := q.queryRow(stmt, g.ID, g.Name, g.Description, g.OrganizationID, g.ParentGroupID, g.GroupType, g.Attributes, g.MaxMembers, g.Status).Scan(&g.CreatedAt, &g.UpdatedAt)
+	if err != nil {
+		// Check for unique constraint violation
+		if pqErr, ok := err.(*pq.Error); ok {
+			if pqErr.Code == "23505" && strings.Contains(pqErr.Constraint, "unique_group_name_per_org") {
+				return ErrGroupNameConflict
+			}
+		}
+		return err
+	}
+	return nil
 }
 
 func (q *groupQueries) GetGroup(id string) (*models.Group, error) {
@@ -152,9 +167,16 @@ func (q *groupQueries) GetGroup(id string) (*models.Group, error) {
 
 func (q *groupQueries) UpdateGroup(g *models.Group) error {
 	stmt := `UPDATE groups SET name=$2, description=$3, parent_group_id=$4, group_type=$5, attributes=$6, max_members=$7, status=$8, updated_at=NOW() WHERE id=$1 AND status != 'deleted' RETURNING updated_at`
-	if err := q.queryRow(stmt, g.ID, g.Name, g.Description, g.ParentGroupID, g.GroupType, g.Attributes, g.MaxMembers, g.Status).Scan(&g.UpdatedAt); err != nil {
+	err := q.queryRow(stmt, g.ID, g.Name, g.Description, g.ParentGroupID, g.GroupType, g.Attributes, g.MaxMembers, g.Status).Scan(&g.UpdatedAt)
+	if err != nil {
 		if err == sql.ErrNoRows {
 			return fmt.Errorf("group not found or deleted")
+		}
+		// Check for unique constraint violation
+		if pqErr, ok := err.(*pq.Error); ok {
+			if pqErr.Code == "23505" && strings.Contains(pqErr.Constraint, "unique_group_name_per_org") {
+				return ErrGroupNameConflict
+			}
 		}
 		return err
 	}

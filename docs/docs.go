@@ -90,7 +90,7 @@ const docTemplate = `{
                     "200": {
                         "description": "Access reviews retrieved successfully",
                         "schema": {
-                            "$ref": "#/definitions/fiber.Map"
+                            "$ref": "#/definitions/SuccessResponse"
                         }
                     },
                     "400": {
@@ -137,7 +137,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_the-monkeys_monkeys-identity_internal_models.AccessReview"
+                            "$ref": "#/definitions/models.AccessReview"
                         }
                     }
                 ],
@@ -145,7 +145,7 @@ const docTemplate = `{
                     "201": {
                         "description": "Access review created successfully",
                         "schema": {
-                            "$ref": "#/definitions/github_com_the-monkeys_monkeys-identity_internal_models.AccessReview"
+                            "$ref": "#/definitions/models.AccessReview"
                         }
                     },
                     "400": {
@@ -200,7 +200,7 @@ const docTemplate = `{
                     "200": {
                         "description": "Access review retrieved successfully",
                         "schema": {
-                            "$ref": "#/definitions/github_com_the-monkeys_monkeys-identity_internal_models.AccessReview"
+                            "$ref": "#/definitions/models.AccessReview"
                         }
                     },
                     "400": {
@@ -260,7 +260,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_the-monkeys_monkeys-identity_internal_models.AccessReview"
+                            "$ref": "#/definitions/models.AccessReview"
                         }
                     }
                 ],
@@ -268,7 +268,7 @@ const docTemplate = `{
                     "200": {
                         "description": "Access review updated successfully",
                         "schema": {
-                            "$ref": "#/definitions/github_com_the-monkeys_monkeys-identity_internal_models.AccessReview"
+                            "$ref": "#/definitions/models.AccessReview"
                         }
                     },
                     "400": {
@@ -338,7 +338,7 @@ const docTemplate = `{
                     "200": {
                         "description": "Access review completed successfully",
                         "schema": {
-                            "$ref": "#/definitions/fiber.Map"
+                            "$ref": "#/definitions/SuccessResponse"
                         }
                     },
                     "400": {
@@ -390,7 +390,7 @@ const docTemplate = `{
                     "200": {
                         "description": "Health check completed successfully",
                         "schema": {
-                            "$ref": "#/definitions/fiber.Map"
+                            "$ref": "#/definitions/SuccessResponse"
                         }
                     },
                     "401": {
@@ -430,7 +430,7 @@ const docTemplate = `{
                     "200": {
                         "description": "Maintenance mode enabled successfully",
                         "schema": {
-                            "$ref": "#/definitions/fiber.Map"
+                            "$ref": "#/definitions/SuccessResponse"
                         }
                     },
                     "401": {
@@ -468,7 +468,7 @@ const docTemplate = `{
                     "200": {
                         "description": "Maintenance mode disabled successfully",
                         "schema": {
-                            "$ref": "#/definitions/fiber.Map"
+                            "$ref": "#/definitions/SuccessResponse"
                         }
                     },
                     "401": {
@@ -540,7 +540,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_the-monkeys_monkeys-identity_internal_models.GlobalSettings"
+                            "$ref": "#/definitions/models.GlobalSettings"
                         }
                     }
                 ],
@@ -588,7 +588,7 @@ const docTemplate = `{
                     "200": {
                         "description": "System statistics retrieved successfully",
                         "schema": {
-                            "$ref": "#/definitions/fiber.Map"
+                            "$ref": "#/definitions/SuccessResponse"
                         }
                     },
                     "401": {
@@ -690,7 +690,7 @@ const docTemplate = `{
                     "200": {
                         "description": "Audit events retrieved successfully",
                         "schema": {
-                            "$ref": "#/definitions/fiber.Map"
+                            "$ref": "#/definitions/SuccessResponse"
                         }
                     },
                     "400": {
@@ -745,7 +745,7 @@ const docTemplate = `{
                     "200": {
                         "description": "Audit event retrieved successfully",
                         "schema": {
-                            "$ref": "#/definitions/github_com_the-monkeys_monkeys-identity_internal_models.AuditEvent"
+                            "$ref": "#/definitions/models.AuditEvent"
                         }
                     },
                     "400": {
@@ -829,7 +829,7 @@ const docTemplate = `{
                     "200": {
                         "description": "Access report generated successfully",
                         "schema": {
-                            "$ref": "#/definitions/github_com_the-monkeys_monkeys-identity_internal_queries.AccessReportData"
+                            "$ref": "#/definitions/queries.AccessReportData"
                         }
                     },
                     "400": {
@@ -905,7 +905,7 @@ const docTemplate = `{
                     "200": {
                         "description": "Compliance report generated successfully",
                         "schema": {
-                            "$ref": "#/definitions/github_com_the-monkeys_monkeys-identity_internal_queries.ComplianceReportData"
+                            "$ref": "#/definitions/queries.ComplianceReportData"
                         }
                     },
                     "400": {
@@ -977,7 +977,7 @@ const docTemplate = `{
                     "200": {
                         "description": "Policy usage report generated successfully",
                         "schema": {
-                            "$ref": "#/definitions/github_com_the-monkeys_monkeys-identity_internal_queries.PolicyUsageReportData"
+                            "$ref": "#/definitions/queries.PolicyUsageReportData"
                         }
                     },
                     "400": {
@@ -1021,7 +1021,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/internal_handlers.CreateAdminRequest"
+                            "$ref": "#/definitions/handlers.CreateAdminRequest"
                         }
                     }
                 ],
@@ -1125,7 +1125,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/internal_handlers.LoginRequest"
+                            "$ref": "#/definitions/handlers.LoginRequest"
                         }
                     }
                 ],
@@ -1133,7 +1133,7 @@ const docTemplate = `{
                     "200": {
                         "description": "Successfully authenticated",
                         "schema": {
-                            "$ref": "#/definitions/internal_handlers.LoginResponse"
+                            "$ref": "#/definitions/handlers.LoginResponse"
                         }
                     },
                     "400": {
@@ -1216,7 +1216,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/github_com_the-monkeys_monkeys-identity_internal_models.BackupCodesResponse"
+                            "$ref": "#/definitions/models.BackupCodesResponse"
                         }
                     },
                     "401": {
@@ -1259,7 +1259,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_the-monkeys_monkeys-identity_internal_models.DisableMFARequest"
+                            "$ref": "#/definitions/models.DisableMFARequest"
                         }
                     }
                 ],
@@ -1267,7 +1267,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/github_com_the-monkeys_monkeys-identity_internal_models.MessageResponse"
+                            "$ref": "#/definitions/models.MessageResponse"
                         }
                     },
                     "400": {
@@ -1316,7 +1316,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_the-monkeys_monkeys-identity_internal_models.SetupMFARequest"
+                            "$ref": "#/definitions/models.SetupMFARequest"
                         }
                     }
                 ],
@@ -1324,7 +1324,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/github_com_the-monkeys_monkeys-identity_internal_models.SetupMFAResponse"
+                            "$ref": "#/definitions/models.SetupMFAResponse"
                         }
                     },
                     "400": {
@@ -1368,7 +1368,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_the-monkeys_monkeys-identity_internal_models.VerifyMFARequest"
+                            "$ref": "#/definitions/models.VerifyMFARequest"
                         }
                     }
                 ],
@@ -1376,7 +1376,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/internal_handlers.LoginResponse"
+                            "$ref": "#/definitions/handlers.LoginResponse"
                         }
                     },
                     "400": {
@@ -1428,7 +1428,7 @@ const docTemplate = `{
                     "200": {
                         "description": "New access token generated",
                         "schema": {
-                            "$ref": "#/definitions/internal_handlers.LoginResponse"
+                            "$ref": "#/definitions/handlers.LoginResponse"
                         }
                     },
                     "400": {
@@ -1472,7 +1472,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/internal_handlers.RegisterRequest"
+                            "$ref": "#/definitions/handlers.RegisterRequest"
                         }
                     }
                 ],
@@ -1690,7 +1690,7 @@ const docTemplate = `{
                                 "requests": {
                                     "type": "array",
                                     "items": {
-                                        "$ref": "#/definitions/github_com_the-monkeys_monkeys-identity_internal_queries.PermissionCheckRequest"
+                                        "$ref": "#/definitions/queries.PermissionCheckRequest"
                                     }
                                 }
                             }
@@ -1703,7 +1703,7 @@ const docTemplate = `{
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/github_com_the-monkeys_monkeys-identity_internal_queries.PermissionCheckResult"
+                                "$ref": "#/definitions/queries.PermissionCheckResult"
                             }
                         }
                     },
@@ -1747,7 +1747,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_the-monkeys_monkeys-identity_internal_queries.PermissionCheckRequest"
+                            "$ref": "#/definitions/queries.PermissionCheckRequest"
                         }
                     }
                 ],
@@ -1755,7 +1755,7 @@ const docTemplate = `{
                     "200": {
                         "description": "Permission check completed",
                         "schema": {
-                            "$ref": "#/definitions/github_com_the-monkeys_monkeys-identity_internal_queries.PermissionCheckResult"
+                            "$ref": "#/definitions/queries.PermissionCheckResult"
                         }
                     },
                     "400": {
@@ -1815,7 +1815,7 @@ const docTemplate = `{
                     "200": {
                         "description": "Effective permissions retrieved",
                         "schema": {
-                            "$ref": "#/definitions/github_com_the-monkeys_monkeys-identity_internal_queries.EffectivePermissions"
+                            "$ref": "#/definitions/queries.EffectivePermissions"
                         }
                     },
                     "400": {
@@ -1858,7 +1858,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_the-monkeys_monkeys-identity_internal_queries.PermissionCheckRequest"
+                            "$ref": "#/definitions/queries.PermissionCheckRequest"
                         }
                     }
                 ],
@@ -1866,7 +1866,7 @@ const docTemplate = `{
                     "200": {
                         "description": "Access simulation completed",
                         "schema": {
-                            "$ref": "#/definitions/github_com_the-monkeys_monkeys-identity_internal_queries.PermissionCheckResult"
+                            "$ref": "#/definitions/queries.PermissionCheckResult"
                         }
                     },
                     "400": {
@@ -1891,7 +1891,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Retrieve groups with pagination and optional organization filtering",
+                "description": "Retrieve groups with pagination and optional organization filtering. Returns all active groups with metadata including total count and pagination info.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1905,7 +1905,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "integer",
-                        "description": "Number of groups to return (default 50)",
+                        "description": "Number of groups to return (default 50, max 200)",
                         "name": "limit",
                         "in": "query"
                     },
@@ -1929,20 +1929,52 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "Filter by organization ID",
+                        "description": "Filter by organization ID (UUID format)",
                         "name": "organization_id",
                         "in": "query"
                     }
                 ],
                 "responses": {
                     "200": {
-                        "description": "Groups retrieved successfully",
+                        "description": "Groups retrieved successfully with pagination metadata",
                         "schema": {
-                            "$ref": "#/definitions/SuccessResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/SuccessResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "object",
+                                            "properties": {
+                                                "has_more": {
+                                                    "type": "boolean"
+                                                },
+                                                "items": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "$ref": "#/definitions/models.Group"
+                                                    }
+                                                },
+                                                "limit": {
+                                                    "type": "integer"
+                                                },
+                                                "offset": {
+                                                    "type": "integer"
+                                                },
+                                                "total": {
+                                                    "type": "integer"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
-                        "description": "Invalid query parameters",
+                        "description": "Invalid query parameters (invalid limit/offset)",
                         "schema": {
                             "$ref": "#/definitions/ErrorResponse"
                         }
@@ -1961,7 +1993,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Create a new group within an organization",
+                "description": "Create a new group within an organization. Group names must be unique within the organization. Required fields: name, organization_id. Optional fields are set to defaults (group_type=\"standard\", status=\"active\", attributes=\"{}\").",
                 "consumes": [
                     "application/json"
                 ],
@@ -1974,26 +2006,91 @@ const docTemplate = `{
                 "summary": "Create group",
                 "parameters": [
                     {
-                        "description": "Group details",
+                        "description": "Group details - Example: {\\",
                         "name": "request",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_the-monkeys_monkeys-identity_internal_models.Group"
+                            "type": "object",
+                            "properties": {
+                                "description": {
+                                    "type": "string"
+                                },
+                                "group_type": {
+                                    "type": "string"
+                                },
+                                "max_members": {
+                                    "type": "integer"
+                                },
+                                "name": {
+                                    "type": "string"
+                                },
+                                "organization_id": {
+                                    "type": "string"
+                                }
+                            }
                         }
                     }
                 ],
                 "responses": {
                     "201": {
-                        "description": "Group created successfully",
+                        "description": "Group created successfully with generated ID and timestamps",
                         "schema": {
-                            "$ref": "#/definitions/SuccessResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/SuccessResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/models.Group"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
-                        "description": "Invalid request body or validation errors",
+                        "description": "Invalid request body or missing required fields (name, organization_id)",
                         "schema": {
-                            "$ref": "#/definitions/ErrorResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/ErrorResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "error": {
+                                            "type": "string"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict - A group with this name already exists in the organization",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/ErrorResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "error": {
+                                            "type": "string"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "500": {
@@ -2012,7 +2109,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Retrieve detailed information about a specific group",
+                "description": "Retrieve detailed information about a specific group by its UUID. Returns complete group details including all fields and timestamps.",
                 "consumes": [
                     "application/json"
                 ],
@@ -2026,7 +2123,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Group ID",
+                        "description": "Group ID (UUID format)",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -2034,19 +2131,31 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "Group retrieved successfully",
+                        "description": "Group retrieved successfully with all details",
                         "schema": {
-                            "$ref": "#/definitions/SuccessResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/SuccessResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/models.Group"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
-                        "description": "Invalid group ID",
+                        "description": "Invalid group ID (empty or malformed)",
                         "schema": {
                             "$ref": "#/definitions/ErrorResponse"
                         }
                     },
                     "404": {
-                        "description": "Group not found",
+                        "description": "Group not found or has been deleted",
                         "schema": {
                             "$ref": "#/definitions/ErrorResponse"
                         }
@@ -2065,7 +2174,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Update a group's properties",
+                "description": "Update a group's properties with partial update support. Only fields provided in the request are updated - missing fields retain their current values. Updatable fields: name, description, max_members, status. Immutable fields: id, organization_id, group_type. Group names must remain unique within the organization.",
                 "consumes": [
                     "application/json"
                 ],
@@ -2079,38 +2188,85 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Group ID",
+                        "description": "Group ID (UUID format)",
                         "name": "id",
                         "in": "path",
                         "required": true
                     },
                     {
-                        "description": "Updated group details",
+                        "description": "Updated group details (partial) - Example: {\\",
                         "name": "request",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_the-monkeys_monkeys-identity_internal_models.Group"
+                            "type": "object",
+                            "properties": {
+                                "description": {
+                                    "type": "string"
+                                },
+                                "max_members": {
+                                    "type": "integer"
+                                },
+                                "name": {
+                                    "type": "string"
+                                },
+                                "status": {
+                                    "type": "string"
+                                }
+                            }
                         }
                     }
                 ],
                 "responses": {
                     "200": {
-                        "description": "Group updated successfully",
+                        "description": "Group updated successfully with refreshed updated_at timestamp",
                         "schema": {
-                            "$ref": "#/definitions/SuccessResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/SuccessResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/models.Group"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
-                        "description": "Invalid request body",
+                        "description": "Invalid request body or group ID",
                         "schema": {
                             "$ref": "#/definitions/ErrorResponse"
                         }
                     },
                     "404": {
-                        "description": "Group not found",
+                        "description": "Group not found or has been deleted",
                         "schema": {
                             "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict - A group with this name already exists in the organization",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/ErrorResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "error": {
+                                            "type": "string"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "500": {
@@ -2127,7 +2283,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Soft delete a group by marking it deleted",
+                "description": "Soft delete a group by setting the deleted_at timestamp. The group remains in the database but is excluded from queries. Returns the group ID and deletion timestamp.",
                 "consumes": [
                     "application/json"
                 ],
@@ -2141,7 +2297,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Group ID",
+                        "description": "Group ID (UUID format)",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -2149,19 +2305,39 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "Group deleted successfully",
+                        "description": "Group deleted successfully with deletion timestamp",
                         "schema": {
-                            "$ref": "#/definitions/SuccessResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/SuccessResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "object",
+                                            "properties": {
+                                                "deleted_at": {
+                                                    "type": "string"
+                                                },
+                                                "group_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
-                        "description": "Invalid group ID",
+                        "description": "Invalid group ID (empty or malformed)",
                         "schema": {
                             "$ref": "#/definitions/ErrorResponse"
                         }
                     },
                     "404": {
-                        "description": "Group not found",
+                        "description": "Group not found or already deleted",
                         "schema": {
                             "$ref": "#/definitions/ErrorResponse"
                         }
@@ -2182,7 +2358,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Retrieve all members of a group",
+                "description": "Retrieve all active members of a group with their membership details including principal information, role in group, and join timestamps.",
                 "consumes": [
                     "application/json"
                 ],
@@ -2196,7 +2372,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Group ID",
+                        "description": "Group ID (UUID format)",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -2204,13 +2380,39 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "Group members retrieved successfully",
+                        "description": "Group members retrieved successfully with count",
                         "schema": {
-                            "$ref": "#/definitions/SuccessResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/SuccessResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "object",
+                                            "properties": {
+                                                "count": {
+                                                    "type": "integer"
+                                                },
+                                                "group_id": {
+                                                    "type": "string"
+                                                },
+                                                "members": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "$ref": "#/definitions/models.GroupMembership"
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
-                        "description": "Invalid group ID",
+                        "description": "Invalid group ID (empty or malformed)",
                         "schema": {
                             "$ref": "#/definitions/ErrorResponse"
                         }
@@ -2229,7 +2431,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Add a principal (user or service account) to a group",
+                "description": "Add a principal (user or service account) to a group. Principal must exist in the system. Required fields: principal_id (UUID), principal_type (user/service_account). Optional: role_in_group (defaults to \\\"member\\\"), expires_at (RFC3339 format). Membership is automatically timestamped with joined_at and tracks who added the member.",
                 "consumes": [
                     "application/json"
                 ],
@@ -2243,36 +2445,62 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Group ID",
+                        "description": "Group ID (UUID format)",
                         "name": "id",
                         "in": "path",
                         "required": true
                     },
                     {
-                        "description": "Membership details",
+                        "description": "Membership details - Example: {\\",
                         "name": "request",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "type": "object"
+                            "type": "object",
+                            "properties": {
+                                "expires_at": {
+                                    "type": "string"
+                                },
+                                "principal_id": {
+                                    "type": "string"
+                                },
+                                "principal_type": {
+                                    "type": "string"
+                                },
+                                "role_in_group": {
+                                    "type": "string"
+                                }
+                            }
                         }
                     }
                 ],
                 "responses": {
                     "201": {
-                        "description": "Group member added successfully",
+                        "description": "Group member added successfully with generated membership ID and timestamps",
                         "schema": {
-                            "$ref": "#/definitions/SuccessResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/SuccessResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/models.GroupMembership"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
-                        "description": "Invalid request body",
+                        "description": "Invalid request body, missing required fields, or invalid expires_at format",
                         "schema": {
                             "$ref": "#/definitions/ErrorResponse"
                         }
                     },
                     "500": {
-                        "description": "Internal server error",
+                        "description": "Internal server error or principal not found",
                         "schema": {
                             "$ref": "#/definitions/ErrorResponse"
                         }
@@ -2287,7 +2515,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Remove a principal from a group membership",
+                "description": "Remove a principal from a group membership by deleting the membership record. Requires both group ID and principal ID. Principal type defaults to \\\"user\\\" if not specified.",
                 "consumes": [
                     "application/json"
                 ],
@@ -2301,40 +2529,63 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Group ID",
+                        "description": "Group ID (UUID format)",
                         "name": "id",
                         "in": "path",
                         "required": true
                     },
                     {
                         "type": "string",
-                        "description": "Principal ID",
+                        "description": "Principal ID (UUID format) - user or service account to remove",
                         "name": "user_id",
                         "in": "path",
                         "required": true
                     },
                     {
                         "type": "string",
-                        "description": "Principal type (user or service_account)",
+                        "description": "Principal type: 'user' or 'service_account' (default: 'user')",
                         "name": "principal_type",
                         "in": "query"
                     }
                 ],
                 "responses": {
                     "200": {
-                        "description": "Group member removed successfully",
+                        "description": "Group member removed successfully with confirmation",
                         "schema": {
-                            "$ref": "#/definitions/SuccessResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/SuccessResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "object",
+                                            "properties": {
+                                                "group_id": {
+                                                    "type": "string"
+                                                },
+                                                "principal_id": {
+                                                    "type": "string"
+                                                },
+                                                "removed": {
+                                                    "type": "boolean"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
-                        "description": "Invalid parameters",
+                        "description": "Invalid parameters (missing group ID or principal ID)",
                         "schema": {
                             "$ref": "#/definitions/ErrorResponse"
                         }
                     },
                     "404": {
-                        "description": "Membership not found",
+                        "description": "Membership not found (principal is not a member of this group)",
                         "schema": {
                             "$ref": "#/definitions/ErrorResponse"
                         }
@@ -2355,7 +2606,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Retrieve aggregated allow/deny permissions derived from member role assignments",
+                "description": "Retrieve aggregated allow/deny permissions derived from member role assignments. Returns a comprehensive view of all permissions granted to group members through their assigned roles, including both allowed and denied permissions with counts in the summary.",
                 "consumes": [
                     "application/json"
                 ],
@@ -2369,7 +2620,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Group ID",
+                        "description": "Group ID (UUID format)",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -2377,13 +2628,33 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "Group permissions retrieved successfully",
+                        "description": "Group permissions retrieved successfully with allow/deny lists and summary counts (JSON string format)",
                         "schema": {
-                            "$ref": "#/definitions/SuccessResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/SuccessResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "object",
+                                            "properties": {
+                                                "group_id": {
+                                                    "type": "string"
+                                                },
+                                                "permissions": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
-                        "description": "Invalid group ID",
+                        "description": "Invalid group ID (empty or malformed)",
                         "schema": {
                             "$ref": "#/definitions/ErrorResponse"
                         }
@@ -2474,7 +2745,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_the-monkeys_monkeys-identity_internal_models.Organization"
+                            "$ref": "#/definitions/models.Organization"
                         }
                     }
                 ],
@@ -2588,7 +2859,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_the-monkeys_monkeys-identity_internal_models.Organization"
+                            "$ref": "#/definitions/models.Organization"
                         }
                     }
                 ],
@@ -2936,7 +3207,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/internal_handlers.updateSettingsRequest"
+                            "$ref": "#/definitions/handlers.updateSettingsRequest"
                         }
                     }
                 ],
@@ -3068,7 +3339,7 @@ const docTemplate = `{
                     "200": {
                         "description": "Policies listed successfully",
                         "schema": {
-                            "$ref": "#/definitions/github_com_the-monkeys_monkeys-identity_internal_queries.ListResult-github_com_the-monkeys_monkeys-identity_internal_models_Policy"
+                            "$ref": "#/definitions/SuccessResponse"
                         }
                     },
                     "400": {
@@ -3109,7 +3380,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_the-monkeys_monkeys-identity_internal_models.Policy"
+                            "$ref": "#/definitions/models.Policy"
                         }
                     }
                 ],
@@ -3117,7 +3388,7 @@ const docTemplate = `{
                     "201": {
                         "description": "Policy created successfully",
                         "schema": {
-                            "$ref": "#/definitions/github_com_the-monkeys_monkeys-identity_internal_models.Policy"
+                            "$ref": "#/definitions/models.Policy"
                         }
                     },
                     "400": {
@@ -3160,7 +3431,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_the-monkeys_monkeys-identity_internal_queries.PolicySimulationRequest"
+                            "$ref": "#/definitions/queries.PolicySimulationRequest"
                         }
                     }
                 ],
@@ -3168,7 +3439,7 @@ const docTemplate = `{
                     "200": {
                         "description": "Policy simulation completed",
                         "schema": {
-                            "$ref": "#/definitions/github_com_the-monkeys_monkeys-identity_internal_queries.PolicySimulationResult"
+                            "$ref": "#/definitions/queries.PolicySimulationResult"
                         }
                     },
                     "400": {
@@ -3217,7 +3488,7 @@ const docTemplate = `{
                     "200": {
                         "description": "Policy retrieved successfully",
                         "schema": {
-                            "$ref": "#/definitions/github_com_the-monkeys_monkeys-identity_internal_models.Policy"
+                            "$ref": "#/definitions/models.Policy"
                         }
                     },
                     "400": {
@@ -3271,7 +3542,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_the-monkeys_monkeys-identity_internal_models.Policy"
+                            "$ref": "#/definitions/models.Policy"
                         }
                     }
                 ],
@@ -3279,7 +3550,7 @@ const docTemplate = `{
                     "200": {
                         "description": "Policy updated successfully",
                         "schema": {
-                            "$ref": "#/definitions/github_com_the-monkeys_monkeys-identity_internal_models.Policy"
+                            "$ref": "#/definitions/models.Policy"
                         }
                     },
                     "400": {
@@ -3513,7 +3784,7 @@ const docTemplate = `{
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/github_com_the-monkeys_monkeys-identity_internal_queries.PolicyVersion"
+                                "$ref": "#/definitions/queries.PolicyVersion"
                             }
                         }
                     },
@@ -3621,7 +3892,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_the-monkeys_monkeys-identity_internal_models.Resource"
+                            "$ref": "#/definitions/models.Resource"
                         }
                     }
                 ],
@@ -3732,7 +4003,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_the-monkeys_monkeys-identity_internal_models.Resource"
+                            "$ref": "#/definitions/models.Resource"
                         }
                     }
                 ],
@@ -4216,7 +4487,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_the-monkeys_monkeys-identity_internal_models.Role"
+                            "$ref": "#/definitions/models.Role"
                         }
                     }
                 ],
@@ -4333,7 +4604,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_the-monkeys_monkeys-identity_internal_models.Role"
+                            "$ref": "#/definitions/models.Role"
                         }
                     }
                 ],
@@ -4501,7 +4772,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_the-monkeys_monkeys-identity_internal_models.ServiceAccount"
+                            "$ref": "#/definitions/models.ServiceAccount"
                         }
                     }
                 ],
@@ -4612,7 +4883,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_the-monkeys_monkeys-identity_internal_models.ServiceAccount"
+                            "$ref": "#/definitions/models.ServiceAccount"
                         }
                     }
                 ],
@@ -4770,7 +5041,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_the-monkeys_monkeys-identity_internal_models.APIKey"
+                            "$ref": "#/definitions/models.APIKey"
                         }
                     }
                 ],
@@ -4955,7 +5226,7 @@ const docTemplate = `{
                     "200": {
                         "description": "Sessions listed successfully",
                         "schema": {
-                            "$ref": "#/definitions/github_com_the-monkeys_monkeys-identity_internal_queries.ListResult-github_com_the-monkeys_monkeys-identity_internal_models_Session"
+                            "$ref": "#/definitions/SuccessResponse"
                         }
                     },
                     "400": {
@@ -4995,7 +5266,7 @@ const docTemplate = `{
                     "200": {
                         "description": "Current session retrieved successfully",
                         "schema": {
-                            "$ref": "#/definitions/github_com_the-monkeys_monkeys-identity_internal_models.Session"
+                            "$ref": "#/definitions/models.Session"
                         }
                     },
                     "401": {
@@ -5082,7 +5353,7 @@ const docTemplate = `{
                     "200": {
                         "description": "Session retrieved successfully",
                         "schema": {
-                            "$ref": "#/definitions/github_com_the-monkeys_monkeys-identity_internal_models.Session"
+                            "$ref": "#/definitions/models.Session"
                         }
                     },
                     "400": {
@@ -5215,7 +5486,7 @@ const docTemplate = `{
                     "200": {
                         "description": "Session extended successfully",
                         "schema": {
-                            "$ref": "#/definitions/github_com_the-monkeys_monkeys-identity_internal_models.Session"
+                            "$ref": "#/definitions/models.Session"
                         }
                     },
                     "400": {
@@ -5937,11 +6208,110 @@ const docTemplate = `{
                 }
             }
         },
-        "fiber.Map": {
+        "handlers.CreateAdminRequest": {
             "type": "object",
-            "additionalProperties": true
+            "required": [
+                "display_name",
+                "email",
+                "password",
+                "username"
+            ],
+            "properties": {
+                "display_name": {
+                    "type": "string"
+                },
+                "email": {
+                    "type": "string"
+                },
+                "organization_id": {
+                    "type": "string"
+                },
+                "password": {
+                    "type": "string",
+                    "minLength": 8
+                },
+                "username": {
+                    "type": "string",
+                    "maxLength": 50,
+                    "minLength": 3
+                }
+            }
         },
-        "github_com_the-monkeys_monkeys-identity_internal_models.APIKey": {
+        "handlers.LoginRequest": {
+            "type": "object",
+            "required": [
+                "email",
+                "password"
+            ],
+            "properties": {
+                "email": {
+                    "type": "string"
+                },
+                "password": {
+                    "type": "string",
+                    "minLength": 6
+                }
+            }
+        },
+        "handlers.LoginResponse": {
+            "type": "object",
+            "properties": {
+                "access_token": {
+                    "type": "string"
+                },
+                "expires_in": {
+                    "type": "integer"
+                },
+                "refresh_token": {
+                    "type": "string"
+                },
+                "token_type": {
+                    "type": "string"
+                },
+                "user": {
+                    "$ref": "#/definitions/models.User"
+                }
+            }
+        },
+        "handlers.RegisterRequest": {
+            "type": "object",
+            "required": [
+                "display_name",
+                "email",
+                "organization_id",
+                "password",
+                "username"
+            ],
+            "properties": {
+                "display_name": {
+                    "type": "string"
+                },
+                "email": {
+                    "type": "string"
+                },
+                "organization_id": {
+                    "type": "string"
+                },
+                "password": {
+                    "type": "string",
+                    "minLength": 8
+                },
+                "username": {
+                    "type": "string",
+                    "maxLength": 50,
+                    "minLength": 3
+                }
+            }
+        },
+        "handlers.updateSettingsRequest": {
+            "type": "object",
+            "properties": {
+                "settings": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.APIKey": {
             "type": "object",
             "properties": {
                 "allowed_ip_ranges": {
@@ -5994,7 +6364,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_the-monkeys_monkeys-identity_internal_models.AccessReview": {
+        "models.AccessReview": {
             "type": "object",
             "properties": {
                 "completed_at": {
@@ -6041,7 +6411,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_the-monkeys_monkeys-identity_internal_models.AuditEvent": {
+        "models.AuditEvent": {
             "type": "object",
             "properties": {
                 "action": {
@@ -6101,7 +6471,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_the-monkeys_monkeys-identity_internal_models.BackupCodesResponse": {
+        "models.BackupCodesResponse": {
             "type": "object",
             "properties": {
                 "backup_codes": {
@@ -6115,7 +6485,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_the-monkeys_monkeys-identity_internal_models.DisableMFARequest": {
+        "models.DisableMFARequest": {
             "type": "object",
             "required": [
                 "code",
@@ -6132,7 +6502,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_the-monkeys_monkeys-identity_internal_models.GlobalSettings": {
+        "models.GlobalSettings": {
             "type": "object",
             "properties": {
                 "allow_registration": {
@@ -6181,7 +6551,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_the-monkeys_monkeys-identity_internal_models.Group": {
+        "models.Group": {
             "type": "object",
             "properties": {
                 "attributes": {
@@ -6223,7 +6593,36 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_the-monkeys_monkeys-identity_internal_models.MessageResponse": {
+        "models.GroupMembership": {
+            "type": "object",
+            "properties": {
+                "added_by": {
+                    "type": "string"
+                },
+                "expires_at": {
+                    "type": "string"
+                },
+                "group_id": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "joined_at": {
+                    "type": "string"
+                },
+                "principal_id": {
+                    "type": "string"
+                },
+                "principal_type": {
+                    "type": "string"
+                },
+                "role_in_group": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.MessageResponse": {
             "type": "object",
             "properties": {
                 "message": {
@@ -6231,7 +6630,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_the-monkeys_monkeys-identity_internal_models.Organization": {
+        "models.Organization": {
             "type": "object",
             "properties": {
                 "billing_tier": {
@@ -6280,7 +6679,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_the-monkeys_monkeys-identity_internal_models.Policy": {
+        "models.Policy": {
             "type": "object",
             "properties": {
                 "approved_at": {
@@ -6334,7 +6733,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_the-monkeys_monkeys-identity_internal_models.Resource": {
+        "models.Resource": {
             "type": "object",
             "properties": {
                 "access_level": {
@@ -6411,7 +6810,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_the-monkeys_monkeys-identity_internal_models.Role": {
+        "models.Role": {
             "type": "object",
             "properties": {
                 "assume_role_policy": {
@@ -6467,7 +6866,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_the-monkeys_monkeys-identity_internal_models.ServiceAccount": {
+        "models.ServiceAccount": {
             "type": "object",
             "properties": {
                 "allowed_ip_ranges": {
@@ -6516,7 +6915,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_the-monkeys_monkeys-identity_internal_models.Session": {
+        "models.Session": {
             "type": "object",
             "properties": {
                 "assumed_role_id": {
@@ -6581,7 +6980,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_the-monkeys_monkeys-identity_internal_models.SetupMFARequest": {
+        "models.SetupMFARequest": {
             "type": "object",
             "required": [
                 "method"
@@ -6600,7 +6999,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_the-monkeys_monkeys-identity_internal_models.SetupMFAResponse": {
+        "models.SetupMFAResponse": {
             "type": "object",
             "properties": {
                 "backup_codes": {
@@ -6620,7 +7019,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_the-monkeys_monkeys-identity_internal_models.User": {
+        "models.User": {
             "type": "object",
             "properties": {
                 "attributes": {
@@ -6687,7 +7086,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_the-monkeys_monkeys-identity_internal_models.VerifyMFARequest": {
+        "models.VerifyMFARequest": {
             "type": "object",
             "required": [
                 "code",
@@ -6717,7 +7116,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_the-monkeys_monkeys-identity_internal_queries.AccessReportData": {
+        "queries.AccessReportData": {
             "type": "object",
             "properties": {
                 "generated_at": {
@@ -6749,13 +7148,13 @@ const docTemplate = `{
                         "top_actions": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/github_com_the-monkeys_monkeys-identity_internal_queries.ActionCount"
+                                "$ref": "#/definitions/queries.ActionCount"
                             }
                         },
                         "top_resources": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/github_com_the-monkeys_monkeys-identity_internal_queries.ResourceAccessCount"
+                                "$ref": "#/definitions/queries.ResourceAccessCount"
                             }
                         },
                         "total_actions": {
@@ -6772,12 +7171,12 @@ const docTemplate = `{
                 "user_activity": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_the-monkeys_monkeys-identity_internal_queries.UserActivitySummary"
+                        "$ref": "#/definitions/queries.UserActivitySummary"
                     }
                 }
             }
         },
-        "github_com_the-monkeys_monkeys-identity_internal_queries.ActionCount": {
+        "queries.ActionCount": {
             "type": "object",
             "properties": {
                 "action": {
@@ -6788,7 +7187,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_the-monkeys_monkeys-identity_internal_queries.ComplianceReportData": {
+        "queries.ComplianceReportData": {
             "type": "object",
             "properties": {
                 "generated_at": {
@@ -6808,7 +7207,7 @@ const docTemplate = `{
                 "policy_checks": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_the-monkeys_monkeys-identity_internal_queries.PolicyCheckResult"
+                        "$ref": "#/definitions/queries.PolicyCheckResult"
                     }
                 },
                 "recommendations": {
@@ -6820,7 +7219,7 @@ const docTemplate = `{
                 "security_events": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_the-monkeys_monkeys-identity_internal_queries.SecurityEventSummary"
+                        "$ref": "#/definitions/queries.SecurityEventSummary"
                     }
                 },
                 "summary": {
@@ -6860,7 +7259,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_the-monkeys_monkeys-identity_internal_queries.EffectivePermission": {
+        "queries.EffectivePermission": {
             "type": "object",
             "properties": {
                 "actions": {
@@ -6887,7 +7286,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_the-monkeys_monkeys-identity_internal_queries.EffectivePermissions": {
+        "queries.EffectivePermissions": {
             "type": "object",
             "properties": {
                 "generated_at": {
@@ -6896,7 +7295,7 @@ const docTemplate = `{
                 "permissions": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_the-monkeys_monkeys-identity_internal_queries.EffectivePermission"
+                        "$ref": "#/definitions/queries.EffectivePermission"
                     }
                 },
                 "principal_id": {
@@ -6907,66 +7306,14 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_the-monkeys_monkeys-identity_internal_queries.ListResult-github_com_the-monkeys_monkeys-identity_internal_models_Policy": {
-            "type": "object",
-            "properties": {
-                "has_more": {
-                    "type": "boolean"
-                },
-                "items": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/github_com_the-monkeys_monkeys-identity_internal_models.Policy"
-                    }
-                },
-                "limit": {
-                    "type": "integer"
-                },
-                "offset": {
-                    "type": "integer"
-                },
-                "total": {
-                    "type": "integer"
-                },
-                "total_pages": {
-                    "type": "integer"
-                }
-            }
-        },
-        "github_com_the-monkeys_monkeys-identity_internal_queries.ListResult-github_com_the-monkeys_monkeys-identity_internal_models_Session": {
-            "type": "object",
-            "properties": {
-                "has_more": {
-                    "type": "boolean"
-                },
-                "items": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/github_com_the-monkeys_monkeys-identity_internal_models.Session"
-                    }
-                },
-                "limit": {
-                    "type": "integer"
-                },
-                "offset": {
-                    "type": "integer"
-                },
-                "total": {
-                    "type": "integer"
-                },
-                "total_pages": {
-                    "type": "integer"
-                }
-            }
-        },
-        "github_com_the-monkeys_monkeys-identity_internal_queries.PermissionCheckRequest": {
+        "queries.PermissionCheckRequest": {
             "type": "object",
             "properties": {
                 "action": {
                     "type": "string"
                 },
                 "context": {
-                    "$ref": "#/definitions/github_com_the-monkeys_monkeys-identity_internal_queries.PolicyEvaluationContext"
+                    "$ref": "#/definitions/queries.PolicyEvaluationContext"
                 },
                 "principal_id": {
                     "type": "string"
@@ -6979,7 +7326,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_the-monkeys_monkeys-identity_internal_queries.PermissionCheckResult": {
+        "queries.PermissionCheckResult": {
             "type": "object",
             "properties": {
                 "allowed": {
@@ -6989,7 +7336,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "evaluation": {
-                    "$ref": "#/definitions/github_com_the-monkeys_monkeys-identity_internal_queries.PolicyEvaluationResult"
+                    "$ref": "#/definitions/queries.PolicyEvaluationResult"
                 },
                 "policies": {
                     "type": "array",
@@ -6998,11 +7345,11 @@ const docTemplate = `{
                     }
                 },
                 "request": {
-                    "$ref": "#/definitions/github_com_the-monkeys_monkeys-identity_internal_queries.PermissionCheckRequest"
+                    "$ref": "#/definitions/queries.PermissionCheckRequest"
                 }
             }
         },
-        "github_com_the-monkeys_monkeys-identity_internal_queries.PolicyCheckResult": {
+        "queries.PolicyCheckResult": {
             "type": "object",
             "properties": {
                 "details": {
@@ -7016,7 +7363,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_the-monkeys_monkeys-identity_internal_queries.PolicyDetailedUsage": {
+        "queries.PolicyDetailedUsage": {
             "type": "object",
             "properties": {
                 "allows": {
@@ -7048,7 +7395,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_the-monkeys_monkeys-identity_internal_queries.PolicyEvaluationContext": {
+        "queries.PolicyEvaluationContext": {
             "type": "object",
             "properties": {
                 "action": {
@@ -7080,7 +7427,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_the-monkeys_monkeys-identity_internal_queries.PolicyEvaluationResult": {
+        "queries.PolicyEvaluationResult": {
             "type": "object",
             "properties": {
                 "conditions": {
@@ -7114,11 +7461,11 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_the-monkeys_monkeys-identity_internal_queries.PolicySimulationRequest": {
+        "queries.PolicySimulationRequest": {
             "type": "object",
             "properties": {
                 "context": {
-                    "$ref": "#/definitions/github_com_the-monkeys_monkeys-identity_internal_queries.PolicyEvaluationContext"
+                    "$ref": "#/definitions/queries.PolicyEvaluationContext"
                 },
                 "policy_document": {
                     "type": "string"
@@ -7126,12 +7473,12 @@ const docTemplate = `{
                 "test_cases": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_the-monkeys_monkeys-identity_internal_queries.PolicySimulationTestCase"
+                        "$ref": "#/definitions/queries.PolicySimulationTestCase"
                     }
                 }
             }
         },
-        "github_com_the-monkeys_monkeys-identity_internal_queries.PolicySimulationResult": {
+        "queries.PolicySimulationResult": {
             "type": "object",
             "properties": {
                 "errors": {
@@ -7141,7 +7488,7 @@ const docTemplate = `{
                     }
                 },
                 "evaluation": {
-                    "$ref": "#/definitions/github_com_the-monkeys_monkeys-identity_internal_queries.PolicyEvaluationResult"
+                    "$ref": "#/definitions/queries.PolicyEvaluationResult"
                 },
                 "policy_id": {
                     "type": "string"
@@ -7149,7 +7496,7 @@ const docTemplate = `{
                 "test_results": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_the-monkeys_monkeys-identity_internal_queries.PolicyTestResult"
+                        "$ref": "#/definitions/queries.PolicyTestResult"
                     }
                 },
                 "valid": {
@@ -7157,14 +7504,14 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_the-monkeys_monkeys-identity_internal_queries.PolicySimulationTestCase": {
+        "queries.PolicySimulationTestCase": {
             "type": "object",
             "properties": {
                 "action": {
                     "type": "string"
                 },
                 "context": {
-                    "$ref": "#/definitions/github_com_the-monkeys_monkeys-identity_internal_queries.PolicyEvaluationContext"
+                    "$ref": "#/definitions/queries.PolicyEvaluationContext"
                 },
                 "expected": {
                     "description": "allow, deny, not_applicable",
@@ -7181,7 +7528,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_the-monkeys_monkeys-identity_internal_queries.PolicyTestResult": {
+        "queries.PolicyTestResult": {
             "type": "object",
             "properties": {
                 "message": {
@@ -7191,14 +7538,14 @@ const docTemplate = `{
                     "type": "boolean"
                 },
                 "result": {
-                    "$ref": "#/definitions/github_com_the-monkeys_monkeys-identity_internal_queries.PolicyEvaluationResult"
+                    "$ref": "#/definitions/queries.PolicyEvaluationResult"
                 },
                 "test_case": {
-                    "$ref": "#/definitions/github_com_the-monkeys_monkeys-identity_internal_queries.PolicySimulationTestCase"
+                    "$ref": "#/definitions/queries.PolicySimulationTestCase"
                 }
             }
         },
-        "github_com_the-monkeys_monkeys-identity_internal_queries.PolicyUsageItem": {
+        "queries.PolicyUsageItem": {
             "type": "object",
             "properties": {
                 "allow_count": {
@@ -7221,7 +7568,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_the-monkeys_monkeys-identity_internal_queries.PolicyUsageReportData": {
+        "queries.PolicyUsageReportData": {
             "type": "object",
             "properties": {
                 "generated_at": {
@@ -7241,7 +7588,7 @@ const docTemplate = `{
                 "policy_details": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_the-monkeys_monkeys-identity_internal_queries.PolicyDetailedUsage"
+                        "$ref": "#/definitions/queries.PolicyDetailedUsage"
                     }
                 },
                 "summary": {
@@ -7262,7 +7609,7 @@ const docTemplate = `{
                         "top_policies": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/github_com_the-monkeys_monkeys-identity_internal_queries.PolicyUsageItem"
+                                "$ref": "#/definitions/queries.PolicyUsageItem"
                             }
                         },
                         "total_policies": {
@@ -7272,7 +7619,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_the-monkeys_monkeys-identity_internal_queries.PolicyVersion": {
+        "queries.PolicyVersion": {
             "type": "object",
             "properties": {
                 "created_at": {
@@ -7299,7 +7646,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_the-monkeys_monkeys-identity_internal_queries.ResourceAccessCount": {
+        "queries.ResourceAccessCount": {
             "type": "object",
             "properties": {
                 "count": {
@@ -7310,7 +7657,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_the-monkeys_monkeys-identity_internal_queries.SecurityEventSummary": {
+        "queries.SecurityEventSummary": {
             "type": "object",
             "properties": {
                 "count": {
@@ -7327,7 +7674,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_the-monkeys_monkeys-identity_internal_queries.UserActivitySummary": {
+        "queries.UserActivitySummary": {
             "type": "object",
             "properties": {
                 "action_count": {
@@ -7349,109 +7696,6 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "user_id": {
-                    "type": "string"
-                }
-            }
-        },
-        "internal_handlers.CreateAdminRequest": {
-            "type": "object",
-            "required": [
-                "email",
-                "fullName",
-                "password",
-                "username"
-            ],
-            "properties": {
-                "email": {
-                    "type": "string"
-                },
-                "fullName": {
-                    "type": "string"
-                },
-                "organization_id": {
-                    "type": "string"
-                },
-                "password": {
-                    "type": "string",
-                    "minLength": 8
-                },
-                "username": {
-                    "type": "string",
-                    "maxLength": 50,
-                    "minLength": 3
-                }
-            }
-        },
-        "internal_handlers.LoginRequest": {
-            "type": "object",
-            "required": [
-                "email",
-                "password"
-            ],
-            "properties": {
-                "email": {
-                    "type": "string"
-                },
-                "password": {
-                    "type": "string",
-                    "minLength": 6
-                }
-            }
-        },
-        "internal_handlers.LoginResponse": {
-            "type": "object",
-            "properties": {
-                "access_token": {
-                    "type": "string"
-                },
-                "expires_in": {
-                    "type": "integer"
-                },
-                "refresh_token": {
-                    "type": "string"
-                },
-                "token_type": {
-                    "type": "string"
-                },
-                "user": {
-                    "$ref": "#/definitions/github_com_the-monkeys_monkeys-identity_internal_models.User"
-                }
-            }
-        },
-        "internal_handlers.RegisterRequest": {
-            "type": "object",
-            "required": [
-                "display_name",
-                "email",
-                "organization_id",
-                "password",
-                "username"
-            ],
-            "properties": {
-                "display_name": {
-                    "type": "string"
-                },
-                "email": {
-                    "type": "string"
-                },
-                "organization_id": {
-                    "type": "string"
-                },
-                "password": {
-                    "type": "string",
-                    "minLength": 8
-                },
-                "username": {
-                    "type": "string",
-                    "maxLength": 50,
-                    "minLength": 3
-                }
-            }
-        },
-        "internal_handlers.updateSettingsRequest": {
-            "type": "object",
-            "properties": {
-                "settings": {
                     "type": "string"
                 }
             }
