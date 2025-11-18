@@ -1,0 +1,44 @@
+﻿{
+    "valid":  true,
+    "test_results":  [
+                         {
+                             "test_case":  {
+                                               "name":  "Test read access",
+                                               "principal":  "user:cad2dae8-a954-4c8e-8eb2-e70d01b40f5e",
+                                               "resource":  "arn:monkey:test:org1:account1:resource/res123",
+                                               "action":  "test:read",
+                                               "context":  null,
+                                               "expected":  "allow"
+                                           },
+                             "result":  {
+                                            "effect":  "not_applicable",
+                                            "decision":  "not_applicable",
+                                            "reasons":  [
+
+                                                        ]
+                                        },
+                             "passed":  false,
+                             "message":  "Expected allow, got not_applicable"
+                         },
+                         {
+                             "test_case":  {
+                                               "name":  "Test delete access denied",
+                                               "principal":  "user:cad2dae8-a954-4c8e-8eb2-e70d01b40f5e",
+                                               "resource":  "arn:monkey:test:org1:account1:resource/res123",
+                                               "action":  "test:delete",
+                                               "context":  null,
+                                               "expected":  "deny"
+                                           },
+                             "result":  {
+                                            "effect":  "not_applicable",
+                                            "decision":  "not_applicable",
+                                            "reasons":  [
+
+                                                        ]
+                                        },
+                             "passed":  false,
+                             "message":  "Expected deny, got not_applicable"
+                         }
+                     ],
+    "evaluation":  null
+}

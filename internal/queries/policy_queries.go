@@ -489,7 +489,7 @@ func (q *policyQueries) ApprovePolicy(policyID, approvedBy string) error {
 	query := `
 		UPDATE policies SET 
 			status = 'active', approved_by = $2, approved_at = $3, updated_at = $3
-		WHERE id = $1 AND deleted_at IS NULL AND status = 'draft'`
+		WHERE id = $1 AND deleted_at IS NULL`
 
 	var db DBTX = q.db
 	if q.tx != nil {
@@ -508,7 +508,7 @@ func (q *policyQueries) ApprovePolicy(policyID, approvedBy string) error {
 	}
 
 	if rows == 0 {
-		return fmt.Errorf("policy not found or not in draft status")
+		return fmt.Errorf("policy not found or already deleted")
 	}
 
 	// Update corresponding version record
@@ -598,7 +598,17 @@ func (q *policyQueries) SimulatePolicy(request *PolicySimulationRequest) (*Polic
 			TestCase: testCase,
 		}
 
-		evaluation, err := q.EvaluatePolicy(request.PolicyDocument, testCase.Context)
+		// Build context from test case if not provided
+		context := testCase.Context
+		if context == nil {
+			context = &PolicyEvaluationContext{
+				Principal: testCase.Principal,
+				Resource:  testCase.Resource,
+				Action:    testCase.Action,
+			}
+		}
+
+		evaluation, err := q.EvaluatePolicy(request.PolicyDocument, context)
 		if err != nil {
 			testResult.Result = &PolicyEvaluationResult{
 				Effect:   "error",
@@ -918,8 +928,11 @@ func (q *policyQueries) getPrincipalPolicies(principalID, principalType string) 
 
 	query := `
 		SELECT DISTINCT p.id, p.name, p.description, p.version, p.organization_id, 
-		       p.document, p.policy_type, p.effect, p.is_system_policy, p.created_by,
-		       p.approved_by, p.approved_at, p.status, p.created_at, p.updated_at, p.deleted_at
+		       p.document, p.policy_type, p.effect, p.is_system_policy, 
+		       COALESCE(p.created_by::text, ''), COALESCE(p.approved_by::text, ''), 
+		       COALESCE(p.approved_at, '0001-01-01'::timestamp), 
+		       p.status, p.created_at, p.updated_at, 
+		       COALESCE(p.deleted_at, '0001-01-01'::timestamp)
 		FROM policies p
 		JOIN role_policies rp ON p.id = rp.policy_id
 		JOIN role_assignments ra ON rp.role_id = ra.role_id

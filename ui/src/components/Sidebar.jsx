@@ -1,7 +1,16 @@
 import React from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import '../styles/Sidebar.css';
 
 const Sidebar = ({ user, onLogout }) => {
+    const location = useLocation();
+    const navigate = useNavigate();
+
+    const navItems = [
+        { path: '/dashboard', label: 'Dashboard', icon: '🏢' },
+        { path: '/policies', label: 'Policies', icon: '📜' },
+    ];
+
     return (
         <aside className="sidebar">
             <div className="sidebar-header">
@@ -9,10 +18,20 @@ const Sidebar = ({ user, onLogout }) => {
             </div>
 
             <nav className="sidebar-nav">
-                <a href="/dashboard" className="nav-item active">
-                    <span className="icon">🏢</span>
-                    Dashboard
-                </a>
+                {navItems.map((item) => (
+                    <a
+                        key={item.path}
+                        href={item.path}
+                        className={`nav-item ${location.pathname === item.path ? 'active' : ''}`}
+                        onClick={(e) => {
+                            e.preventDefault();
+                            navigate(item.path);
+                        }}
+                    >
+                        <span className="icon">{item.icon}</span>
+                        {item.label}
+                    </a>
+                ))}
             </nav>
 
             <div className="sidebar-footer">

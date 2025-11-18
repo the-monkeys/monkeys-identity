@@ -1,0 +1,22 @@
+﻿{
+    "effect":  "allow",
+    "description":  "Updated end-to-end test policy",
+    "name":  "E2ETestPolicy-Updated",
+    "document":  {
+                     "Version":  "2024-01-01",
+                     "Statement":  [
+                                       {
+                                           "Effect":  "Allow",
+                                           "Resource":  [
+                                                            "arn:monkey:test:*:*:resource/*"
+                                                        ],
+                                           "Action":  [
+                                                          "test:read",
+                                                          "test:write",
+                                                          "test:execute",
+                                                          "test:delete"
+                                                      ]
+                                       }
+                                   ]
+                 }
+}
