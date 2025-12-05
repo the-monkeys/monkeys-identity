@@ -79,6 +79,12 @@ export const organizationAPI = {
     getPolicies: (id) =>
         api.get(`/organizations/${id}/policies`),
 
+    getPolicy: (orgId, policyId) =>
+        api.get(`/policies/${policyId}`),
+
+    updatePolicy: (orgId, policyId, data) =>
+        api.put(`/policies/${policyId}`, data),
+
     getResources: (id) =>
         api.get(`/organizations/${id}/resources`),
 };

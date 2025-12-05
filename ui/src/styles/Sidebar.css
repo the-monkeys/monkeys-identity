@@ -1,18 +1,20 @@
 /* Sidebar Styles */
 .sidebar {
     width: 280px;
-    background: rgba(15, 23, 42, 0.8);
-    backdrop-filter: blur(10px);
-    border-right: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(12px);
+    border-right: 2px solid rgba(11, 39, 17, 0.46);
     display: flex;
     flex-direction: column;
     padding: 24px;
+    box-shadow: 2px 0 8px rgba(251, 191, 36, 0.1);
 }
 
 .sidebar-header h2 {
-    color: white;
+    color: #1f2937;
     font-size: 24px;
     margin-bottom: 40px;
+    font-weight: 700;
 }
 
 .sidebar-nav {
@@ -25,20 +27,21 @@
     gap: 12px;
     padding: 12px 16px;
     border-radius: 10px;
-    color: rgba(255, 255, 255, 0.7);
+    color: #6b7280;
     text-decoration: none;
     transition: all 0.2s ease;
     margin-bottom: 8px;
 }
 
 .nav-item:hover {
-    background: rgba(255, 255, 255, 0.05);
-    color: white;
+    background: rgba(251, 191, 36, 0.05);
+    color: #374151;
 }
 
 .nav-item.active {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
+    background: rgba(251, 191, 36, 0.1);
+    color: #92400e;
+    border-left: 3px solid #f59e0b;
 }
 
 .icon {
@@ -46,7 +49,7 @@
 }
 
 .sidebar-footer {
-    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    border-top: 1px solid rgba(11, 39, 17, 0.46);
     padding-top: 20px;
 }
 
@@ -60,12 +63,13 @@
     width: 40px;
     height: 40px;
     border-radius: 50%;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
     display: flex;
     align-items: center;
     justify-content: center;
-    color: white;
+    color: #92400e;
     font-weight: 600;
+    box-shadow: 0 2px 8px rgba(251, 191, 36, 0.3);
 }
 
 .user-details {
@@ -73,14 +77,14 @@
 }
 
 .user-name {
-    color: white;
+    color: #1f2937;
     font-size: 14px;
     font-weight: 600;
     margin-bottom: 4px;
 }
 
 .user-email {
-    color: rgba(255, 255, 255, 0.6);
+    color: #6b7280;
     font-size: 12px;
 }
 
@@ -88,15 +92,16 @@
     width: 100%;
     padding: 10px;
     border-radius: 8px;
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    background: rgba(255, 255, 255, 0.05);
-    color: white;
+    border: 1px solid rgba(11, 39, 17, 0.46);
+    background: rgba(251, 191, 36, 0.05);
+    color: #92400e;
     font-size: 14px;
     cursor: pointer;
     transition: all 0.2s ease;
 }
 
 .logout-btn:hover {
-    background: rgba(239, 68, 68, 0.2);
-    border-color: rgba(239, 68, 68, 0.4);
+    background: rgba(239, 68, 68, 0.1);
+    border-color: rgba(239, 68, 68, 0.3);
+    color: #dc2626;
 }

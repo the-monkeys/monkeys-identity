@@ -74,12 +74,12 @@ const Dashboard = () => {
             <Sidebar user={user} onLogout={logout} />
 
             <main className="dashboard-main">
-                <div className="dashboard-header">
+                <div className="org-header-row">
                     <div>
                         <h1>Organizations</h1>
                         <p>Manage all organizations in the system</p>
                     </div>
-                    <button className="btn-primary" onClick={handleCreate}>
+                    <button className="btn" onClick={handleCreate}>
                         + New Organization
                     </button>
                 </div>
@@ -99,7 +99,7 @@ const Dashboard = () => {
                 {organizations.length === 0 && (
                     <div className="empty-state">
                         <p>No organizations found</p>
-                        <button className="btn-secondary" onClick={handleCreate}>
+                        <button className="btn" onClick={handleCreate}>
                             Create your first organization
                         </button>
                     </div>

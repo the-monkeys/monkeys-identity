@@ -11,7 +11,7 @@ const Sidebar = ({ user, onLogout }) => {
             <nav className="sidebar-nav">
                 <a href="/dashboard" className="nav-item active">
                     <span className="icon">🏢</span>
-                    Organizations
+                    Dashboard
                 </a>
             </nav>
 
