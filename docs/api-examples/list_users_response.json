@@ -1,0 +1,26 @@
+{
+    "success": true,
+    "data": [
+        {
+            "id": "5685aa34-18de-4e28-969a-a5825108b202",
+            "username": "admin",
+            "email": "admin@monkeys.com",
+            "email_verified": true,
+            "display_name": "Admin User",
+            "avatar_url": "",
+            "organization_id": "c98c4b3c-9789-4f0b-9ed4-181c70dd61e5",
+            "password_changed_at": "0001-01-01T00:00:00Z",
+            "mfa_enabled": false,
+            "mfa_methods": null,
+            "attributes": "",
+            "preferences": "",
+            "last_login": "2025-12-11T04:33:00.29754Z",
+            "failed_login_attempts": 0,
+            "locked_until": "0001-01-01T00:00:00Z",
+            "status": "active",
+            "created_at": "2025-12-11T04:32:45.809521Z",
+            "updated_at": "2025-12-11T04:33:00.298177Z",
+            "deleted_at": "0001-01-01T00:00:00Z"
+        }
+    ]
+}

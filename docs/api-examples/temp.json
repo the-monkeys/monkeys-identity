@@ -1,0 +1,77 @@
+{
+    "status": 200,
+    "message": "Organizations retrieved",
+    "data": {
+        "items": [
+            {
+                "id": "3af735c9-d301-4146-9a1d-d6ee77e15553",
+                "name": "Updated Test Organization",
+                "slug": "test-org-3",
+                "parent_id": null,
+                "description": "Updated description for testing",
+                "metadata": "{}",
+                "settings": "{\"maintenance_mode\": false, \"allow_public_signup\": true, \"max_session_duration\": 3600}",
+                "billing_tier": "",
+                "max_users": 0,
+                "max_resources": 0,
+                "status": "active",
+                "created_at": "2025-12-11T06:27:07.562309Z",
+                "updated_at": "2025-12-11T06:48:50.663143Z",
+                "deleted_at": null
+            },
+            {
+                "id": "d86e8a6d-d6f0-4e06-8368-5a3319d4255c",
+                "name": "Test Organization",
+                "slug": "test-org",
+                "parent_id": null,
+                "description": "Test organization for API testing",
+                "metadata": "{}",
+                "settings": "{}",
+                "billing_tier": "free",
+                "max_users": 100,
+                "max_resources": 1000,
+                "status": "active",
+                "created_at": "2025-12-11T05:42:05.546886Z",
+                "updated_at": "2025-12-11T05:42:05.546886Z",
+                "deleted_at": null
+            },
+            {
+                "id": "c98c4b3c-9789-4f0b-9ed4-181c70dd61e5",
+                "name": "Default Organization",
+                "slug": "default",
+                "parent_id": null,
+                "description": null,
+                "metadata": "{}",
+                "settings": "{}",
+                "billing_tier": "standard",
+                "max_users": 1000,
+                "max_resources": 10000,
+                "status": "active",
+                "created_at": "2025-12-11T04:32:45.809523Z",
+                "updated_at": "2025-12-11T04:32:45.809523Z",
+                "deleted_at": null
+            },
+            {
+                "id": "00000000-0000-0000-0000-000000000000",
+                "name": "System",
+                "slug": "system",
+                "parent_id": null,
+                "description": "System organization for global resources and policies",
+                "metadata": "{}",
+                "settings": "{}",
+                "billing_tier": "standard",
+                "max_users": 1000,
+                "max_resources": 10000,
+                "status": "active",
+                "created_at": "2025-12-11T04:31:43.02512Z",
+                "updated_at": "2025-12-11T04:31:43.02512Z",
+                "deleted_at": null
+            }
+        ],
+        "total": 4,
+        "limit": 50,
+        "offset": 0,
+        "has_more": false,
+        "total_pages": 0
+    }
+}

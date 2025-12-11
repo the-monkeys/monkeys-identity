@@ -1,0 +1,66 @@
+### PUT /api/v1/organizations/:id
+**Request**
+```bash
+curl -v -X PUT -H "Content-Type: application/json" -H "Authorization: Bearer <access_token>" -d '{
+  "name": "Updated Test Organization",
+  "description": "Updated description for testing"
+}' http://localhost:8085/api/v1/organizations/3af735c9-d301-4146-9a1d-d6ee77e15553
+```
+**Response** (✅ FIXED - was returning 500 error)
+```json
+{
+  "status": 200,
+  "message": "Organization updated",
+  "data": {
+    "id": "3af735c9-d301-4146-9a1d-d6ee77e15553",
+    "name": "Updated Test Organization",
+    "slug": "",
+    "parent_id": null,
+    "description": "Updated description for testing",
+    "metadata": "{}",
+    "settings": "{}",
+    "billing_tier": "",
+    "max_users": 0,
+    "max_resources": 0,
+    "status": "active",
+    "created_at": "0001-01-01T00:00:00Z",
+    "updated_at": "2025-12-11T06:40:39.826059Z",
+    "deleted_at": null
+  }
+}
+```
+
+### PUT /api/v1/organizations/:id/settings
+**Request**
+```bash
+curl -v -X PUT -H "Content-Type: application/json" -H "Authorization: Bearer <access_token>" -d '{
+  "settings": "{\"maintenance_mode\":false,\"allow_public_signup\":true,\"max_session_duration\":3600}"
+}' http://localhost:8085/api/v1/organizations/3af735c9-d301-4146-9a1d-d6ee77e15553/settings
+```
+**Response**
+```json
+{
+  "status": 200,
+  "message": "Settings updated",
+  "data": {
+    "organization_id": "3af735c9-d301-4146-9a1d-d6ee77e15553"
+  }
+}
+```
+
+### DELETE /api/v1/organizations/:id
+**Request**
+```bash
+curl -v -X DELETE -H "Authorization: Bearer <access_token>" http://localhost:8085/api/v1/organizations/91fc0291-cb6e-4ae0-be7d-51846e09f0b0
+```
+**Response**
+```json
+{
+  "status": 200,
+  "message": "Organization deleted",
+  "data": {
+    "organization_id": "91fc0291-cb6e-4ae0-be7d-51846e09f0b0",
+    "deleted_at": "2025-12-11T06:25:15.123456Z"
+  }
+}
+```
