@@ -461,8 +461,13 @@ func (q *authQueries) CreateSession(sessionID, userID, token string) error {
 		"created_at": time.Now().Unix(),
 	}
 
-	// Store session in Redis with 24 hour expiry
-	return q.redis.HMSet(q.ctx, sessionKey, sessionData).Err()
+	// Store session in Redis
+	if err := q.redis.HMSet(q.ctx, sessionKey, sessionData).Err(); err != nil {
+		return err
+	}
+
+	// Set 24 hour expiry
+	return q.redis.Expire(q.ctx, sessionKey, 24*time.Hour).Err()
 }
 
 // GetSession retrieves a session from Redis
