@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { organizationAPI, userAPI } from '../services/api';
+import { groupAPI } from '../services/groupAPI';
 import Sidebar from '../components/Sidebar';
 import { useAuth } from '../context/AuthContext';
 import '../styles/OrganizationDetail.css';
@@ -271,7 +272,7 @@ const UserDetailTab = ({ user, onUpdate, onBack }) => {
     );
 };
 
-const GroupDetailTab = ({ group, onUpdate, onBack }) => {
+const GroupDetailTab = ({ group, onUpdate, onBack, onDelete, users = [] }) => {
     const [isEditing, setIsEditing] = useState(false);
     const [editForm, setEditForm] = useState({
         name: group.name || '',
@@ -282,6 +283,18 @@ const GroupDetailTab = ({ group, onUpdate, onBack }) => {
     const [isSaving, setIsSaving] = useState(false);
     const [error, setError] = useState(null);
     const [success, setSuccess] = useState(null);
+    const [showMembersSection, setShowMembersSection] = useState(false);
+    const [showPermissionsSection, setShowPermissionsSection] = useState(false);
+    const [members, setMembers] = useState([]);
+    const [permissions, setPermissions] = useState(null);
+    const [loadingMembers, setLoadingMembers] = useState(false);
+    const [loadingPermissions, setLoadingPermissions] = useState(false);
+    const [showAddMember, setShowAddMember] = useState(false);
+    const [memberForm, setMemberForm] = useState({
+        principal_id: '',
+        principal_type: 'user',
+        role_in_group: 'member',
+    });
 
     const handleEdit = () => {
         setIsEditing(true);
@@ -330,6 +343,92 @@ const GroupDetailTab = ({ group, onUpdate, onBack }) => {
         }));
     };
 
+    const handleDeleteGroup = async () => {
+        if (!window.confirm(`Are you sure you want to delete the group "${group.name}"? This action cannot be undone.`)) {
+            return;
+        }
+
+        try {
+            await groupAPI.delete(group.id);
+            setSuccess('Group deleted successfully');
+            setTimeout(() => onBack(), 1500);
+        } catch (err) {
+            setError(err.response?.data?.message || 'Failed to delete group');
+        }
+    };
+
+    const loadMembers = async () => {
+        setLoadingMembers(true);
+        try {
+            const response = await groupAPI.getMembers(group.id);
+            setMembers(response.data.data.members || []);
+        } catch (err) {
+            setError(err.response?.data?.message || 'Failed to load members');
+        } finally {
+            setLoadingMembers(false);
+        }
+    };
+
+    const loadPermissions = async () => {
+        setLoadingPermissions(true);
+        try {
+            const response = await groupAPI.getPermissions(group.id);
+            const permData = response.data.data.permissions;
+            const parsed = typeof permData === 'string' ? JSON.parse(permData) : permData;
+            setPermissions(parsed);
+        } catch (err) {
+            console.error('Failed to load permissions:', err);
+            setPermissions(null);
+        } finally {
+            setLoadingPermissions(false);
+        }
+    };
+
+    const handleToggleMembers = () => {
+        const newState = !showMembersSection;
+        setShowMembersSection(newState);
+        if (newState && members.length === 0) {
+            loadMembers();
+        }
+    };
+
+    const handleTogglePermissions = () => {
+        const newState = !showPermissionsSection;
+        setShowPermissionsSection(newState);
+        if (newState && !permissions) {
+            loadPermissions();
+        }
+    };
+
+    const handleAddMember = async (e) => {
+        e.preventDefault();
+        try {
+            await groupAPI.addMember(group.id, memberForm);
+            setSuccess('Member added successfully');
+            setShowAddMember(false);
+            setMemberForm({ principal_id: '', principal_type: 'user', role_in_group: 'member' });
+            loadMembers();
+            setTimeout(() => setSuccess(null), 3000);
+        } catch (err) {
+            setError(err.response?.data?.message || 'Failed to add member');
+        }
+    };
+
+    const handleRemoveMember = async (member) => {
+        if (!window.confirm(`Remove ${member.principal_id} from this group?`)) {
+            return;
+        }
+
+        try {
+            await groupAPI.removeMember(group.id, member.principal_id);
+            setSuccess('Member removed successfully');
+            loadMembers();
+            setTimeout(() => setSuccess(null), 3000);
+        } catch (err) {
+            setError(err.response?.data?.message || 'Failed to remove member');
+        }
+    };
+
     return (
         <div className="group-detail-section">
             <div className="section-header">
@@ -337,11 +436,18 @@ const GroupDetailTab = ({ group, onUpdate, onBack }) => {
                     ← Back to Groups
                 </button>
                 <h3>Group Details: {group.name}</h3>
-                {!isEditing && (
-                    <button className="btn btn-primary" onClick={handleEdit}>
-                        Edit Group
-                    </button>
-                )}
+                <div style={{ display: 'flex', gap: '10px' }}>
+                    {!isEditing && (
+                        <>
+                            <button className="btn btn-danger" onClick={handleDeleteGroup}>
+                                Delete Group
+                            </button>
+                            <button className="btn btn-primary" onClick={handleEdit}>
+                                Edit Group
+                            </button>
+                        </>
+                    )}
+                </div>
             </div>
 
             {success && <div className="inline-alert inline-alert-success">{success}</div>}
@@ -450,6 +556,156 @@ const GroupDetailTab = ({ group, onUpdate, onBack }) => {
                     </button>
                 </div>
             )}
+
+            {/* Members Section */}
+            <div className="info-card" style={{ marginTop: '20px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <h4>Group Members</h4>
+                    <button className="btn btn-secondary" onClick={handleToggleMembers}>
+                        {showMembersSection ? 'Hide Members' : 'Show Members'}
+                    </button>
+                </div>
+
+                {showMembersSection && (
+                    <div style={{ marginTop: '15px' }}>
+                        <button
+                            className="btn btn-primary"
+                            onClick={() => setShowAddMember(!showAddMember)}
+                            style={{ marginBottom: '15px' }}
+                        >
+                            {showAddMember ? 'Cancel' : '+ Add Member'}
+                        </button>
+
+                        {showAddMember && (
+                            <form onSubmit={handleAddMember} style={{ marginBottom: '20px', padding: '15px', background: '#f5f5f5', borderRadius: '6px' }}>
+                                <div style={{ marginBottom: '10px' }}>
+                                    <label>Select User</label>
+                                    <select
+                                        value={memberForm.principal_id}
+                                        onChange={(e) => setMemberForm({ ...memberForm, principal_id: e.target.value })}
+                                        required
+                                        style={{ width: '100%', padding: '8px', marginTop: '5px' }}
+                                    >
+                                        <option value="">-- Select a user --</option>
+                                        {users.map((user) => (
+                                            <option key={user.id} value={user.id}>
+                                                {user.email} ({user.username || user.display_name})
+                                            </option>
+                                        ))}
+                                    </select>
+                                    <small style={{ display: 'block', marginTop: '5px', color: '#666' }}>
+                                        Note: Only users from this organization can be added
+                                    </small>
+                                </div>
+                                <div style={{ marginBottom: '10px' }}>
+                                    <label>Principal Type</label>
+                                    <select
+                                        value={memberForm.principal_type}
+                                        onChange={(e) => setMemberForm({ ...memberForm, principal_type: e.target.value })}
+                                        style={{ width: '100%', padding: '8px', marginTop: '5px' }}
+                                    >
+                                        <option value="user">User</option>
+                                        <option value="service_account">Service Account</option>
+                                    </select>
+                                </div>
+                                <div style={{ marginBottom: '10px' }}>
+                                    <label>Role in Group</label>
+                                    <select
+                                        value={memberForm.role_in_group}
+                                        onChange={(e) => setMemberForm({ ...memberForm, role_in_group: e.target.value })}
+                                        style={{ width: '100%', padding: '8px', marginTop: '5px' }}
+                                    >
+                                        <option value="member">Member</option>
+                                        <option value="admin">Admin</option>
+                                        <option value="moderator">Moderator</option>
+                                    </select>
+                                </div>
+                                <button type="submit" className="btn btn-primary">Add Member</button>
+                            </form>
+                        )}
+
+                        {loadingMembers ? (
+                            <div style={{ textAlign: 'center', padding: '20px' }}>Loading members...</div>
+                        ) : members.length === 0 ? (
+                            <div style={{ textAlign: 'center', padding: '20px', color: '#666' }}>No members in this group</div>
+                        ) : (
+                            <table className="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Principal ID</th>
+                                        <th>Type</th>
+                                        <th>Role</th>
+                                        <th>Joined At</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {members.map((member) => (
+                                        <tr key={member.id}>
+                                            <td>{member.principal_id}</td>
+                                            <td>{member.principal_type}</td>
+                                            <td>{member.role_in_group}</td>
+                                            <td>{new Date(member.joined_at).toLocaleDateString()}</td>
+                                            <td>
+                                                <button
+                                                    onClick={() => handleRemoveMember(member)}
+                                                    className="btn btn-danger"
+                                                    style={{ padding: '4px 12px', fontSize: '13px' }}
+                                                >
+                                                    Remove
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        )}
+                    </div>
+                )}
+            </div>
+
+            {/* Permissions Section */}
+            <div className="info-card" style={{ marginTop: '20px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <h4>Group Permissions</h4>
+                    <button className="btn btn-secondary" onClick={handleTogglePermissions}>
+                        {showPermissionsSection ? 'Hide Permissions' : 'Show Permissions'}
+                    </button>
+                </div>
+
+                {showPermissionsSection && (
+                    <div style={{ marginTop: '15px' }}>
+                        {loadingPermissions ? (
+                            <div style={{ textAlign: 'center', padding: '20px' }}>Loading permissions...</div>
+                        ) : permissions ? (
+                            <div>
+                                <pre style={{
+                                    background: '#f5f5f5',
+                                    padding: '15px',
+                                    borderRadius: '6px',
+                                    overflow: 'auto',
+                                    fontSize: '13px',
+                                    fontFamily: 'monospace',
+                                    color: '#1a1a1a'
+                                }}>
+                                    {JSON.stringify(permissions, null, 2)}
+                                </pre>
+                                {permissions?.summary && (
+                                    <div style={{ marginTop: '15px', padding: '15px', background: '#e3f2fd', borderRadius: '6px', color: '#1a1a1a' }}>
+                                        <h5 style={{ color: '#1565c0', marginTop: 0 }}>Summary</h5>
+                                        <p style={{ margin: '8px 0', color: '#1a1a1a' }}>Allow Count: {permissions.summary.allow_count || 0}</p>
+                                        <p style={{ margin: '8px 0', color: '#1a1a1a' }}>Deny Count: {permissions.summary.deny_count || 0}</p>
+                                    </div>
+                                )}
+                            </div>
+                        ) : (
+                            <div style={{ textAlign: 'center', padding: '20px', color: '#666' }}>
+                                Failed to load permissions. Please try again.
+                            </div>
+                        )}
+                    </div>
+                )}
+            </div>
         </div>
     );
 };
@@ -1452,7 +1708,7 @@ const OrganizationDetail = () => {
                 ...groupForm,
                 organization_id: id,
             };
-            await organizationAPI.createGroup(id, groupData);
+            await groupAPI.create(groupData);
             await fetchOrganizationData({ showSpinner: false });
             setIsCreateGroupModalOpen(false);
             setGroupForm({
@@ -1470,10 +1726,10 @@ const OrganizationDetail = () => {
 
     const handleUpdateGroup = async (groupId, groupData) => {
         try {
-            await organizationAPI.updateGroup(id, groupId, groupData);
+            await groupAPI.update(groupId, groupData);
             await fetchOrganizationData({ showSpinner: false });
             // Refresh selected group data
-            const updatedGroup = await organizationAPI.getGroup(id, groupId);
+            const updatedGroup = await groupAPI.get(groupId);
             setSelectedGroup(updatedGroup.data.data);
         } catch (error) {
             throw error;
@@ -2269,6 +2525,7 @@ const OrganizationDetail = () => {
                                 group={selectedGroup}
                                 onUpdate={handleUpdateGroup}
                                 onBack={() => setActiveTab('groups')}
+                                users={users}
                             />
                         )}
 
