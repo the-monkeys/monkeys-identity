@@ -1,0 +1,24 @@
+﻿{
+    "version":  "1.0.0",
+    "name":  "E2ETestPolicy",
+    "organization_id":  "00000000-0000-4000-8000-000000000001",
+    "document":  {
+                     "Version":  "2024-01-01",
+                     "Statement":  [
+                                       {
+                                           "Effect":  "Allow",
+                                           "Resource":  [
+                                                            "arn:monkey:test:*:*:resource/*"
+                                                        ],
+                                           "Action":  [
+                                                          "test:read",
+                                                          "test:write",
+                                                          "test:execute"
+                                                      ]
+                                       }
+                                   ]
+                 },
+    "description":  "End-to-end test policy for comprehensive API testing",
+    "policy_type":  "access",
+    "effect":  "allow"
+}

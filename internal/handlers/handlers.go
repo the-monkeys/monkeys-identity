@@ -1000,7 +1000,7 @@ func (h *PolicyHandler) CreatePolicy(c *fiber.Ctx) error {
 
 	// Set defaults
 	if policy.Status == "" {
-		policy.Status = "draft"
+		policy.Status = "active"
 	}
 	if policy.Version == "" {
 		policy.Version = "1.0.0"
@@ -1341,8 +1341,14 @@ func (h *PolicyHandler) ApprovePolicy(c *fiber.Ctx) error {
 		})
 	}
 
-	// TODO: Get approver ID from JWT context
-	approvedBy := "current_user_id"
+	// Get approver ID from JWT context
+	approvedBy, ok := c.Locals("user_id").(string)
+	if !ok {
+		return c.Status(fiber.StatusUnauthorized).JSON(ErrorResponse{
+			Error:   "unauthorized",
+			Message: "Invalid session",
+		})
+	}
 
 	err := h.queries.Policy.ApprovePolicy(id, approvedBy)
 	if err != nil {

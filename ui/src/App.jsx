@@ -5,6 +5,7 @@ import ProtectedRoute from './components/ProtectedRoute';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import OrganizationDetail from './pages/OrganizationDetail';
+import PoliciesPage from './pages/PoliciesPage';
 import './index.css';
 
 function App() {
@@ -26,6 +27,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <OrganizationDetail />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/policies"
+            element={
+              <ProtectedRoute>
+                <PoliciesPage />
               </ProtectedRoute>
             }
           />

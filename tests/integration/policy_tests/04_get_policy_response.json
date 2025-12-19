@@ -1,0 +1,18 @@
+﻿{
+    "id":  "008bb9f2-8bf7-4171-aef2-5abd634838ec",
+    "name":  "E2ETestPolicy",
+    "description":  "End-to-end test policy for comprehensive API testing",
+    "version":  "1.0.0",
+    "organization_id":  "00000000-0000-4000-8000-000000000001",
+    "document":  "{\"Version\": \"2024-01-01\", \"Statement\": [{\"Action\": [\"test:read\", \"test:write\", \"test:execute\"], \"Effect\": \"Allow\", \"Resource\": [\"arn:monkey:test:*:*:resource/*\"]}]}",
+    "policy_type":  "access",
+    "effect":  "allow",
+    "is_system_policy":  false,
+    "created_by":  "cad2dae8-a954-4c8e-8eb2-e70d01b40f5e",
+    "approved_by":  "",
+    "approved_at":  "0001-01-01T00:00:00Z",
+    "status":  "active",
+    "created_at":  "2025-12-19T05:32:10.60359Z",
+    "updated_at":  "2025-12-19T05:32:10.60359Z",
+    "deleted_at":  "0001-01-01T00:00:00Z"
+}

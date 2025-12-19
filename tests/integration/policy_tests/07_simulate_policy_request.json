@@ -1,0 +1,19 @@
+﻿{
+    "policy_document":  "{\"Version\":\"2024-01-01\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"test:read\",\"test:write\"],\"Resource\":[\"arn:monkey:test:*:*:resource/*\"]}]}",
+    "test_cases":  [
+                       {
+                           "expected":  "allow",
+                           "resource":  "arn:monkey:test:org1:account1:resource/res123",
+                           "principal":  "user:cad2dae8-a954-4c8e-8eb2-e70d01b40f5e",
+                           "name":  "Test read access",
+                           "action":  "test:read"
+                       },
+                       {
+                           "expected":  "deny",
+                           "resource":  "arn:monkey:test:org1:account1:resource/res123",
+                           "principal":  "user:cad2dae8-a954-4c8e-8eb2-e70d01b40f5e",
+                           "name":  "Test delete access denied",
+                           "action":  "test:delete"
+                       }
+                   ]
+}
