@@ -38,39 +38,39 @@ api.interceptors.response.use(
 // Policy APIs
 export const policyAPI = {
     // List all policies
-    list: (params = {}) =>
+    list: (params: any = {}) =>
         api.get('/policies', { params }),
 
     // Get specific policy
-    get: (id) =>
+    get: (id: string) =>
         api.get(`/policies/${id}`),
 
     // Create new policy
-    create: (data) =>
+    create: (data: any) =>
         api.post('/policies', data),
 
     // Update policy
-    update: (id, data) =>
+    update: (id: string, data: any) =>
         api.put(`/policies/${id}`, data),
 
     // Delete policy
-    delete: (id) =>
+    delete: (id: string) =>
         api.delete(`/policies/${id}`),
 
     // Get policy versions
-    getVersions: (id) =>
+    getVersions: (id: string) =>
         api.get(`/policies/${id}/versions`),
 
     // Simulate policy
-    simulate: (id, data) =>
+    simulate: (id: string, data: any) =>
         api.post(`/policies/${id}/simulate`, data),
 
     // Approve policy
-    approve: (id) =>
+    approve: (id: string) =>
         api.post(`/policies/${id}/approve`),
 
     // Rollback policy
-    rollback: (id, data) =>
+    rollback: (id: string, data: any) =>
         api.post(`/policies/${id}/rollback`, data),
 };
 

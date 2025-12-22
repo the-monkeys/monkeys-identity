@@ -37,55 +37,55 @@ api.interceptors.response.use(
 
 // Auth APIs
 export const authAPI = {
-    login: (email, password) =>
+    login: (email: string, password: string) =>
         api.post('/auth/login', { email, password }),
 
-    createAdmin: (data) =>
+    createAdmin: (data: any) =>
         api.post('/auth/create-admin', data),
 };
 
 // Organization APIs
 export const organizationAPI = {
-    list: (params = {}) =>
+    list: (params: any = {}) =>
         api.get('/organizations', { params }),
 
-    get: (id) =>
+    get: (id: string) =>
         api.get(`/organizations/${id}`),
 
-    create: (data) =>
+    create: (data: any) =>
         api.post('/organizations', data),
 
-    update: (id, data) =>
+    update: (id: string, data: any) =>
         api.put(`/organizations/${id}`, data),
 
-    delete: (id) =>
+    delete: (id: string) =>
         api.delete(`/organizations/${id}`),
 
-    getSettings: (id) =>
+    getSettings: (id: string) =>
         api.get(`/organizations/${id}/settings`),
 
-    updateSettings: (id, settings) =>
+    updateSettings: (id: string, settings: any) =>
         api.put(`/organizations/${id}/settings`, { settings: JSON.stringify(settings) }),
 
-    getUsers: (id) =>
+    getUsers: (id: string) =>
         api.get(`/organizations/${id}/users`),
 
-    getGroups: (id) =>
+    getGroups: (id: string) =>
         api.get(`/organizations/${id}/groups`),
 
-    getRoles: (id) =>
+    getRoles: (id: string) =>
         api.get(`/organizations/${id}/roles`),
 
-    getPolicies: (id) =>
+    getPolicies: (id: string) =>
         api.get(`/organizations/${id}/policies`),
 
-    getPolicy: (orgId, policyId) =>
+    getPolicy: (orgId: string, policyId: string) =>
         api.get(`/policies/${policyId}`),
 
-    updatePolicy: (orgId, policyId, data) =>
+    updatePolicy: (orgId: string, policyId: string, data: any) =>
         api.put(`/policies/${policyId}`, data),
 
-    getResources: (id) =>
+    getResources: (id: string) =>
         api.get(`/organizations/${id}/resources`),
 };
 
@@ -94,16 +94,16 @@ export const userAPI = {
     list: () =>
         api.get('/users'),
 
-    get: (id) =>
+    get: (id: string) =>
         api.get(`/users/${id}`),
 
-    create: (data) =>
+    create: (data: any) =>
         api.post('/users', data),
 
-    update: (id, data) =>
+    update: (id: string, data: any) =>
         api.put(`/users/${id}`, data),
 
-    delete: (id) =>
+    delete: (id: string) =>
         api.delete(`/users/${id}`),
 };
 

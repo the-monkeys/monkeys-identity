@@ -1,10 +1,25 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { authAPI } from '../services/api';
 
-const AuthContext = createContext(null);
+interface User {
+    id: string;
+    email: string;
+    status: string;
+    [key: string]: any;
+}
 
-export const AuthProvider = ({ children }) => {
-    const [user, setUser] = useState(null);
+interface AuthContextType {
+    user: User | null;
+    login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
+    logout: () => void;
+    loading: boolean;
+    isAdmin: () => boolean;
+}
+
+const AuthContext = createContext<AuthContextType | null>(null);
+
+export const AuthProvider = ({ children }: { children: ReactNode }) => {
+    const [user, setUser] = useState<User | null>(null);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -18,7 +33,7 @@ export const AuthProvider = ({ children }) => {
         setLoading(false);
     }, []);
 
-    const login = async (email, password) => {
+    const login = async (email: string, password: string) => {
         try {
             const response = await authAPI.login(email, password);
             const { access_token, user: userData } = response.data.data;
@@ -28,7 +43,7 @@ export const AuthProvider = ({ children }) => {
             setUser(userData);
 
             return { success: true };
-        } catch (error) {
+        } catch (error: any) {
             return {
                 success: false,
                 error: error.response?.data?.message || 'Login failed'

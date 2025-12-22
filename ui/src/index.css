@@ -1,53 +1,24 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
-:root {
-  /* Premium Dark Theme - Slate/Zinc inspired */
-  --hue: 220;
-  --sat: 20%;
+@import "tailwindcss";
 
-  /* Backgrounds */
-  --bg-app: #09090b;
-  /* Very dark zinc */
-  --bg-panel: #18181b;
-  /* Slightly lighter */
-  --bg-card: #27272a;
-  --bg-hover: #3f3f46;
+@theme {
+  --color-primary: #FF5542;
 
-  /* Borders */
-  --border: #3f3f46;
-  --border-light: #52525b;
+  --color-bg-main-light: #FFFFFF;
+  --color-bg-main-dark: #0F172A;
 
-  /* Text */
-  --text-main: #f4f4f5;
-  --text-muted: #a1a1aa;
+  --color-bg-card-light: #F9FAFB;
+  --color-bg-card-dark: #1E293B;
 
-  /* Accents */
-  --primary: #6366f1;
-  /* Indigo-500 */
-  --primary-glow: rgba(99, 102, 241, 0.4);
-  --accent: #8b5cf6;
-  /* Violet-500 */
+  --color-text-main-light: #111827;
+  --color-text-main-dark: #F9FAFB;
 
-  /* Status Colors */
-  --success: #22c55e;
-  --success-bg: rgba(34, 197, 94, 0.1);
-  --error: #ef4444;
-  --error-bg: rgba(239, 68, 68, 0.1);
-  --warning: #eab308;
-  --warning-bg: rgba(234, 179, 8, 0.1);
+  --color-border-color-light: #E5E7EB;
+  --color-border-color-dark: #334155;
 
-  /* Spacing & Radius */
-  --radius-sm: 6px;
-  --radius-md: 12px;
-  --radius-lg: 16px;
-
-  /* Effects */
-  --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
-  --glass: rgba(24, 24, 27, 0.7);
-  --glass-border: rgba(255, 255, 255, 0.08);
-
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-sans: Inter, sans-serif;
+  --font-mono: "Geist Mono", monospace;
 }
 
 body {
