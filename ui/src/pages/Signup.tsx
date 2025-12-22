@@ -57,11 +57,11 @@ const SignupPage = () => {
                 >
                     <Shield className="w-8 h-8 text-primary" />
                     <span className="text-xl font-bold tracking-tight text-text-main-light dark:text-text-main-dark">
-                        Monkeys<span className="text-primary">IAM</span>
+                        Monkeys{' '}<span className="text-primary">IAM</span>
                     </span>
                 </div>
                 <button
-                    onClick={() => navigate('login')}
+                    onClick={() => navigate('/login')}
                     className="text-sm font-bold text-black dark:text-white hover:underline cursor-pointer"
                 >
                     Sign In

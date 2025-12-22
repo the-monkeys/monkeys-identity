@@ -56,7 +56,7 @@ const LoginPage = () => {
                     >
                         <Shield className="w-10 h-10 text-primary" />
                         <span className="text-2xl font-bold tracking-tight text-black dark:text-white">
-                            Monkeys{''}
+                            Monkeys{' '}
                             <span className="text-primary">IAM</span>
                         </span>
                     </div>
@@ -112,7 +112,7 @@ const LoginPage = () => {
                                         />
                                     </div>
                                     <div>
-                                        <span className="block text-sm font-bold text-gray-700 dark:text-gray-200">Normal User</span>
+                                        <span className="block text-sm font-bold text-gray-700 dark:text-gray-200">Org User</span>
                                         <span className="block text-xs text-gray-500 dark:text-gray-400">User within an account that has specific permissions.</span>
                                     </div>
                                 </label>

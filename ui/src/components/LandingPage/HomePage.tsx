@@ -3,6 +3,7 @@ import { Shield, Key, Users, Code, Lock, Server, ArrowRight } from 'lucide-react
 
 import Navbar from '../navbar/Navbar';
 import FeatureCard from './FeatureCard';
+import { CodeCard } from './FeatureCard';
 
 const LandingPage = () => {
     const navigate = useNavigate();
@@ -11,19 +12,19 @@ const LandingPage = () => {
         <div className="relative min-h-screen overflow-hidden bg-bg-main-dark text-white">
             <Navbar />
 
-            <section className="pt-24 pb-20 md:pt-40 md:pb-32 px-4">
-                <div className="max-w-7xl flex flex-col justify-center items-center">
+            <section className="max-w-7xl pt-24 pb-20 md:pt-40 md:pb-32 px-4 mx-auto">
+                <div className="w-full flex flex-col justify-center items-center gap-y-8">
                     <h1 className="w-full text-5xl md:text-7xl font-bold tracking-tight mb-12 text-white text-center">
                         Centralized Access Control <br />
                         <span className="text-primary italic">Simplified...</span>
                     </h1>
                     <p className="w-full text-lg md:text-xl text-gray-400 mb-12 max-w-2xl mx-auto text-center leading-relaxed">
-                        The modern developer-dfirst IAM platform for managing users, roles, and granular security policies across your entire infrastructure.
+                        The modern developer-first IAM platform for managing users, roles, and granular security policies across your entire infrastructure.
                     </p>
-                    <div className="max-w-2xl mx-auto flex flex-row justify-center items-center gap-6">
+                    <div className="max-w-3xl mx-auto flex flex-row justify-center items-center gap-6">
                         <button
                             onClick={() => navigate('/dashboard')}
-                            className="w-full sm:w-auto bg-primary hover:bg-opacity-90 text-white px-8 py-4 rounded-lg text-lg font-bold transition-all shadow-xl shadow-primary/25 flex items-center justify-center space-x-2"
+                            className="w-full sm:w-auto bg-primary/70 hover:bg-opacity-90 text-white px-8 py-4 rounded-lg text-lg font-bold transition-all flex items-center justify-center space-x-2 whitespace-nowrap"
                         >
                             <span>Explore Dashboard</span>
                             <ArrowRight className="w-5 h-5" />
@@ -40,7 +41,7 @@ const LandingPage = () => {
                 <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-8">
                     <div className="bg-slate-900 rounded-2xl border border-border-color-dark overflow-hidden shadow-2xl">
                         <div className="p-4 border-b border-border-color-dark flex items-center justify-between">
-                            <span className="text-sm font-bold opacity-60 text-white">Policy Editor</span>
+                            <span className="text-sm font-bold opacity-60 text-white">Policy Structure</span>
                             <div className="flex space-x-1.5">
                                 <div className="w-2.5 h-2.5 rounded-full bg-red-400"></div>
                                 <div className="w-2.5 h-2.5 rounded-full bg-yellow-400"></div>
@@ -48,21 +49,7 @@ const LandingPage = () => {
                             </div>
                         </div>
                         <div className="p-6 font-mono text-sm">
-                            <pre className="text-gray-300">
-                                <code>{`{
-  "Version": "2025-01-01",
-  "Statement": [
-    {
-      "Effect": "Allow",
-      "Action": ["iam:GetUser", "iam:ListUsers"],
-      "Resource": "*",
-      "Condition": {
-        "IpAddress": { "source": "10.0.0.0/8" }
-      }
-    }
-  ]
-}`}</code>
-                            </pre>
+                            <CodeCard />
                         </div>
                     </div>
                     <div className="bg-slate-900 rounded-2xl border border-border-color-dark overflow-hidden shadow-2xl">
@@ -141,7 +128,7 @@ const LandingPage = () => {
                 <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center opacity-60">
                     <div className="flex items-center space-x-2 mb-4 md:mb-0">
                         <Shield className="w-5 h-5 text-primary" />
-                        <span className="font-bold text-white">Monkeys IAM © 2025</span>
+                        <span className="font-bold text-white">Monkeys IAM © {new Date().getFullYear()}</span>
                     </div>
                     <div className="flex space-x-8 text-sm text-gray-400">
                         <a href="#" className="hover:text-primary transition-colors">Privacy</a>

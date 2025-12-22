@@ -11,3 +11,30 @@ const FeatureCard: React.FC<{ icon: React.ReactNode; title: string; description:
 );
 
 export default FeatureCard;
+
+export const CodeCard = () => {
+    return (
+        <pre className="text-gray-800 dark:text-gray-300">
+            <code>{`{
+  "Version": "2025-01-01",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": "user:john.doe@company.com",
+      "Action": ["read:content", "write:metadata"],
+      "Resource": "arn:monkey:storage:us-east-1:org123:bucket/documents/*",
+      "Condition": {
+        "TimeOfDay": "09:00-17:00",
+        "IpRange": "10.0.0.0/8",
+        "MFARequired": true,
+      },
+      "ResourceTags": {
+        "Environment": "production",
+        "Sensitivity": "internal"
+      }
+    }
+  ]
+}`}</code>
+        </pre>
+    );
+};
