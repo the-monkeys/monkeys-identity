@@ -141,22 +141,22 @@ type Policy struct {
 
 // Role represents named collections of policies
 type Role struct {
-	ID                  string    `json:"id" db:"id"`
-	Name                string    `json:"name" db:"name"`
+	ID                  string     `json:"id" db:"id"`
+	Name                string     `json:"name" db:"name"`
 	Description         *string    `json:"description" db:"description"`
-	OrganizationID      string    `json:"organization_id" db:"organization_id"`
-	RoleType            string    `json:"role_type" db:"role_type"`
-	MaxSessionDuration  string    `json:"max_session_duration" db:"max_session_duration"`
-	TrustPolicy         string    `json:"trust_policy" db:"trust_policy"`             // JSONB as string
-	AssumeRolePolicy    string    `json:"assume_role_policy" db:"assume_role_policy"` // JSONB as string
-	Tags                string    `json:"tags" db:"tags"`                             // JSONB as string
-	IsSystemRole        bool      `json:"is_system_role" db:"is_system_role"`
-	Path                string    `json:"path" db:"path"`
-	PermissionsBoundary *string    `json:"permissions_boundary" db:"permissions_boundary"`
-	Status              string    `json:"status" db:"status"`
-	CreatedAt           time.Time `json:"created_at" db:"created_at"`
+	OrganizationID      string     `json:"organization_id" db:"organization_id"`
+	RoleType            string     `json:"role_type" db:"role_type"`
+	MaxSessionDuration  string     `json:"max_session_duration" db:"max_session_duration"`
+	TrustPolicy         string     `json:"trust_policy" db:"trust_policy"`             // JSONB as string
+	AssumeRolePolicy    string     `json:"assume_role_policy" db:"assume_role_policy"` // JSONB as string
+	Tags                string     `json:"tags" db:"tags"`                             // JSONB as string
+	IsSystemRole        bool       `json:"is_system_role" db:"is_system_role"`
+	Path                string     `json:"path" db:"path"`
+	PermissionsBoundary string     `json:"permissions_boundary" db:"permissions_boundary"`
+	Status              string     `json:"status" db:"status"`
+	CreatedAt           time.Time  `json:"created_at" db:"created_at"`
 	UpdatedAt           *time.Time `json:"updated_at" db:"updated_at"`
-	DeletedAt           *time.Time `json:"deleted_at" db:"deleted_at"`
+	DeletedAt           time.Time  `json:"deleted_at" db:"deleted_at"`
 }
 
 // RolePolicy represents the many-to-many relationship between roles and policies
