@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Shield, ArrowLeft, AlertCircle } from 'lucide-react';
+import { ArrowLeft, AlertCircle } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 
-type LoginType = 'root' | 'iam';
+import Navbar from '@/components/navbar/Navbar';
+
+type LoginType = 'admin' | 'user';
 
 const LoginPage = () => {
-    const [loginType, setLoginType] = useState<LoginType>('root');
+    const [loginType, setLoginType] = useState<LoginType>('admin');
     const [formStep, setFormStep] = useState<number>(1);
     const [email, setEmail] = useState<string>('');
     const [accountId, setAccountId] = useState<string>('');
@@ -46,27 +48,14 @@ const LoginPage = () => {
     };
 
     return (
-        <div className="min-h-screen flex items-center justify-center p-4 bg-bg-card-light dark:bg-bg-main-dark transition-colors font-sans">
-            <div className="w-full max-w-[440px]">
-                {/* Brand Header */}
-                <div className="text-center mb-8">
-                    <div
-                        className="inline-flex items-center space-x-2 cursor-pointer"
-                        onClick={() => navigate('/home')}
-                    >
-                        <Shield className="w-10 h-10 text-primary" />
-                        <span className="text-2xl font-bold tracking-tight text-black dark:text-white">
-                            Monkeys{' '}
-                            <span className="text-primary">IAM</span>
-                        </span>
-                    </div>
-                </div>
+        <div className="min-h-screen relative flex items-center justify-center p-4 bg-bg-card-light dark:bg-bg-main-dark transition-colors font-sans">
+            <Navbar />
 
-                {/* AWS-style Login Card */}
+            <div className="w-full max-w-[440px]">
+
                 <div className="bg-bg-card-light dark:bg-bg-card-dark border border-border-color-light dark:border-border-color-dark p-8 rounded shadow-sm">
                     <h1 className="text-2xl font-semibold mb-6 text-black dark:text-white">Sign In</h1>
 
-                    {/* Error Alert */}
                     {error && (
                         <div className="mb-6 p-4 rounded-md bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 flex items-start space-x-3">
                             <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400 mt-0.5" />
@@ -83,15 +72,14 @@ const LoginPage = () => {
 
                     {formStep === 1 ? (
                         <form onSubmit={handleNext} className="space-y-6">
-                            {/* Radio Selection */}
                             <div className="space-y-4">
                                 <label className="flex items-start space-x-3 cursor-pointer group">
                                     <div className="mt-1">
                                         <input
                                             type="radio"
                                             name="loginType"
-                                            checked={loginType === 'root'}
-                                            onChange={() => setLoginType('root')}
+                                            checked={loginType === 'admin'}
+                                            onChange={() => setLoginType('admin')}
                                             className="w-4 h-4 text-primary border-border-color-light dark:border-border-color-dark focus:ring-primary focus:ring-offset-0 focus:ring-2"
                                         />
                                     </div>
@@ -106,8 +94,8 @@ const LoginPage = () => {
                                         <input
                                             type="radio"
                                             name="loginType"
-                                            checked={loginType === 'iam'}
-                                            onChange={() => setLoginType('iam')}
+                                            checked={loginType === 'user'}
+                                            onChange={() => setLoginType('user')}
                                             className="w-4 h-4 text-primary border-border-color-light dark:border-border-color-dark focus:ring-primary focus:ring-offset-0 focus:ring-2"
                                         />
                                     </div>
@@ -121,15 +109,15 @@ const LoginPage = () => {
                             {/* Dynamic Input */}
                             <div className="space-y-1">
                                 <label className="block text-sm font-bold text-gray-700 dark:text-gray-200">
-                                    {loginType === 'root' ? 'Root user email address' : 'Account ID (12 digits) or account alias'}
+                                    {loginType === 'admin' ? 'Org Admin email address' : 'Account ID (12 digits) or account alias'}
                                 </label>
                                 <input
-                                    type={loginType === 'root' ? 'email' : 'text'}
+                                    type={loginType === 'admin' ? 'email' : 'text'}
                                     required
-                                    value={loginType === 'root' ? email : accountId}
-                                    onChange={(e) => loginType === 'root' ? setEmail(e.target.value) : setAccountId(e.target.value)}
-                                    className="w-full px-3 py-2 border border-border-color-light dark:border-border-color-dark dark:bg-slate-900 rounded focus:border-primary focus:border-2 focus:outline-none transition-all placeholder:text-gray-400"
-                                    placeholder={loginType === 'root' ? 'example@email.com' : '1234-5678-9012'}
+                                    value={loginType === 'admin' ? email : accountId}
+                                    onChange={(e) => loginType === 'admin' ? setEmail(e.target.value) : setAccountId(e.target.value)}
+                                    className="w-full px-3 py-2 text-white border border-border-color-light dark:border-border-color-dark dark:bg-slate-900 rounded focus:border-primary focus:border-2 focus:outline-none transition-all placeholder:text-gray-400"
+                                    placeholder={loginType === 'admin' ? 'example@email.com' : '1234-5678-9012'}
                                 />
                             </div>
 
@@ -155,10 +143,10 @@ const LoginPage = () => {
                             <div className="bg-gray-50 dark:bg-slate-800 p-3 rounded text-sm mb-4 border border-border-color-light dark:border-border-color-dark flex justify-between items-center">
                                 <div>
                                     <span className="text-gray-500 block text-[10px] font-bold uppercase tracking-wider">
-                                        {loginType === 'root' ? 'Root User' : 'Account ID'}
+                                        {loginType === 'admin' ? 'Org Admin' : 'Org User'}
                                     </span>
                                     <span className="font-mono text-gray-800 dark:text-gray-200">
-                                        {loginType === 'root' ? email : accountId}
+                                        {loginType === 'admin' ? email : accountId}
                                     </span>
                                 </div>
                                 <button
@@ -170,7 +158,7 @@ const LoginPage = () => {
                                 </button>
                             </div>
 
-                            {loginType === 'iam' && (
+                            {loginType === 'user' && (
                                 <div className="space-y-1">
                                     <label className="block text-sm font-bold text-gray-700 dark:text-gray-200">IAM user name</label>
                                     <input

@@ -1,8 +1,11 @@
 import { useNavigate } from 'react-router-dom';
 import { Shield, Github } from 'lucide-react';
 
+import { useAuth } from '../../context/AuthContext';
+
 const Navbar = () => {
     const navigate = useNavigate();
+    const { user, logout } = useAuth();
 
     return (
         <nav className="absolute top-0 z-50 w-full bg-bg-main-dark/80">
@@ -28,12 +31,18 @@ const Navbar = () => {
                             <Github className="w-4 h-4 transition-colors group-hover:text-primary" />
                             <span>GitHub</span>
                         </a>
-                        <button
+                        {!user && <button
                             onClick={() => navigate('/login')}
                             className="bg-primary/80 hover:bg-opacity-70 text-white px-5 py-2 rounded-md text-sm font-semibold transition-all shadow-lg shadow-primary/20 cursor-pointer"
                         >
                             Sign In
-                        </button>
+                        </button>}
+                        {user && <button
+                            onClick={logout}
+                            className="bg-primary/80 hover:bg-opacity-70 text-white px-5 py-2 rounded-md text-sm font-semibold transition-all shadow-lg shadow-primary/20 cursor-pointer"
+                        >
+                            Sign Out
+                        </button>}
                     </div>
                 </div>
             </div>

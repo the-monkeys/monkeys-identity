@@ -36,7 +36,6 @@ const LandingPage = () => {
                 </div>
             </section>
 
-            {/* Bento UI Snippets */}
             <section className="py-20 px-4 bg-bg-card-dark/30">
                 <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-8">
                     <div className="bg-slate-900 rounded-2xl border border-border-color-dark overflow-hidden shadow-2xl">
@@ -82,7 +81,6 @@ const LandingPage = () => {
                 </div>
             </section>
 
-            {/* Feature Grid */}
             <section className="py-24 px-4 bg-bg-main-dark">
                 <div className="max-w-7xl mx-auto">
                     <div className="text-center mb-16">

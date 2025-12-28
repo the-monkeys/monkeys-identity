@@ -1,12 +1,10 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
-import Login from './pages/Login';
-import Signup from './pages/Signup';
+import Login from './components/User/Login';
+import Signup from './components/User/Signup';
 import HomePage from './components/LandingPage/HomePage';
-import Dashboard from './pages/Dashboard';
-import OrganizationDetail from './pages/OrganizationDetail';
-import PoliciesPage from './pages/PoliciesPage';
+import Dashboard from './components/Dashboard';
 import './index.css';
 
 function App() {
@@ -25,7 +23,7 @@ function App() {
               </ProtectedRoute>
             }
           />
-          <Route
+          {/*<Route
             path="/organizations/:id"
             element={
               <ProtectedRoute>
@@ -40,7 +38,7 @@ function App() {
                 <PoliciesPage />
               </ProtectedRoute>
             }
-          />
+          />*/}
           <Route path="/" element={<Navigate to="/home" replace />} />
         </Routes>
       </BrowserRouter>
