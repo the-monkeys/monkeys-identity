@@ -1,1 +1,1 @@
-export type LoginType = 'root' | 'iam';
+export type LoginType = 'admin' | 'user';

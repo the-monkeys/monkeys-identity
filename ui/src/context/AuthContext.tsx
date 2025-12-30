@@ -9,6 +9,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const [user, setUser] = useState<User | null>(null);
     const [loading, setLoading] = useState(true);
 
+    // TODO: To implement HTTPOnly Cookie to set the acess token, implement SameSite=Strict to prevent CSRF attacks
     useEffect(() => {
         // Check if user is logged in
         const storedUser = localStorage.getItem('user');

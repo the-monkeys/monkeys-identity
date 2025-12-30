@@ -1,7 +1,9 @@
 import { useNavigate } from 'react-router-dom';
-import { Shield, Key, Users, Code, Lock, Server, ArrowRight } from 'lucide-react';
+import { ArrowRight, Shield, Key, Users, Code, Lock, Server } from 'lucide-react';
 
-import Navbar from '../navbar/Navbar';
+import Footer from './footer/Footer';
+
+import Navbar from './navbar/Navbar';
 import FeatureCard from './FeatureCard';
 import { CodeCard } from './FeatureCard';
 
@@ -122,19 +124,7 @@ const LandingPage = () => {
                 </div>
             </section>
 
-            <footer className="py-12 border-t border-border-color-dark bg-bg-card-dark px-4">
-                <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center opacity-60">
-                    <div className="flex items-center space-x-2 mb-4 md:mb-0">
-                        <Shield className="w-5 h-5 text-primary" />
-                        <span className="font-bold text-white">Monkeys IAM © {new Date().getFullYear()}</span>
-                    </div>
-                    <div className="flex space-x-8 text-sm text-gray-400">
-                        <a href="#" className="hover:text-primary transition-colors">Privacy</a>
-                        <a href="#" className="hover:text-primary transition-colors">Terms</a>
-                        <a href="#" className="hover:text-primary transition-colors">Status</a>
-                    </div>
-                </div>
-            </footer>
+            <Footer />
         </div>
     );
 };

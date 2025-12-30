@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { Shield, Github } from 'lucide-react';
 
-import { useAuth } from '../../context/AuthContext';
+import { useAuth } from '@/context/AuthContext';
 
 const Navbar = () => {
     const navigate = useNavigate();

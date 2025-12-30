@@ -1,7 +1,7 @@
 import { Users, Building2, ShieldCheck, Activity } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
-import Navbar from './navbar/Navbar';
+import Navbar from './LandingPage/navbar/Navbar';
 
 export default function Dashboard() {
     const { user } = useAuth();
