@@ -30,7 +30,6 @@ export interface AuthContextType {
 export interface SidebarProps {
   activeView: string;
   collapsed: boolean;
-  setCollapsed: (collapsed: boolean) => void;
 }
 
 export interface Identity {

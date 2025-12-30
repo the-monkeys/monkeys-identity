@@ -1,10 +1,14 @@
 import { useState } from 'react';
-import { AlertCircle, Search, Filter, MoreVertical, Shield, ShieldAlert, CheckCircle, RotateCw, ExternalLink } from 'lucide-react';
+import { AlertCircle, Search, Filter, MoreVertical, Shield, ShieldAlert, CheckCircle, RotateCw, ExternalLink, Plus } from 'lucide-react';
 
+import { useAuth } from '@/context/AuthContext';
 import { mockIdentities, mockSummary } from '@/constants/dashboard';
 
 const Dashboard = () => {
     const [searchQuery, setSearchQuery] = useState('');
+    const { user } = useAuth();
+    console.log(user);
+
 
     const filteredIdentities = mockIdentities.filter(id =>
         id.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -14,19 +18,14 @@ const Dashboard = () => {
     return (
         <div className="w-full mx-auto">
             {/* Header */}
-            <div className="flex flex-col md:flex-row justify-between mb-8 gap-4">
-                <div>
-                    <h1 className="text-2xl font-bold text-text-main-dark">IAM Overview</h1>
-                    <p className="text-sm text-gray-400">Account: monkeys-production-01 (7721-0092-1244)</p>
+            <div className="w-full flex flex-col sm:flex-row justify-between items-start mb-8 gap-4">
+                <div className="flex flex-col space-y-2">
+                    <h1 className="text-2xl font-bold text-text-main-dark">Infrastructure Overview</h1>
+                    <p className="text-sm text-gray-300">Real-time telemetry from all connected IAM regions.</p>
                 </div>
-                <div className="flex space-x-3">
-                    <button className="px-4 py-2 bg-slate-800 border border-border-color-dark rounded-md text-sm font-semibold hover:bg-slate-700 transition-colors">
-                        Export Reports
-                    </button>
-                    <button className="px-4 py-2 bg-primary text-white rounded-md text-sm font-semibold shadow-lg shadow-primary/20 hover:bg-opacity-90 transition-all">
-                        Create New Identity
-                    </button>
-                </div>
+                <button className="px-4 py-2 bg-primary/80 text-white rounded-md text-sm font-semibold flex items-center space-x-4 hover:bg-primary/90 transition-all cursor-pointer">
+                    <Plus size={16} /> Add Identity
+                </button>
             </div>
 
             {/* Top Row: Widgets */}
