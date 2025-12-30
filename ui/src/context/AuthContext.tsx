@@ -29,7 +29,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             localStorage.setItem('access_token', access_token);
             localStorage.setItem('user', JSON.stringify(userData));
             setUser(userData);
-
             return { success: true };
         } catch (error: any) {
             return {

@@ -33,7 +33,7 @@ const LoginPage = () => {
             const result = await login(identifier, password);
 
             if (result.success) {
-                navigate('/dashboard');
+                navigate('/home');
             } else {
                 throw new Error(result.error);
             }

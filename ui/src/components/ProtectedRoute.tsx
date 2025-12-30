@@ -9,13 +9,12 @@ const ProtectedRoute = ({ children }: { children: ReactNode }) => {
         return (
             <div className="loading-container">
                 <div className="spinner"></div>
-                <p>Loading...</p>
             </div>
         );
     }
 
     if (!user) {
-        return <Navigate to="/login" replace />;
+        return <Navigate to="/" replace />;
     }
 
     return <>{children}</>;
