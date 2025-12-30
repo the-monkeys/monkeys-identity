@@ -2,9 +2,6 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AlertCircle, AlertTriangle } from 'lucide-react';
 
-import Navbar from '@/components/LandingPage/navbar/Navbar';
-import Footer from '@/components/LandingPage/footer/Footer';
-
 import { validateSignupForm } from '@/utils/validateSignupForm';
 import { SignupFormData, SignupFormErrors } from '@/Types/interfaces';
 import { authAPI } from '@/services/api';
@@ -47,10 +44,8 @@ const SignupPage = () => {
     };
 
     return (
-        <div className="min-h-screen bg-bg-main-dark flex flex-col font-sans text-text-main-dark">
-            <Navbar />
-
-            <div className="max-w-3xl flex-1 flex flex-col items-center py-24 px-4 mx-auto">
+        <div className="flex-1 flex flex-col items-center justify-center p-4">
+            <div className="max-w-3xl w-full flex-1 flex flex-col items-center py-24 px-4 mx-auto">
                 <div className="mb-12 text-center text-sm text-gray-400">
                     <p>We strongly recommend enabling Multi-Factor Authentication (MFA). Monkeys IAM follows the principle of least privilege.</p>
                 </div>
@@ -185,8 +180,6 @@ const SignupPage = () => {
                     </form>
                 </div>
             </div>
-
-            <Footer />
         </div>
     );
 };

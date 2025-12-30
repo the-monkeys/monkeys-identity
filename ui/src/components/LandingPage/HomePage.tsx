@@ -1,19 +1,13 @@
 import { useNavigate } from 'react-router-dom';
 import { ArrowRight, Shield, Key, Users, Code, Lock, Server } from 'lucide-react';
 
-import Footer from './footer/Footer';
-
-import Navbar from './navbar/Navbar';
-import FeatureCard from './FeatureCard';
-import { CodeCard } from './FeatureCard';
+import { CodeCard, FeatureCard } from '@/components/LandingPage/FeatureCard';
 
 const LandingPage = () => {
     const navigate = useNavigate();
 
     return (
-        <div className="relative min-h-screen overflow-hidden bg-bg-main-dark text-white">
-            <Navbar />
-
+        <div className="flex-1 font-sans">
             <section className="max-w-7xl pt-24 pb-20 md:pt-40 md:pb-32 px-4 mx-auto">
                 <div className="w-full flex flex-col justify-center items-center gap-y-8">
                     <h1 className="w-full text-5xl md:text-7xl font-bold tracking-tight mb-12 text-white text-center">
@@ -72,7 +66,7 @@ const LandingPage = () => {
                                     </div>
                                     <div className="flex items-center space-x-4">
                                         <span className="text-[10px] font-mono text-gray-500">{user.ip}</span>
-                                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${user.status === 'Online' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
+                                        <span className={`px - 2 py - 0.5 rounded - full text - [10px] font - bold ${user.status === 'Online' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'} `}>
                                             {user.status}
                                         </span>
                                     </div>
@@ -123,8 +117,6 @@ const LandingPage = () => {
                     </div>
                 </div>
             </section>
-
-            <Footer />
         </div>
     );
 };

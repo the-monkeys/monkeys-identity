@@ -2,7 +2,7 @@ import { Shield } from 'lucide-react';
 
 const Footer = () => {
     return (
-        <footer className="py-12 border-t border-border-color-dark bg-bg-card-dark px-4 font-sans">
+        <footer className="w-full py-12 border-t border-border-color-dark bg-bg-card-dark px-4 font-sans">
             <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center opacity-60">
                 <div className="flex items-center space-x-2 mb-4 md:mb-0">
                     <Shield className="w-5 h-5 text-primary" />

@@ -3,8 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { AlertCircle } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 
-import Navbar from '@/components/LandingPage/navbar/Navbar';
-import Footer from '@/components/LandingPage/footer/Footer';
 import { LoginType } from '@/Types/types';
 
 const LoginPage = () => {
@@ -48,9 +46,7 @@ const LoginPage = () => {
     };
 
     return (
-        <div className="min-h-screen relative flex items-center justify-center p-4 bg-bg-main-dark font-sans">
-            <Navbar />
-
+        <div className="min-h-screen relative flex flex-col items-center justify-center p-4 font-sans text-white">
             <div className="max-w-3xl mx-auto bg-bg-card-dark border border-border-color-dark p-8 rounded shadow-sm">
                 <h1 className="text-2xl font-semibold mb-6 text-white">Sign In</h1>
 
@@ -187,7 +183,6 @@ const LoginPage = () => {
                         </button>
                     </div>
                 </form>
-                <Footer />
             </div>
         </div>
     );

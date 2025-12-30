@@ -7,14 +7,18 @@ import HomePage from './components/LandingPage/HomePage';
 import Dashboard from './components/Dashboard';
 import './index.css';
 
+import LandingLayout from './components/LandingPage/LandingLayout';
+
 function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
         <Routes>
-          <Route path="/home" element={<HomePage />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/signup" element={<Signup />} />
+          <Route element={<LandingLayout />}>
+            <Route path="/home" element={<HomePage />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/signup" element={<Signup />} />
+          </Route>
           <Route
             path="/dashboard"
             element={
