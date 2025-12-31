@@ -8,7 +8,7 @@ const ProtectedRouteLayout = () => {
     const location = useLocation();
 
     const currentPath = location.pathname.split('/')[1];
-    const activeView = currentPath === 'home' ? 'dashboard' : currentPath || 'dashboard';
+    const activeView = currentPath === 'home' ? 'overview' : currentPath || 'overview';
     const [collapsed, setCollapsed] = useState(false);
 
     return (

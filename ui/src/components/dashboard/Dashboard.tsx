@@ -2,7 +2,9 @@ import { useState } from 'react';
 import { Search, Filter, MoreVertical, Plus } from 'lucide-react';
 
 import { useAuth } from '@/context/AuthContext';
-import { mockIdentities, mockSummary } from '@/constants/dashboard';
+import { mockIdentities } from '@/constants/dashboard';
+
+import MetricCard from '@/components/dashboard/MetricCards';
 
 const Dashboard = () => {
     const [searchQuery, setSearchQuery] = useState('');
@@ -17,50 +19,24 @@ const Dashboard = () => {
 
     return (
         <div className="w-full mx-auto">
-            {/* Header */}
-            <div className="w-full flex flex-col sm:flex-row justify-between items-start mb-8 gap-4">
+            <div className="w-full flex flex-row justify-between items-center mb-8 gap-4">
                 <div className="flex flex-col space-y-2">
-                    <h1 className="text-2xl font-bold text-text-main-dark">Infrastructure Overview</h1>
-                    <p className="text-sm text-gray-300">Real-time telemetry from all connected IAM regions.</p>
+                    <h1 className="text-2xl font-bold text-text-main-dark">Overview</h1>
+                    <p className="text-sm text-gray-300">Real-time telemetry from all connected IAM accounts.</p>
                 </div>
                 <button className="px-4 py-2 bg-primary/80 text-white rounded-md text-sm font-semibold flex items-center space-x-4 hover:bg-primary/90 transition-all cursor-pointer">
                     <Plus size={16} /> Add Identity
                 </button>
             </div>
 
-            {/* Top Row: Widgets */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                {mockSummary.map((m, i) => (
-                    <div key={i} className="bg-bg-card-dark border border-border-color-dark rounded-xl p-6 flex items-center justify-between">
-                        <div>
-                            <p className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-1">{m.label}</p>
-                            <div className="flex items-baseline space-x-2">
-                                <h3 className="text-3xl font-bold">{m.value}</h3>
-                                <span className={`text-xs font-bold ${m.change >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                                    {m.change >= 0 ? '+' : ''}{m.change}%
-                                </span>
-                            </div>
-                        </div>
-                        <div className="h-12 flex items-end justify-between space-x-1">
-                            {m.data.map((v, idx) => (
-                                <div
-                                    key={idx}
-                                    className={`w-2 rounded-t-sm ${m.label === 'Security Alerts' ? 'bg-red-500/20' : 'bg-primary/20'}`}
-                                    style={{ height: `${(v / Math.max(...m.data)) * 100}%` }}
-                                >
-                                    <div
-                                        className={`w-full rounded-t-sm h-full ${m.label === 'Security Alerts' ? 'bg-red-500' : 'bg-primary'}`}
-                                        style={{ opacity: 0.5 }}
-                                    ></div>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                ))}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+                <MetricCard label="Total Identities" value="1,248" change="+12%" positive />
+                <MetricCard label="Active Sessions" value="342" change="+5.4%" positive />
+                <MetricCard label="Failed Logins (24h)" value="28" change="+82%" positive={false} />
+                <MetricCard label="Policy Versions" value="94" change="0%" neutral />
             </div>
 
             <div className="grid grid-cols-1 xl:grid-cols-4 gap-8">
-                {/* Center: Data Table */}
                 <div className="xl:col-span-3 space-y-6">
                     <div className="bg-bg-card-dark border border-border-color-dark rounded-xl shadow-sm overflow-hidden">
                         <div className="p-4 border-b border-border-color-dark flex flex-col md:flex-row justify-between gap-4">

@@ -6,15 +6,21 @@ import {
     Settings,
     Database,
     Clock,
-    AlertCircle,
-    LayoutDashboard
+    Clock1,
+    LayoutDashboard,
+    Building
 } from 'lucide-react';
 
 export const sidebarMenuItems = [
     { 
         icon: React.createElement(LayoutDashboard, { size: 20 }), 
-        label: 'Dashboard', 
-        id: 'dashboard' 
+        label: 'Overview', 
+        id: 'overview' 
+    },
+    {
+        icon: React.createElement(Building, { size: 20 }),
+        label: 'Organization',
+        id: 'organizations'
     },
     { 
         icon: React.createElement(Users, { size: 20 }), 
@@ -36,6 +42,11 @@ export const sidebarMenuItems = [
         label: 'Policies', 
         id: 'policies' 
     },
+    {
+        icon: React.createElement(Clock1, { size: 20 }),
+        label: 'Sessions',
+        id: 'sessions'
+    }
 ];
 
 export const secondaryMenuItems = [

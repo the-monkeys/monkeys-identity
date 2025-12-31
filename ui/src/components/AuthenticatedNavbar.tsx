@@ -21,10 +21,8 @@ const AuthenticatedNavbar = ({ collapsed, setCollapsed }: AuthenticatedHeaderPro
                 >
                     {collapsed ? <Menu size={20} /> : <ChevronLeft size={20} />}
                 </button>
-                <div className="flex flex-col justify-center items-start font-semibold space-y-1">
-                    <p className="text-xs text-gray-300">Org ID: {user?.organization_id}</p>
-                    <h2 className="text-base text-gray-200">{user?.username}</h2>
-                </div>
+
+                <p className="text-lg font-semibold text-gray-300">{user?.username}</p>
             </div>
 
             <div className="flex items-center space-x-4">

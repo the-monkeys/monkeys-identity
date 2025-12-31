@@ -1,10 +1,4 @@
-import { Identity, SummaryMetric } from '@/Types/interfaces';
-
-export const mockSummary: SummaryMetric[] = [
-  { label: 'Total Users', value: 1248, change: 12, data: [10, 15, 8, 12, 18, 14, 20] },
-  { label: 'Active Sessions', value: 342, change: 5, data: [30, 25, 35, 32, 40, 38, 45] },
-  /*{ label: 'Security Alerts', value: 3, change: -10, data: [5, 4, 3, 2, 4, 1, 3] },*/
-];
+import { Identity } from '@/Types/interfaces';
 
 export const mockIdentities: Identity[] = [
   { id: '001', name: 'billing-manager-role', type: 'Role', arn: 'arn:monkeys-iam::7721:role/billing-manager', lastModified: '2025-01-24 14:22', status: 'Active' },

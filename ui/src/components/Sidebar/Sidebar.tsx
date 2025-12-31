@@ -35,9 +35,6 @@ const Sidebar = ({ activeView, collapsed }: SidebarProps) => {
                                 : 'text-gray-400 hover:bg-slate-700'
                                 }`}
                         >
-                            {activeView === item.id && (
-                                <div className="absolute left-0 top-2 bottom-2 w-1 bg-primary rounded-r-full"></div>
-                            )}
                             <div className={`${activeView === item.id ? 'text-primary' : 'group-hover:text-primary transition-colors'}`}>
                                 {item.icon}
                             </div>
