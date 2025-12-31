@@ -43,10 +43,10 @@ export const secondaryMenuItems = [
         icon: React.createElement(Clock, { size: 20 }), 
         label: 'Audit Logs' 
     },
-    { 
+    /*{ 
         icon: React.createElement(AlertCircle, { size: 20 }), 
         label: 'Security Alerts' 
-    },
+    },*/
     { 
         icon: React.createElement(Settings, { size: 20 }), 
         label: 'Account Settings' 

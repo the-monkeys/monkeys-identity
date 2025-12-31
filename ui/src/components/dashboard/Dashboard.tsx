@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { AlertCircle, Search, Filter, MoreVertical, Shield, ShieldAlert, CheckCircle, RotateCw, ExternalLink, Plus } from 'lucide-react';
+import { Search, Filter, MoreVertical, Plus } from 'lucide-react';
 
 import { useAuth } from '@/context/AuthContext';
 import { mockIdentities, mockSummary } from '@/constants/dashboard';
@@ -136,102 +136,6 @@ const Dashboard = () => {
                                 </tbody>
                             </table>
                         </div>
-                    </div>
-
-                    {/* Simple Policy Preview/Editor Widget */}
-                    <div className="bg-bg-card-dark border border-border-color-dark rounded-xl shadow-sm">
-                        <div className="p-4 border-b border-border-color-dark flex justify-between items-center">
-                            <h2 className="font-bold flex items-center space-x-2">
-                                <Shield size={18} className="text-primary" />
-                                <span>Quick Policy Editor</span>
-                            </h2>
-                            <div className="flex space-x-2">
-                                <button className="text-[10px] font-bold uppercase px-3 py-1 bg-slate-800 rounded hover:bg-slate-700 transition-colors">JSON View</button>
-                                <button className="text-[10px] font-bold uppercase px-3 py-1 text-gray-400 hover:text-text-main-dark transition-colors">Visual Editor</button>
-                            </div>
-                        </div>
-                        <div className="p-6 bg-slate-900/50 font-mono text-sm">
-                            <div className="space-y-1">
-                                <p><span className="text-primary">"Version"</span>: <span className="text-blue-400">"2025-01-24"</span>,</p>
-                                <p><span className="text-primary">"Statement"</span>: [</p>
-                                <div className="pl-6">
-                                    <p>{"{"}</p>
-                                    <div className="pl-6">
-                                        <p><span className="text-primary">"Effect"</span>: <span className="text-blue-400">"Allow"</span>,</p>
-                                        <p><span className="text-primary">"Action"</span>: [</p>
-                                        <div className="pl-6">
-                                            <p><span className="text-blue-400">"iam:ListAccessKeys"</span>,</p>
-                                            <p><span className="text-blue-400">"iam:GetAccessKeyLastUsed"</span></p>
-                                        </div>
-                                        <p>],</p>
-                                        {/* Fix: use a safe JSX expression to avoid 'Cannot find name aws' error from template literal syntax */}
-                                        <p><span className="text-primary">"Resource"</span>: <span className="text-blue-400">"arn:monkeys-iam::7721:user/{"$"}{"{aws:username}"}"</span></p>
-                                    </div>
-                                    <p>{"}"}</p>
-                                </div>
-                                <p>]</p>
-                            </div>
-                        </div>
-                        <div className="p-4 border-t border-border-color-dark flex justify-end space-x-3">
-                            <button className="text-sm font-semibold px-4 py-2 hover:bg-slate-800 rounded-md transition-colors">Discard</button>
-                            <button className="text-sm font-semibold px-4 py-2 bg-primary text-white rounded-md hover:bg-opacity-90 transition-all">Save Changes</button>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Right Rail: Security Status */}
-                <div className="xl:col-span-1 space-y-6">
-                    <div className="bg-bg-card-dark border border-border-color-dark rounded-xl shadow-sm p-6">
-                        <h2 className="text-sm font-bold uppercase tracking-widest text-gray-400 mb-6 flex items-center space-x-2">
-                            <ShieldAlert size={14} className="text-primary" />
-                            <span>Security Health</span>
-                        </h2>
-
-                        <div className="space-y-6">
-                            {[
-                                { label: 'Root MFA Status', status: 'Secure', icon: <CheckCircle className="text-green-500" size={16} /> },
-                                { label: 'Unused Credentials', status: 'Warning', count: 12, icon: <AlertCircle className="text-yellow-500" size={16} /> },
-                                { label: 'Key Rotation', status: 'Action Required', count: 4, icon: <RotateCw className="text-red-500" size={16} /> },
-                            ].map((item, i) => (
-                                <div key={i} className="flex items-start justify-between">
-                                    <div className="flex items-start space-x-3">
-                                        <div className="mt-1">{item.icon}</div>
-                                        <div>
-                                            <p className="text-sm font-semibold leading-tight">{item.label}</p>
-                                            <p className="text-[10px] font-bold text-gray-500 mt-1 uppercase tracking-tighter">
-                                                {item.status} {item.count ? `(${item.count} items)` : ''}
-                                            </p>
-                                        </div>
-                                    </div>
-                                    <button className="text-primary hover:scale-110 transition-transform">
-                                        <ExternalLink size={14} />
-                                    </button>
-                                </div>
-                            ))}
-                        </div>
-
-                        <div className="mt-8 pt-6 border-t border-border-color-dark">
-                            <div className="bg-slate-900 rounded-lg p-4">
-                                <p className="text-xs font-bold text-gray-500 mb-2">SECURITY RECOMMENDATION</p>
-                                <p className="text-xs leading-relaxed text-gray-400">
-                                    You have 4 IAM Users without MFA enabled. Enforce MFA via an Account Password Policy to improve security score.
-                                </p>
-                                <button className="mt-3 text-xs font-bold text-primary hover:underline">Apply Policy Now</button>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="bg-primary/10 border border-primary/20 rounded-xl p-6 relative overflow-hidden group">
-                        <div className="absolute -right-4 -top-4 text-primary/10 group-hover:scale-125 transition-transform duration-700">
-                            <Shield size={120} />
-                        </div>
-                        <h3 className="text-lg font-bold mb-2 relative z-10">Advanced Protection</h3>
-                        <p className="text-sm text-gray-600 dark:text-gray-400 relative z-10 mb-4 leading-relaxed">
-                            Upgrade to Enterprise for hardware-backed keys and automated threat detection.
-                        </p>
-                        <button className="relative z-10 bg-primary text-white px-4 py-2 rounded-lg text-xs font-bold shadow-lg shadow-primary/20 hover:scale-105 transition-all">
-                            Upgrade Plan
-                        </button>
                     </div>
                 </div>
             </div>
