@@ -385,7 +385,8 @@ func (q *userQueries) UpdateUser(user *models.User) error {
 		deletedAt = &user.DeletedAt
 	}
 
-	// Convert slices to JSON strings (simplified)
+	// Convert slices to JSON String
+
 	mfaMethodsJSON := "[]"
 	attributesJSON := "{}"
 	preferencesJSON := "{}"
