@@ -386,15 +386,15 @@ func (q *userQueries) UpdateUser(user *models.User) error {
 	}
 
 	// Convert slices to JSON String
-
-	mfaMethodsJSON := "[]"
+	mfaMethodsJSON := "{}"
+	MFABackupCodesJSON := "{}"
 	attributesJSON := "{}"
 	preferencesJSON := "{}"
 
 	_, err := q.exec(query,
 		user.ID, user.Username, user.Email, user.EmailVerified, user.DisplayName,
 		avatarURL, user.OrganizationID, user.PasswordHash, user.PasswordChangedAt,
-		user.MFAEnabled, mfaMethodsJSON, user.MFABackupCodes, attributesJSON, preferencesJSON,
+		user.MFAEnabled, mfaMethodsJSON, MFABackupCodesJSON, attributesJSON, preferencesJSON,
 		lastLogin, user.FailedLoginAttempts, lockedUntil, user.Status,
 		user.UpdatedAt, deletedAt,
 	)
