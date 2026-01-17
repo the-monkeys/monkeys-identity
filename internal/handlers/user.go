@@ -100,21 +100,18 @@ func (h *UserHandler) ListUsers(c *fiber.Ctx) error {
 //	@Tags			User Management
 //	@Accept			json
 //	@Produce		json
-//	@Param			request	body		SuccessResponse	true	"User creation details"
+//	 @Param      request body   models.User true "User creation details"
 //	@Success		201		{object}	SuccessResponse		"User created successfully"
 //	@Failure		400		{object}	ErrorResponse		"Invalid request format"
 //	@Failure		409		{object}	ErrorResponse		"User already exists"
-//	@Failure		500		{object}	ErrorResponse		"Internal server error"
-//	@Security		BearerAuth
+//	@Failure		500		{object} ErrorResponse		 "Internal server error"
+//
+// @Security BearerAuth
+//
 //	@Router			/users [post]
 func (h *UserHandler) CreateUser(c *fiber.Ctx) error {
-	var req struct {
-		Email       string `json:"email" validate:"required,email"`
-		Password    string `json:"password" validate:"required,min=8"`
-		Username    string `json:"username" validate:"required"`
-		DisplayName string `json:"display_name" validate:"required"`
-		OrgID       string `json:"organization_id"`
-	}
+
+	var req models.User
 
 	if err := c.BodyParser(&req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -133,7 +130,7 @@ func (h *UserHandler) CreateUser(c *fiber.Ctx) error {
 	}
 
 	// Hash password using bcrypt
-	hashedPassword, err := hashPassword(req.Password)
+	hashedPassword, err := hashPassword(req.PasswordHash)
 	if err != nil {
 		h.logger.Error("Failed to hash password: %v", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
@@ -148,7 +145,7 @@ func (h *UserHandler) CreateUser(c *fiber.Ctx) error {
 		Email:          req.Email,
 		Username:       req.Username,
 		DisplayName:    req.DisplayName,
-		OrganizationID: req.OrgID,
+		OrganizationID: req.OrganizationID,
 		PasswordHash:   hashedPassword,
 		EmailVerified:  false,
 		Status:         "active",
