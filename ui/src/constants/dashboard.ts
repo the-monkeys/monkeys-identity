@@ -1,4 +1,4 @@
-import { Identity } from '@/Types/interfaces';
+import { Identity } from '@/features/dashboard/types/dashboard';
 
 export const mockIdentities: Identity[] = [
   { id: '001', name: 'billing-manager-role', type: 'Role', arn: 'arn:monkeys-iam::7721:role/billing-manager', lastModified: '2025-01-24 14:22', status: 'Active' },

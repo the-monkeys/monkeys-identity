@@ -1,4 +1,4 @@
-import { SignupFormData, SignupFormErrors } from "../Types/interfaces";
+import { SignupFormData, SignupFormErrors } from "@/features/auth/types/auth";
 
 export const validateSignupForm = (formData: SignupFormData, confirmPassword: string): SignupFormErrors => {
     const errors: SignupFormErrors = {};
