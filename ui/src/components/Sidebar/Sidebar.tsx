@@ -1,4 +1,5 @@
 import { LogOut, Shield } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 import { useAuth } from '@/context/AuthContext';
 import { sidebarMenuItems, secondaryMenuItems } from '@/constants/sidebar';
@@ -6,6 +7,25 @@ import { SidebarProps } from '@/Types/interfaces';
 
 const Sidebar = ({ activeView, collapsed }: SidebarProps) => {
     const { logout } = useAuth();
+    const navigate = useNavigate();
+
+    const handleMenuClick = (id: string) => {
+        // Map menu item IDs to routes
+        const routeMap: { [key: string]: string } = {
+            'overview': '/home',
+            'organizations': '/organizations',
+            'users': '/users',
+            'groups': '/groups',
+            'roles': '/roles',
+            'policies': '/policies',
+            'sessions': '/sessions',
+        };
+
+        const route = routeMap[id];
+        if (route) {
+            navigate(route);
+        }
+    };
 
     return (
         <aside
@@ -30,6 +50,7 @@ const Sidebar = ({ activeView, collapsed }: SidebarProps) => {
                     {sidebarMenuItems.map((item) => (
                         <button
                             key={item.label}
+                            onClick={() => handleMenuClick(item.id)}
                             className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg transition-all group relative cursor-pointer ${activeView === item.id
                                 ? 'bg-primary/10 text-primary font-bold'
                                 : 'text-gray-400 hover:bg-slate-700'

@@ -4,6 +4,7 @@ import Login from './components/User/Login';
 import Signup from './components/User/Signup';
 import HomePage from './components/LandingPage/HomePage';
 import Dashboard from './components/dashboard/Dashboard';
+import UsersManagement from './components/User/UsersManagement';
 import './index.css';
 
 import LandingLayout from './components/LandingPage/LandingLayout';
@@ -24,6 +25,7 @@ function App() {
           {/* Protected Routes - Accessible only when logged in */}
           <Route element={<ProtectedRouteLayout />}>
             <Route path="/home" element={<Dashboard />} />
+            <Route path="/users" element={<UsersManagement />} />
           </Route>
 
           <Route path="*" element={<Navigate to="/" replace />} />
