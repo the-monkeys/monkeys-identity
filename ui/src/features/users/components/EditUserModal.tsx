@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { X, Save } from 'lucide-react';
-import { userAPI } from '../api/user';
+import { useUpdateUser } from '../api/useUsers';
 import { User } from '../types/user';
 
 interface EditUserModalProps {
@@ -10,6 +10,8 @@ interface EditUserModalProps {
 }
 
 const EditUserModal = ({ user, onClose, onSave }: EditUserModalProps) => {
+    const updateUserMutation = useUpdateUser();
+
     const [formData, setFormData] = useState({
         username: user.username,
         email: user.email,
@@ -24,38 +26,30 @@ const EditUserModal = ({ user, onClose, onSave }: EditUserModalProps) => {
     });
 
     const [activeTab, setActiveTab] = useState<'basic' | 'account' | 'advanced'>('basic');
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState<string | null>(null);
 
     const handleChange = (field: string, value: any) => {
         setFormData(prev => ({ ...prev, [field]: value }));
     };
 
-    const handleSubmit = async (e: React.FormEvent) => {
+    const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        setLoading(true);
-        setError(null);
 
+        // Validate JSON fields - fail early before mutation
         try {
-            // Validate JSON fields
-            if (formData.attributes) {
-                JSON.parse(formData.attributes);
-            }
-            if (formData.preferences) {
-                JSON.parse(formData.preferences);
-            }
-
-            await userAPI.update(user.id, formData);
-            onSave();
-        } catch (err: any) {
-            if (err instanceof SyntaxError) {
-                setError('Invalid JSON in attributes or preferences');
-            } else {
-                setError(err.response?.data?.message || 'Failed to update user');
-            }
-        } finally {
-            setLoading(false);
+            if (formData.attributes) JSON.parse(formData.attributes);
+            if (formData.preferences) JSON.parse(formData.preferences);
+        } catch (e) {
+            // Ideally set a local error state here, but mutation error catches it too if backend validates.
+            // Since we are validating purely purely UI side, we need local state or just alert.
+            alert("Invalid JSON in attributes or preferences");
+            return;
         }
+
+        updateUserMutation.mutate({ id: user.id, data: formData }, {
+            onSuccess: () => {
+                onSave();
+            }
+        });
     };
 
     const formatDate = (dateString: string) => {
@@ -116,9 +110,9 @@ const EditUserModal = ({ user, onClose, onSave }: EditUserModalProps) => {
 
                 {/* Form Content */}
                 <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto px-6 py-6">
-                    {error && (
+                    {updateUserMutation.isError && (
                         <div className="mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded-lg text-red-400 text-sm">
-                            {error}
+                            {(updateUserMutation.error as any)?.response?.data?.message || 'Failed to update user'}
                         </div>
                     )}
 
@@ -299,7 +293,7 @@ const EditUserModal = ({ user, onClose, onSave }: EditUserModalProps) => {
                         type="button"
                         onClick={onClose}
                         className="px-4 py-2 bg-slate-700 text-white rounded-lg font-semibold hover:bg-slate-600 transition-colors"
-                        disabled={loading}
+                        disabled={updateUserMutation.isPending}
                     >
                         Cancel
                     </button>
@@ -307,10 +301,10 @@ const EditUserModal = ({ user, onClose, onSave }: EditUserModalProps) => {
                         type="submit"
                         onClick={handleSubmit}
                         className="px-4 py-2 bg-primary text-white rounded-lg font-semibold hover:bg-primary/90 transition-colors flex items-center space-x-2"
-                        disabled={loading}
+                        disabled={updateUserMutation.isPending}
                     >
                         <Save size={16} />
-                        <span>{loading ? 'Saving...' : 'Save Changes'}</span>
+                        <span>{updateUserMutation.isPending ? 'Saving...' : 'Save Changes'}</span>
                     </button>
                 </div>
             </div>

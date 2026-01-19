@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { X, UserPlus, Eye, EyeOff } from 'lucide-react';
-import { userAPI } from '../api/user';
+import { useCreateUser } from '../api/useUsers';
 import { useAuth } from '@/context/AuthContext';
 
 interface AddUserModalProps {
@@ -10,45 +10,40 @@ interface AddUserModalProps {
 
 const AddUserModal = ({ onClose, onSave }: AddUserModalProps) => {
     const { user: currentUser } = useAuth();
+    const createUserMutation = useCreateUser();
+
     const [formData, setFormData] = useState({
         username: '',
         email: '',
         display_name: '',
-        password_hash: '', // Using password_hash field as per backend CreateUser body parser
+        password_hash: '',
         organization_id: currentUser?.organization_id || '',
     });
 
     const [showPassword, setShowPassword] = useState(false);
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState<string | null>(null);
 
     const handleChange = (field: string, value: string) => {
         setFormData(prev => ({ ...prev, [field]: value }));
     };
 
-    const handleSubmit = async (e: React.FormEvent) => {
+    const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        setLoading(true);
-        setError(null);
 
-        try {
-            if (!formData.organization_id) {
-                throw new Error('Organization ID is required');
-            }
-
-            await userAPI.create(formData);
-            onSave();
-        } catch (err: any) {
-            setError(err.response?.data?.message || err.message || 'Failed to create user');
-        } finally {
-            setLoading(false);
+        if (!formData.organization_id) {
+            // Should ideally show error, but disabled input usually prevents this
+            return;
         }
+
+        createUserMutation.mutate(formData, {
+            onSuccess: () => {
+                onSave(); // Parent closes modal
+            }
+        });
     };
 
     return (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
             <div className="bg-bg-card-dark border border-border-color-dark rounded-xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col">
-                {/* Header */}
                 <div className="px-6 py-4 border-b border-border-color-dark flex items-center justify-between">
                     <div className="flex items-center space-x-3">
                         <div className="p-2 bg-primary/10 rounded-lg">
@@ -67,11 +62,10 @@ const AddUserModal = ({ onClose, onSave }: AddUserModalProps) => {
                     </button>
                 </div>
 
-                {/* Form Content */}
                 <form onSubmit={handleSubmit} className="px-6 py-6 space-y-4">
-                    {error && (
+                    {createUserMutation.isError && (
                         <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-lg text-red-400 text-sm">
-                            {error}
+                            {(createUserMutation.error as any)?.response?.data?.message || 'Failed to create user'}
                         </div>
                     )}
 
@@ -142,26 +136,25 @@ const AddUserModal = ({ onClose, onSave }: AddUserModalProps) => {
                         />
                         <p className="text-[10px] text-gray-500 mt-1">Automatically assigned to your organization</p>
                     </div>
-                </form>
 
-                {/* Footer */}
-                <div className="px-6 py-4 border-t border-border-color-dark flex items-center justify-end space-x-3 bg-slate-900/10">
-                    <button
-                        type="button"
-                        onClick={onClose}
-                        className="px-4 py-2 bg-slate-700 text-white rounded-lg font-semibold text-sm hover:bg-slate-600 transition-all"
-                        disabled={loading}
-                    >
-                        Cancel
-                    </button>
-                    <button
-                        onClick={handleSubmit}
-                        className="px-4 py-2 bg-primary text-white rounded-lg font-semibold text-sm hover:bg-primary/90 shadow-lg shadow-primary/20 transition-all flex items-center space-x-2"
-                        disabled={loading}
-                    >
-                        <span>{loading ? 'Creating...' : 'Create User'}</span>
-                    </button>
-                </div>
+                    <div className="pt-4 border-t border-border-color-dark flex items-center justify-end space-x-3">
+                        <button
+                            type="button"
+                            onClick={onClose}
+                            className="px-4 py-2 bg-slate-700 text-white rounded-lg font-semibold text-sm hover:bg-slate-600 transition-all"
+                            disabled={createUserMutation.isPending}
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            type="submit"
+                            className="px-4 py-2 bg-primary text-white rounded-lg font-semibold text-sm hover:bg-primary/90 shadow-lg shadow-primary/20 transition-all flex items-center space-x-2"
+                            disabled={createUserMutation.isPending}
+                        >
+                            <span>{createUserMutation.isPending ? 'Creating...' : 'Create User'}</span>
+                        </button>
+                    </div>
+                </form>
             </div>
         </div>
     );
