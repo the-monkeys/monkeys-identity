@@ -78,7 +78,7 @@ services:
       - ./ui:/app
       - /app/node_modules
     environment:
-      - VITE_API_URL=http://monkeys-iam:8080
+      - VITE_API_URL=http://localhost:8085/api/v1
 
   # pgAdmin (Optional - for database management)
   pgadmin:

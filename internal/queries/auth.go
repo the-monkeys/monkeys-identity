@@ -187,7 +187,7 @@ func (q *authQueries) CreateAdminUser(user *models.User) error {
 	now := time.Now()
 
 	// Ensure the default organization exists before starting the transactional workflow
-	defaultOrgID, err := q.ensureDefaultOrganizationGlobal(now)
+	_, err := q.ensureDefaultOrganizationGlobal(now)
 	if err != nil {
 		return err
 	}
@@ -200,14 +200,42 @@ func (q *authQueries) CreateAdminUser(user *models.User) error {
 	defer tx.Rollback()
 
 	if user.OrganizationID == "" {
-		user.OrganizationID = defaultOrgID
+		// If no organization ID provided, create a new random one
+		newOrgID := uuid.New().String()
+		// We need to create the organization first
+		orgName := "Admin Organization " + newOrgID[:8]
+		orgSlug := "admin-org-" + newOrgID[:8]
+
+		orgQuery := `
+			INSERT INTO organizations (id, name, slug, status, created_at, updated_at)
+			VALUES ($1, $2, $3, 'active', $4, $4)
+		`
+		_, err = tx.ExecContext(q.ctx, orgQuery, newOrgID, orgName, orgSlug, now)
+		if err != nil {
+			return err
+		}
+		user.OrganizationID = newOrgID
 	} else {
+		// Check transactionally if organization exists
 		exists, err := q.organizationExists(tx, user.OrganizationID)
 		if err != nil {
 			return err
 		}
 		if !exists {
-			return ErrOrganizationNotFound
+			// Create the requested organization since it doesn't exist
+			orgName := "Organization " + user.OrganizationID[:8]
+			// Check if UUID is valid to avoid issues, though we trust the input from handler/frontend has some basic validation
+			// Ideally we should sanitize or generate a proper slug
+			orgSlug := "org-" + user.OrganizationID
+
+			orgQuery := `
+				INSERT INTO organizations (id, name, slug, status, created_at, updated_at)
+				VALUES ($1, $2, $3, 'active', $4, $4)
+			`
+			_, err = tx.ExecContext(q.ctx, orgQuery, user.OrganizationID, orgName, orgSlug, now)
+			if err != nil {
+				return err
+			}
 		}
 	}
 

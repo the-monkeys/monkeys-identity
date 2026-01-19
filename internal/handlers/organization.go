@@ -20,6 +20,11 @@ type OrganizationHandler struct {
 	queries *queries.Queries
 }
 
+type PublicOrganization struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+}
+
 func NewOrganizationHandler(db *database.DB, redis *redis.Client, logger *logger.Logger) *OrganizationHandler {
 	return &OrganizationHandler{db: db, redis: redis, logger: logger, queries: queries.New(db, redis)}
 }
@@ -54,6 +59,37 @@ func (h *OrganizationHandler) ListOrganizations(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{Status: fiber.StatusInternalServerError, Error: "internal_server_error", Message: "Failed to list organizations"})
 	}
 	return c.JSON(SuccessResponse{Status: fiber.StatusOK, Message: "Organizations retrieved", Data: res})
+}
+
+// ListPublicOrganizations lists organizations for public dropdown (ID and Name only)
+// ListPublicOrganizations
+//
+//	@Summary      List public organizations
+//	@Description  Retrieve list of organizations for signup dropdown
+//	@Tags         Organization Management
+//	@Accept       json
+//	@Produce      json
+//	@Success      200  {object}  SuccessResponse  "Organizations retrieved"
+//	@Failure      500  {object}  ErrorResponse    "Internal server error"
+//	@Router       /public/organizations [get]
+func (h *OrganizationHandler) ListPublicOrganizations(c *fiber.Ctx) error {
+	// Fetch a reasonable number of organizations for the dropdown
+	// In a real generic SaaS, this might not be desirable (listing all tenants), but for this specific IAM usage it's requested.
+	res, err := h.queries.Organization.ListOrganizations(queries.ListParams{Limit: 1000, Offset: 0})
+	if err != nil {
+		h.logger.Error("List public organizations failed: %v", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{Status: fiber.StatusInternalServerError, Error: "internal_server_error", Message: "Failed to list organizations"})
+	}
+
+	publicOrgs := make([]PublicOrganization, 0, len(res.Items))
+	for _, org := range res.Items {
+		publicOrgs = append(publicOrgs, PublicOrganization{
+			ID:   org.ID,
+			Name: org.Name,
+		})
+	}
+
+	return c.JSON(SuccessResponse{Status: fiber.StatusOK, Message: "Organizations retrieved", Data: publicOrgs})
 }
 
 // CreateOrganization creates a new organization

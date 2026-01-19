@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 
-import { authAPI } from '../services/api';
-import { User, AuthContextType } from '@/Types/interfaces';
+import { authAPI } from '@/features/auth/api/auth';
+import { User, AuthContextType } from '@/features/auth/types/auth';
 
 const AuthContext = createContext<AuthContextType | null>(null);
 

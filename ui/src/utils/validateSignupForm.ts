@@ -1,4 +1,4 @@
-import { SignupFormData, SignupFormErrors } from "../Types/interfaces";
+import { SignupFormData, SignupFormErrors } from "@/features/auth/types/auth";
 
 export const validateSignupForm = (formData: SignupFormData, confirmPassword: string): SignupFormErrors => {
     const errors: SignupFormErrors = {};
@@ -10,7 +10,7 @@ export const validateSignupForm = (formData: SignupFormData, confirmPassword: st
     if (formData.password.length < 8) {
         errors.password = 'Password must be at least 8 characters long';
     } else if (!/(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])(?=.*[@$&<>!])/.test(formData.password)) {
-        errors.password = 'Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character (@$&<>!)';
+        errors.password = `${formData.password} doesn't meet requirements [must contain uppercase, lowercase, number and (@\$&<>!)`;
     }
 
     if (confirmPassword !== formData.password) {
