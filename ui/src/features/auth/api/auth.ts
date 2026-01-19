@@ -6,4 +6,7 @@ export const authAPI = {
 
     createAdmin: (data: any) =>
         client.post('/auth/create-admin', data),
+
+    getPublicOrganizations: () =>
+        client.get('/public/organizations'),
 };

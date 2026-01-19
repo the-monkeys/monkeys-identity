@@ -3,7 +3,8 @@ export type { User };
 
 export interface SignupFormData {
   email: string;
-  organisation_id: string;
+  username: string;
+  organization_id: string;
   first_name: string;
   last_name: string;
   password: string;

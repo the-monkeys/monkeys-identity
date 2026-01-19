@@ -43,6 +43,7 @@ func SetupRoutes(
 	public.Get("/health", func(c *fiber.Ctx) error {
 		return c.JSON(fiber.Map{"status": "ok", "service": "monkeys-iam"})
 	})
+	public.Get("/organizations", organizationHandler.ListPublicOrganizations)
 
 	// Authentication routes
 	auth := api.Group("/auth")
