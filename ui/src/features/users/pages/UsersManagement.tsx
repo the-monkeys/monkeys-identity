@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Plus, Edit, Pause, Trash2, Info, Search, Filter, AlertCircle } from 'lucide-react';
+import { Plus, Edit, Pause, Trash2, Search, Filter, AlertCircle } from 'lucide-react';
 import { useUsers, useDeleteUser, useSuspendUser } from '../api/useUsers';
 import { User } from '../types/user';
 import EditUserModal from '../components/EditUserModal';
@@ -28,7 +28,7 @@ const UsersManagement = () => {
     const filteredUsers = useMemo(() => {
         if (!searchQuery) return users;
         const lowerQuery = searchQuery.toLowerCase();
-        return users.filter(user =>
+        return users.filter((user: User) =>
             user.username?.toLowerCase().includes(lowerQuery) ||
             user.email?.toLowerCase().includes(lowerQuery) ||
             user.display_name?.toLowerCase().includes(lowerQuery)
@@ -162,7 +162,7 @@ const UsersManagement = () => {
             <div className="flex items-center justify-center h-64">
                 <div className="text-red-400 flex items-center space-x-2 bg-red-500/10 p-4 rounded-lg border border-red-500/20">
                     <AlertCircle size={20} />
-                    <span>{(error as any)?.response?.data?.message || 'Failed to load users'}</span>
+                    <span>{(error as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Failed to load users'}</span>
                 </div>
             </div>
         );

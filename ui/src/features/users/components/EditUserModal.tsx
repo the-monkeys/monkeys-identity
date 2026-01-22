@@ -175,7 +175,6 @@ const EditUserModal = ({ user, onClose, onSave }: EditUserModalProps) => {
                                     className="w-full px-4 py-2 bg-slate-900 border border-border-color-dark rounded-lg focus:outline-none focus:border-primary transition-all"
                                 >
                                     <option value="active">Active</option>
-                                    <option value="suspended">Suspended</option>
                                     <option value="inactive">Inactive</option>
                                 </select>
                             </div>
