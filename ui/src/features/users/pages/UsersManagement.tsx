@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Plus, Edit, Pause, Trash2, Info, Search, Filter, AlertCircle } from 'lucide-react';
+import { Plus, Edit, Pause, Trash2, Search, Filter, AlertCircle } from 'lucide-react';
 import { useUsers, useDeleteUser, useSuspendUser } from '../api/useUsers';
 import { User } from '../types/user';
 import EditUserModal from '../components/EditUserModal';

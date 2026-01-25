@@ -1,0 +1,40 @@
+import client from '@/pkg/api/client';
+import type {
+  Group,
+  CreateGroupRequest,
+  UpdateGroupRequest,
+  AddGroupMemberRequest,
+  GroupMember,
+} from '../types/group';
+
+export const groupAPI = {
+  // Group CRUD
+  list: (params?: { page?: number; limit?: number; sort?: string; order?: string }) =>
+    client.get<{ data: Group[]; meta: any }>('/groups', { params }),
+
+  get: (id: string) =>
+    client.get<{ data: Group }>(`/groups/${id}`),
+
+  create: (data: CreateGroupRequest) =>
+    client.post<{ data: Group }>('/groups', data),
+
+  update: (id: string, data: UpdateGroupRequest) =>
+    client.put<{ data: Group }>(`/groups/${id}`, data),
+
+  delete: (id: string) =>
+    client.delete(`/groups/${id}`),
+
+  // Member Management
+  getMembers: (id: string) =>
+    client.get<{ data: GroupMember[] }>(`/groups/${id}/members`),
+
+  addMember: (id: string, data: AddGroupMemberRequest) =>
+    client.post(`/groups/${id}/members`, data),
+
+  removeMember: (groupId: string, userId: string) =>
+    client.delete(`/groups/${groupId}/members/${userId}`),
+
+  // Permissions
+  getPermissions: (id: string) =>
+    client.get(`/groups/${id}/permissions`),
+};

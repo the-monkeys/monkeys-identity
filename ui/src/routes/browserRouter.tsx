@@ -7,6 +7,7 @@ import ProtectedRouteLayout from '../layouts/ProtectedRouteLayout';
 // Lazy load components
 const Dashboard = lazy(() => import('../features/dashboard/pages/Dashboard'));
 const UsersManagement = lazy(() => import('../features/users/pages/UsersManagement'));
+const GroupsManagement = lazy(() => import('../features/groups/pages/GroupsManagement'));
 const OrganizationsManagement = lazy(() => import('../features/organizations/pages/OrganizationsManagement'));
 const HomePage = lazy(() => import('../features/landing/pages/HomePage'));
 
@@ -52,6 +53,10 @@ export const router = createBrowserRouter([
             {
                 path: '/users',
                 element: <UsersManagement />,
+            },
+            {
+                path: '/groups',
+                element: <GroupsManagement />,
             },
             {
                 path: '/organizations',
