@@ -15,4 +15,10 @@ export const userAPI = {
 
     delete: (id: string) =>
         client.delete(`/users/${id}`),
+
+    suspend: (id: string, reason: string) =>
+        client.post(`/users/${id}/suspend`, { reason }),
+
+    activate: (id: string) =>
+        client.post(`/users/${id}/activate`),
 };

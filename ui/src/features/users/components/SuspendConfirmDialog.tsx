@@ -24,12 +24,8 @@ const SuspendConfirmDialog = ({ user, onClose, onConfirm }: SuspendConfirmDialog
         setError(null);
 
         try {
-            // Update user status to suspended
-            await userAPI.update(user.id, {
-                status: 'suspended',
-                // Note: Backend might have a dedicated suspend endpoint with reason field
-                // For now, we're using the update endpoint
-            });
+            // Call the dedicated suspend endpoint with a reason
+            await userAPI.suspend(user.id, reason);
             onConfirm();
         } catch (err: any) {
             setError(err.response?.data?.message || 'Failed to suspend user');
