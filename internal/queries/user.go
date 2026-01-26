@@ -219,7 +219,7 @@ func (q *userQueries) GetUser(id string) (*models.User, error) {
 			last_login, failed_login_attempts, locked_until, status,
 			created_at, updated_at, deleted_at
 		FROM users
-		WHERE id = $1 AND status = 'active'
+		WHERE id = $1 AND deleted_at IS NULL
 	`
 
 	var user models.User
@@ -385,12 +385,19 @@ func (q *userQueries) UpdateUser(user *models.User) error {
 		deletedAt = &user.DeletedAt
 	}
 
-	// Convert slices to JSON strings (simplified)
-	//what did we use mfaMethodsJSON := "[]" instead of "{}" earlier?
-	mfaMethodsJSON := "{}"
-	MFABackupCodesJSON := "{}"
-	attributesJSON := "{}"
-	preferencesJSON := "{}"
+	// Use the fields from the user model
+	attributesJSON := user.Attributes
+	if attributesJSON == "" {
+		attributesJSON = "{}"
+	}
+	preferencesJSON := user.Preferences
+	if preferencesJSON == "" {
+		preferencesJSON = "{}"
+	}
+
+	// Placeholder for MFA fields (maintaining existing logic pattern)
+	mfaMethodsJSON := "[]"
+	MFABackupCodesJSON := "[]"
 
 	_, err := q.exec(query,
 		user.ID, user.Username, user.Email, user.EmailVerified, user.DisplayName,
@@ -441,12 +448,50 @@ func (q *userQueries) UpdateUserProfile(userID string, updates map[string]interf
 }
 
 func (q *userQueries) SuspendUser(userID, reason string) error {
-	// TODO: Implement
+	query := `
+		UPDATE users SET
+			status = 'suspended',
+			attributes = attributes || jsonb_build_object('suspension_reason', $2::text),
+			updated_at = NOW()
+		WHERE id = $1 AND deleted_at IS NULL
+	`
+	result, err := q.exec(query, userID, reason)
+	if err != nil {
+		return err
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rowsAffected == 0 {
+		return fmt.Errorf("user not found")
+	}
+
 	return nil
 }
 
 func (q *userQueries) ActivateUser(userID string) error {
-	// TODO: Implement
+	query := `
+		UPDATE users SET
+			status = 'active',
+			attributes = attributes - 'suspension_reason',
+			updated_at = NOW()
+		WHERE id = $1 AND deleted_at IS NULL
+	`
+	result, err := q.exec(query, userID)
+	if err != nil {
+		return err
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rowsAffected == 0 {
+		return fmt.Errorf("user not found")
+	}
+
 	return nil
 }
 
