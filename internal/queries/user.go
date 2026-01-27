@@ -396,8 +396,8 @@ func (q *userQueries) UpdateUser(user *models.User) error {
 	}
 
 	// Placeholder for MFA fields (maintaining existing logic pattern)
-	mfaMethodsJSON := "[]"
-	MFABackupCodesJSON := "[]"
+	mfaMethodsJSON := "{}"
+	MFABackupCodesJSON := "{}"
 
 	_, err := q.exec(query,
 		user.ID, user.Username, user.Email, user.EmailVerified, user.DisplayName,

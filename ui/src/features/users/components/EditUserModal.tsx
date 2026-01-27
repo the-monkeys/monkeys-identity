@@ -167,7 +167,7 @@ const EditUserModal = ({ user, onClose, onSave }: EditUserModalProps) => {
                     {/* Account Settings Tab */}
                     {activeTab === 'account' && (
                         <div className="space-y-4">
-                            <div>
+                            {/* <div>
                                 <label className="block text-sm font-semibold text-gray-300 mb-2">Status</label>
                                 <select
                                     value={formData.status}
@@ -178,7 +178,7 @@ const EditUserModal = ({ user, onClose, onSave }: EditUserModalProps) => {
                                     <option value="suspended">Suspended</option>
                                     <option value="inactive">Inactive</option>
                                 </select>
-                            </div>
+                            </div> */}
 
                             <div>
                                 <label className="block text-sm font-semibold text-gray-300 mb-2">Organization ID</label>
