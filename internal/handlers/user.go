@@ -474,12 +474,12 @@ func (h *UserHandler) UpdateUserProfile(c *fiber.Ctx) error {
 //	@Accept			json
 //	@Produce		json
 //	@Param			id		path		string				true	"User ID"
-//	@Param			request	body		SuccessResponse	true	"Suspension details"
-//	@Success		200		{object}	SuccessResponse		"User suspended successfully"
-//	@Failure		400		{object}	ErrorResponse		"Invalid request format or user ID"
-//	@Failure		500		{object}	ErrorResponse		"Internal server error"
-//	@Security		BearerAuth
-//	@Router			/users/{id}/suspend [post]
+// @Param			request	body		SuspendUserRequest	true	"Suspension details"
+// @Success		200		{object}	SuccessResponse		"User suspended successfully"
+// @Failure		400		{object}	ErrorResponse		"Invalid request format or user ID"
+// @Failure		500		{object}	ErrorResponse		"Internal server error"
+// @Security		BearerAuth
+// @Router			/users/{id}/suspend [post]
 func (h *UserHandler) SuspendUser(c *fiber.Ctx) error {
 	userID := c.Params("id")
 	if userID == "" {
@@ -489,9 +489,7 @@ func (h *UserHandler) SuspendUser(c *fiber.Ctx) error {
 		})
 	}
 
-	var req struct {
-		Reason string `json:"reason" validate:"required"`
-	}
+	var req SuspendUserRequest
 
 	if err := c.BodyParser(&req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -530,12 +528,12 @@ func (h *UserHandler) SuspendUser(c *fiber.Ctx) error {
 //	@Tags			User Management
 //	@Accept			json
 //	@Produce		json
-//	@Param			id	path		string			true	"User ID"
-//	@Success		200	{object}	SuccessResponse	"User activated successfully"
-//	@Failure		400	{object}	ErrorResponse	"Invalid user ID"
-//	@Failure		500	{object}	ErrorResponse	"Internal server error"
-//	@Security		BearerAuth
-//	@Router			/users/{id}/activate [post]
+// @Param			request	body		ActivateUserRequest	false	"Activation details"
+// @Success		200	{object}	SuccessResponse	"User activated successfully"
+// @Failure		400	{object}	ErrorResponse	"Invalid user ID"
+// @Failure		500	{object}	ErrorResponse	"Internal server error"
+// @Security		BearerAuth
+// @Router			/users/{id}/activate [post]
 func (h *UserHandler) ActivateUser(c *fiber.Ctx) error {
 	userID := c.Params("id")
 	if userID == "" {
@@ -543,6 +541,12 @@ func (h *UserHandler) ActivateUser(c *fiber.Ctx) error {
 			"error":   "User ID is required",
 			"success": false,
 		})
+	}
+
+	var req ActivateUserRequest
+	if err := c.BodyParser(&req); err != nil {
+		// We don't strictly require a body for activation, but we'll try to parse it if present
+		h.logger.Debug("invalid request format")
 	}
 
 	if err := h.queries.User.ActivateUser(userID); err != nil {
