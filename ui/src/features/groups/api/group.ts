@@ -9,7 +9,9 @@ import type {
 
 export const groupAPI = {
   // Group CRUD
-  list: (params?: { page?: number; limit?: number; sort?: string; order?: string }) =>
+
+  // TODO: configure list params
+  list: (params?: { organization_id?: string }) =>
     client.get<{ data: Group[]; meta: any }>('/groups', { params }),
 
   get: (id: string) =>

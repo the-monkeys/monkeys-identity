@@ -3,6 +3,7 @@ import { groupAPI } from './group';
 import { Group, CreateGroupRequest, UpdateGroupRequest, AddGroupMemberRequest, GroupMember } from '../types/group';
 
 // Query Keys
+//TODO: Update query based on necessary params
 export const groupKeys = {
     all: ['groups'] as const,
     lists: () => [...groupKeys.all, 'list'] as const,
