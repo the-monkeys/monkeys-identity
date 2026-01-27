@@ -9,7 +9,7 @@ const Dashboard = lazy(() => import('../features/dashboard/pages/Dashboard'));
 const UsersManagement = lazy(() => import('../features/users/pages/UsersManagement'));
 const OrganizationsManagement = lazy(() => import('../features/organizations/pages/OrganizationsManagement'));
 const HomePage = lazy(() => import('../features/landing/pages/HomePage'));
-const PolicyManagement = lazy(() => import('@/features/policy/pages/policy'));
+const PolicyManagement = lazy(() => import('@/features/policy/pages/PolicyManagement'));
 
 const Loading = () => (
     <div className="h-screen w-screen bg-bg-main-dark flex items-center justify-center text-primary font-mono">
