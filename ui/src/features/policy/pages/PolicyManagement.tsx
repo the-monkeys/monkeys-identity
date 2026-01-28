@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Plus } from 'lucide-react';
 
 import PolicyList from '../components/PolicyList';
@@ -16,9 +17,9 @@ const PolicyManagement: React.FC = () => {
                     <h1 className="text-2xl font-bold text-text-main-dark">Policies</h1>
                     <p className="text-sm text-gray-400">Fine-grained permission controls for the primate kingdom.</p>
                 </div>
-                <button className="px-4 py-2 bg-primary text-white rounded-md text-sm font-semibold flex items-center gap-2 hover:bg-primary/90 transition-all shadow-lg shadow-primary/20">
+                <Link to="/policies/create" className="px-4 py-2 bg-primary text-white rounded-md text-sm font-semibold flex items-center gap-2 hover:bg-primary/90 transition-all shadow-lg shadow-primary/20 cursor-pointer">
                     <Plus size={16} /> Create Policy
-                </button>
+                </Link>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 flex-1 min-h-0">

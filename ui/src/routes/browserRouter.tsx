@@ -10,6 +10,7 @@ const UsersManagement = lazy(() => import('../features/users/pages/UsersManageme
 const OrganizationsManagement = lazy(() => import('../features/organizations/pages/OrganizationsManagement'));
 const HomePage = lazy(() => import('../features/landing/pages/HomePage'));
 const PolicyManagement = lazy(() => import('@/features/policy/pages/PolicyManagement'));
+const CreatePolicy = lazy(() => import('@/features/policy/pages/CreatePolicy'));
 
 const Loading = () => (
     <div className="h-screen w-screen bg-bg-main-dark flex items-center justify-center text-primary font-mono">
@@ -61,6 +62,10 @@ export const router = createBrowserRouter([
             {
                 path: '/policies',
                 element: <PolicyManagement />,
+            },
+            {
+                path: '/policies/create',
+                element: <CreatePolicy />,
             }
         ],
     },
