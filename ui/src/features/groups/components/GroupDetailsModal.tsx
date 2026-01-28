@@ -91,7 +91,6 @@ const GroupDetailsModal = ({ group, onClose }: GroupDetailsModalProps) => {
                                         <label className="text-xs text-gray-500 uppercase tracking-wide">Status</label>
                                         <p className="text-sm text-gray-200 mt-1">
                                             <span className={`px-2 py-0.5 rounded text-xs font-bold uppercase border ${displayGroup.status === 'active' ? 'bg-green-100/10 border-green-500/30 text-green-500' :
-                                                    displayGroup.status === 'inactive' ? 'bg-gray-100/10 border-gray-500/30 text-gray-500' :
                                                         'bg-red-100/10 border-red-500/30 text-red-500'
                                                 }`}>
                                                 {displayGroup.status}

@@ -7,7 +7,7 @@ export interface Group {
   group_type: string;
   attributes?: string; // JSONB as string
   max_members: number;
-  status: 'active' | 'inactive' | 'deleted';
+  status: 'active' | 'archived' | 'suspended';
   created_at: string;
   updated_at: string;
   deleted_at?: string;

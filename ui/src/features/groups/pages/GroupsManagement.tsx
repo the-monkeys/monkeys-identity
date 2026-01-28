@@ -97,7 +97,6 @@ const GroupsManagement = () => {
                 <span className={cn(
                     "px-2 py-0.5 rounded-md text-[10px] font-bold uppercase border",
                     group.status === 'active' ? 'bg-green-100/10 border-green-500/30 text-green-500' :
-                        group.status === 'inactive' ? 'bg-gray-100/10 border-gray-500/30 text-gray-500' :
                             'bg-red-100/10 border-red-500/30 text-red-500'
                 )}>
                     {group.status}

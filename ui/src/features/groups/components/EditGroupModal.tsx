@@ -112,9 +112,9 @@ const EditGroupModal = ({ group, onClose, onSave }: EditGroupModalProps) => {
                             required
                         >
                             <option value="standard">Standard</option>
-                            <option value="department">Department</option>
+                            {/* <option value="department">Department</option>
                             <option value="team">Team</option>
-                            <option value="project">Project</option>
+                            <option value="project">Project</option> */}
                         </select>
                     </div>
 
@@ -139,8 +139,8 @@ const EditGroupModal = ({ group, onClose, onSave }: EditGroupModalProps) => {
                             required
                         >
                             <option value="active">Active</option>
-                            <option value="inactive">Inactive</option>
-                            <option value="deleted">Deleted</option>
+                            <option value="archived">Archived</option>
+                            <option value="suspended">Suspended</option>
                         </select>
                     </div>
 

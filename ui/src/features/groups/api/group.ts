@@ -12,7 +12,7 @@ export const groupAPI = {
 
   // TODO: configure list params
   list: (params?: { organization_id?: string }) =>
-    client.get<{ data: Group[]; meta: any }>('/groups', { params }),
+    client.get<{ data: { items: Group[]; total: number; limit: number; offset: number; has_more: boolean }; meta: any }>('/groups', { params }),
 
   get: (id: string) =>
     client.get<{ data: Group }>(`/groups/${id}`),
@@ -28,7 +28,7 @@ export const groupAPI = {
 
   // Member Management
   getMembers: (id: string) =>
-    client.get<{ data: GroupMember[] }>(`/groups/${id}/members`),
+    client.get<{ data: { group_id: string; members: GroupMember[]; count: number } }>(`/groups/${id}/members`),
 
   addMember: (id: string, data: AddGroupMemberRequest) =>
     client.post(`/groups/${id}/members`, data),

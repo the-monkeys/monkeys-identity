@@ -18,7 +18,7 @@ export const useGroups = () => {
         queryKey: groupKeys.lists(),
         queryFn: async () => {
             const response = await groupAPI.list();
-            return response.data.data as Group[];
+            return response.data.data.items as Group[];
         },
     });
 };
@@ -39,7 +39,7 @@ export const useGroupMembers = (id: string) => {
         queryKey: groupKeys.members(id),
         queryFn: async () => {
             const response = await groupAPI.getMembers(id);
-            return response.data.data as GroupMember[];
+            return response.data.data.members as GroupMember[];
         },
         enabled: !!id,
     });
