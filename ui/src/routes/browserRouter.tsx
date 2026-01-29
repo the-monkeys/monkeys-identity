@@ -3,11 +3,14 @@ import { Suspense, lazy } from 'react';
 import { Login, Signup } from './index';
 import LandingLayout from '../layouts/LandingLayout';
 import ProtectedRouteLayout from '../layouts/ProtectedRouteLayout';
+import ComingSoon from '../components/ui/ComingSoon';
 
 // Lazy load components
 const Dashboard = lazy(() => import('../features/dashboard/pages/Dashboard'));
 const UsersManagement = lazy(() => import('../features/users/pages/UsersManagement'));
 const OrganizationsManagement = lazy(() => import('../features/organizations/pages/OrganizationsManagement'));
+const AuditLogsPage = lazy(() => import('../features/audit/pages/AuditLogsPage'));
+const AccountSettingsPage = lazy(() => import('../features/settings/pages/AccountSettingsPage'));
 const HomePage = lazy(() => import('../features/landing/pages/HomePage'));
 const PolicyManagement = lazy(() => import('@/features/policy/pages/PolicyManagement'));
 const CreatePolicy = lazy(() => import('@/features/policy/pages/CreatePolicy'));
