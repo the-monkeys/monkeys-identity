@@ -91,7 +91,7 @@ const GroupDetailsModal = ({ group, onClose }: GroupDetailsModalProps) => {
                                         <label className="text-xs text-gray-500 uppercase tracking-wide">Status</label>
                                         <p className="text-sm text-gray-200 mt-1">
                                             <span className={`px-2 py-0.5 rounded text-xs font-bold uppercase border ${displayGroup.status === 'active' ? 'bg-green-100/10 border-green-500/30 text-green-500' :
-                                                        'bg-red-100/10 border-red-500/30 text-red-500'
+                                                'bg-red-100/10 border-red-500/30 text-red-500'
                                                 }`}>
                                                 {displayGroup.status}
                                             </span>
@@ -115,7 +115,7 @@ const GroupDetailsModal = ({ group, onClose }: GroupDetailsModalProps) => {
                                     </div>
                                     <div>
                                         <label className="text-xs text-gray-500 uppercase tracking-wide">Current Members</label>
-                                        <p className="text-sm text-gray-200 mt-1">{members.length}</p>
+                                        <p className="text-sm text-gray-200 mt-1">{members?.length || 0}</p>
                                     </div>
                                 </div>
                             </div>
@@ -148,20 +148,20 @@ const GroupDetailsModal = ({ group, onClose }: GroupDetailsModalProps) => {
                             <div>
                                 <div className="flex items-center gap-2 mb-4">
                                     <Users size={18} className="text-primary" />
-                                    <h3 className="text-lg font-semibold text-text-main-dark">Members ({members.length})</h3>
+                                    <h3 className="text-lg font-semibold text-text-main-dark">Members ({members?.length || 0})</h3>
                                 </div>
                                 {loadingMembers ? (
                                     <div className="flex items-center justify-center py-8">
                                         <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
                                     </div>
-                                ) : members.length === 0 ? (
+                                ) : (!members || members.length === 0) ? (
                                     <div className="bg-slate-900 rounded-lg p-8 border border-border-color-dark text-center">
                                         <Users size={32} className="mx-auto mb-2 text-gray-600" />
                                         <p className="text-gray-400 text-sm">No members in this group</p>
                                     </div>
                                 ) : (
                                     <div className="bg-slate-900 rounded-lg border border-border-color-dark divide-y divide-border-color-dark max-h-64 overflow-y-auto">
-                                        {members.slice(0, 10).map((member) => (
+                                        {members?.slice(0, 10).map((member: any) => (
                                             <div key={member.id} className="px-4 py-3 flex items-center justify-between hover:bg-slate-800 transition-colors">
                                                 <div className="flex items-center gap-3">
                                                     <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
@@ -186,7 +186,7 @@ const GroupDetailsModal = ({ group, onClose }: GroupDetailsModalProps) => {
                                                 </div>
                                             </div>
                                         ))}
-                                        {members.length > 10 && (
+                                        {members && members.length > 10 && (
                                             <div className="px-4 py-2 text-center text-xs text-gray-500">
                                                 ... and {members.length - 10} more members
                                             </div>

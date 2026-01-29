@@ -55,7 +55,7 @@ const GroupMembersModal = ({ group, onClose }: GroupMembersModalProps) => {
         );
     };
 
-    const filteredMembers = members.filter(member =>
+    const filteredMembers = (members || []).filter((member: any) =>
         member.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         member.email?.toLowerCase().includes(searchQuery.toLowerCase())
     );
@@ -179,14 +179,14 @@ const GroupMembersModal = ({ group, onClose }: GroupMembersModalProps) => {
                         <div className="flex items-center justify-center py-12">
                             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
                         </div>
-                    ) : filteredMembers.length === 0 ? (
+                    ) : (!filteredMembers || filteredMembers.length === 0) ? (
                         <div className="text-center py-12 text-gray-400">
                             <Users size={48} className="mx-auto mb-4 opacity-20" />
                             <p>No members found</p>
                         </div>
                     ) : (
                         <div className="space-y-2">
-                            {filteredMembers.map((member) => (
+                            {filteredMembers?.map((member: any) => (
                                 <div
                                     key={member.id}
                                     className="flex items-center justify-between p-3 bg-slate-900 rounded-lg border border-border-color-dark hover:border-primary/30 transition-all"
@@ -231,7 +231,7 @@ const GroupMembersModal = ({ group, onClose }: GroupMembersModalProps) => {
 
                 <div className="px-6 py-4 border-t border-border-color-dark flex justify-between items-center">
                     <span className="text-sm text-gray-400">
-                        {filteredMembers.length} member{filteredMembers.length !== 1 ? 's' : ''} / {group.max_members} max
+                        {filteredMembers?.length || 0} member{(filteredMembers?.length || 0) !== 1 ? 's' : ''} / {group.max_members} max
                     </span>
                     <button
                         onClick={onClose}

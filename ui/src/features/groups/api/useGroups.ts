@@ -39,7 +39,7 @@ export const useGroupMembers = (id: string) => {
         queryKey: groupKeys.members(id),
         queryFn: async () => {
             const response = await groupAPI.getMembers(id);
-            return response.data.data.members as GroupMember[];
+            return (response.data.data.members || []) as GroupMember[];
         },
         enabled: !!id,
     });
