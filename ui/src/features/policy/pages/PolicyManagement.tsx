@@ -30,7 +30,7 @@ const PolicyManagement = () => {
                         policies={policies || []}
                         selectedPolicy={null}
                         onSelectPolicy={() => { }}
-                        onPolicyClick={(id) => navigate(`/policies/${id}`)}
+                        onPolicyClick={(path) => navigate(`/policies/${path}`)}
                     />
                 )}
             </div>

@@ -1,4 +1,4 @@
-import { Search, FileText, Trash2 } from 'lucide-react';
+import { Search, FileText, Trash2, Edit } from 'lucide-react';
 
 import { PolicyListProps } from '../types';
 import { useDeletePolicy } from '@/hooks/policy/useDeletePolicy';
@@ -95,13 +95,25 @@ const PolicyList: React.FC<PolicyListProps> = ({ policies, selectedPolicy, onSel
                                     {p.created_by.substring(0, 8)}...
                                 </td>
                                 <td className="px-6 py-4 text-right">
-                                    <button
-                                        onClick={(e) => handleDeleteClick(e, p.id)}
-                                        className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-500/10 rounded-md transition-colors cursor-pointer"
-                                        title="Delete Policy"
-                                    >
-                                        <Trash2 size={16} />
-                                    </button>
+                                    <div className="flex items-center justify-end gap-2">
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                onPolicyClick && onPolicyClick(`${p.id}/edit`);
+                                            }}
+                                            className="p-2 text-gray-400 hover:text-primary hover:bg-primary/10 rounded-md transition-colors cursor-pointer"
+                                            title="Edit Policy"
+                                        >
+                                            <Edit size={16} />
+                                        </button>
+                                        <button
+                                            onClick={(e) => handleDeleteClick(e, p.id)}
+                                            className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-500/10 rounded-md transition-colors cursor-pointer"
+                                            title="Delete Policy"
+                                        >
+                                            <Trash2 size={16} />
+                                        </button>
+                                    </div>
                                 </td>
                             </tr>
                         ))}

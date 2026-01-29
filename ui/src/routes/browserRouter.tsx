@@ -15,7 +15,7 @@ const PolicyDetail = lazy(() => import('@/features/policy/pages/PolicyDetail'));
 
 const Loading = () => (
     <div className="h-screen w-screen bg-bg-main-dark flex items-center justify-center text-primary font-mono">
-        Loading monkeys...
+        Loading...
     </div>
 );
 
@@ -69,9 +69,13 @@ export const router = createBrowserRouter([
                 element: <CreatePolicy />,
             },
             {
+                path: '/policies/:policyId/edit',
+                element: <CreatePolicy />,
+            },
+            {
                 path: '/policies/:policyId',
                 element: <PolicyDetail />,
-            }
+            },
         ],
     },
     {

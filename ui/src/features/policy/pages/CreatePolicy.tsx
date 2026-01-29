@@ -1,16 +1,31 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { ChevronRight, Save, X, Code } from 'lucide-react';
 
 import client from '@/pkg/api/client';
 import { useAuth } from '@/context/AuthContext';
+import { useParams } from 'react-router-dom';
+import { useGetPolicyById } from '@/hooks/policy/useGetPolicyById';
+import { useUpdatePolicy } from '@/hooks/policy/useUpdatePolicy';
 
 const CreatePolicy = () => {
     const navigate = useNavigate();
+    const { policyId } = useParams<{ policyId: string }>();
+    const { data: existingPolicy, isLoading: _isLoadingPolicy } = useGetPolicyById(policyId);
+    const { mutateAsync: updatePolicy } = useUpdatePolicy();
+
     const { user: currentUser } = useAuth();
     const [loading, setLoading] = useState<boolean>(false);
     const [formError, setFormError] = useState<string | null>(null);
     const [isSystemPolicy, setIsSystemPolicy] = useState<boolean>(false);
+
+    useEffect(() => {
+        if (existingPolicy) {
+            setIsSystemPolicy(existingPolicy.is_system_policy);
+        }
+    }, [existingPolicy]);
+
+    const isEditMode = !!policyId;
 
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
@@ -41,7 +56,11 @@ const CreatePolicy = () => {
 
         try {
             setLoading(true);
-            const res = await client.post('/policies', policyData);
+            if (isEditMode) {
+                await updatePolicy({ id: policyId!, data: policyData });
+            } else {
+                await client.post('/policies', policyData);
+            }
             navigate('/policies');
         } catch (e) {
             console.error(e);
@@ -53,16 +72,16 @@ const CreatePolicy = () => {
 
     return (
         <div className="space-y-6 max-w-7xl mx-auto pb-10">
-            <form onSubmit={handleSubmit}>
+            <form onSubmit={handleSubmit} key={existingPolicy ? existingPolicy.id : 'new'}>
                 <div className="flex flex-row items-center justify-between gap-4 mb-6">
                     <div>
                         <nav className="flex items-center text-xs text-gray-500 mb-2 space-x-2">
                             <Link to="/policies" className="hover:text-primary transition-colors">Policies</Link>
                             <ChevronRight size={12} />
-                            <span className="text-gray-300 font-medium">Create Policy</span>
+                            <span className="text-gray-300 font-medium">{isEditMode ? 'Edit Policy' : 'Create Policy'}</span>
                         </nav>
-                        <h1 className="text-2xl font-bold text-text-main-dark">Create New Policy</h1>
-                        <p className="text-gray-400 text-sm">Define a new set of permissions for your primate users.</p>
+                        <h1 className="text-2xl font-bold text-text-main-dark">{isEditMode ? 'Edit Policy' : 'Create New Policy'}</h1>
+                        <p className="text-gray-400 text-sm">{isEditMode ? 'Update existing permissions.' : 'Define a new set of permissions for your primate users.'}</p>
                     </div>
                     <div className="flex items-center space-x-3">
                         <button
@@ -77,7 +96,7 @@ const CreatePolicy = () => {
                             disabled={loading}
                             className="px-6 py-2 text-sm font-semibold text-white bg-primary/80 rounded-md shadow-lg shadow-primary/20 hover:bg-primary/90 transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                            {loading ? 'Creating...' : <><Save size={16} /> Create Policy</>}
+                            {loading ? (isEditMode ? 'Updating...' : 'Creating...') : <><Save size={16} /> {isEditMode ? 'Update Policy' : 'Create Policy'}</>}
                         </button>
                     </div>
                 </div>
@@ -100,6 +119,7 @@ const CreatePolicy = () => {
                                     name="name"
                                     id="name"
                                     required
+                                    defaultValue={existingPolicy?.name}
                                     placeholder="e.g. Read Access"
                                     className="w-full px-3 py-2 bg-slate-900 border border-border-color-dark rounded text-sm text-text-main-dark focus:border-primary focus:outline-none transition-colors placeholder:text-gray-600"
                                 />
@@ -111,6 +131,7 @@ const CreatePolicy = () => {
                                     name="description"
                                     id="description"
                                     rows={2}
+                                    defaultValue={existingPolicy?.description}
                                     className="w-full px-3 py-2 bg-slate-900 border border-border-color-dark rounded text-sm text-text-main-dark focus:border-primary focus:outline-none transition-colors placeholder:text-gray-600 resize-none"
                                     placeholder="What does this policy allow?"
                                 />
@@ -123,7 +144,7 @@ const CreatePolicy = () => {
                                         name="policy_type"
                                         id="policy_type"
                                         className="w-full px-3 py-2 bg-slate-900 border border-border-color-dark rounded text-sm text-text-main-dark focus:border-primary focus:outline-none"
-                                        defaultValue="access"
+                                        defaultValue={existingPolicy?.policy_type || "access"}
                                     >
                                         <option value="access">Access</option>
                                         <option value="resource">Resource</option>
@@ -137,7 +158,7 @@ const CreatePolicy = () => {
                                         name="status"
                                         id="status"
                                         className="w-full px-3 py-2 bg-slate-900 border border-border-color-dark rounded text-sm text-text-main-dark focus:border-primary focus:outline-none"
-                                        defaultValue="active"
+                                        defaultValue={existingPolicy?.status || "active"}
                                     >
                                         <option value="active">Active</option>
                                         <option value="suspended">Suspended</option>
@@ -152,7 +173,7 @@ const CreatePolicy = () => {
                                         name="effect"
                                         id="effect"
                                         className="w-full px-3 py-2 bg-slate-900 border border-border-color-dark rounded text-sm text-text-main-dark focus:border-primary focus:outline-none"
-                                        defaultValue="allow"
+                                        defaultValue={existingPolicy?.effect || "allow"}
                                     >
                                         <option value="allow">Allow</option>
                                         <option value="deny">Deny</option>
@@ -164,7 +185,7 @@ const CreatePolicy = () => {
                                         type="text"
                                         name="version"
                                         id="version"
-                                        defaultValue="1.0.0"
+                                        defaultValue={existingPolicy?.version || "1.0.0"}
                                         className="w-full px-3 py-2 bg-slate-900 border border-border-color-dark rounded text-sm text-text-main-dark focus:border-primary focus:outline-none transition-colors placeholder:text-gray-600"
                                     />
                                 </div>
@@ -201,7 +222,7 @@ const CreatePolicy = () => {
                                     name="document"
                                     className="w-full h-full p-6 font-mono text-xs bg-transparent text-green-400 outline-none resize-none leading-relaxed"
                                     spellCheck={false}
-                                    defaultValue={JSON.stringify({
+                                    defaultValue={existingPolicy ? (typeof existingPolicy.document === 'string' ? existingPolicy.document : JSON.stringify(existingPolicy.document, null, 2)) : JSON.stringify({
                                         "Version": "1.0.0",
                                         "Statement": [
                                             {
