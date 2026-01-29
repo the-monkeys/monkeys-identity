@@ -26,6 +26,7 @@ export interface GroupMembership {
 
 export interface GroupMember {
   id: string;
+  principal_id: string;
   name: string;
   email?: string;
   type: 'user' | 'service_account';

@@ -10,13 +10,17 @@ interface GroupMembersModalProps {
 }
 
 const GroupMembersModal = ({ group, onClose }: GroupMembersModalProps) => {
-    const { data: members = [], isLoading } = useGroupMembers(group.id);
+    const {
+        data: members,
+        isLoading,
+    } = useGroupMembers(group.id);
+
     const addMemberMutation = useAddGroupMember();
     const removeMemberMutation = useRemoveGroupMember();
 
     const [showAddMember, setShowAddMember] = useState(false);
     const [showRemoveDialog, setShowRemoveDialog] = useState(false);
-    const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
+    const [selectedMember, setSelectedMember] = useState<{ id: string; type: string } | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
 
     const [newMember, setNewMember] = useState<AddGroupMemberRequest>({
@@ -43,13 +47,17 @@ const GroupMembersModal = ({ group, onClose }: GroupMembersModalProps) => {
     };
 
     const handleRemoveMember = () => {
-        if (!selectedMemberId) return;
+        if (!selectedMember) return;
         removeMemberMutation.mutate(
-            { groupId: group.id, userId: selectedMemberId },
+            {
+                groupId: group.id,
+                principalId: selectedMember.id,
+                principalType: selectedMember.type
+            },
             {
                 onSuccess: () => {
                     setShowRemoveDialog(false);
-                    setSelectedMemberId(null);
+                    setSelectedMember(null);
                 }
             }
         );
@@ -215,7 +223,7 @@ const GroupMembersModal = ({ group, onClose }: GroupMembersModalProps) => {
                                     </div>
                                     <button
                                         onClick={() => {
-                                            setSelectedMemberId(member.id);
+                                            setSelectedMember({ id: member.principal_id, type: member.type });
                                             setShowRemoveDialog(true);
                                         }}
                                         className="ml-3 p-2 hover:bg-slate-700 rounded transition-colors text-gray-400 hover:text-red-400"

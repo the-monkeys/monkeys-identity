@@ -92,8 +92,8 @@ export const useAddGroupMember = () => {
 export const useRemoveGroupMember = () => {
     const queryClient = useQueryClient();
     return useMutation({
-        mutationFn: ({ groupId, userId }: { groupId: string; userId: string }) =>
-            groupAPI.removeMember(groupId, userId),
+        mutationFn: ({ groupId, principalId, principalType }: { groupId: string; principalId: string; principalType: string }) =>
+            groupAPI.removeMember(groupId, principalId, principalType),
         onSuccess: (response, variables) => {
             queryClient.invalidateQueries({ queryKey: groupKeys.members(variables.groupId) });
             queryClient.invalidateQueries({ queryKey: groupKeys.detail(variables.groupId) });

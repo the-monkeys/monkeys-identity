@@ -33,8 +33,8 @@ export const groupAPI = {
   addMember: (id: string, data: AddGroupMemberRequest) =>
     client.post(`/groups/${id}/members`, data),
 
-  removeMember: (groupId: string, userId: string) =>
-    client.delete(`/groups/${groupId}/members/${userId}`),
+  removeMember: (groupId: string, principalId: string, principalType: string) =>
+    client.delete(`/groups/${groupId}/members/${principalId}`, { params: { principal_type: principalType } }),
 
   // Permissions
   getPermissions: (id: string) =>
