@@ -3,6 +3,7 @@ import { Suspense, lazy } from 'react';
 import { Login, Signup } from './index';
 import LandingLayout from '../layouts/LandingLayout';
 import ProtectedRouteLayout from '../layouts/ProtectedRouteLayout';
+import ComingSoon from '../components/ui/ComingSoon';
 
 // Lazy load components
 const Dashboard = lazy(() => import('../features/dashboard/pages/Dashboard'));
@@ -66,6 +67,22 @@ export const router = createBrowserRouter([
             {
                 path: '/account-settings',
                 element: <AccountSettingsPage />,
+            },
+            {
+                path: '/groups',
+                element: <ComingSoon title="Groups Management" />,
+            },
+            {
+                path: '/roles',
+                element: <ComingSoon title="Role-Based Access Control" />,
+            },
+            {
+                path: '/policies',
+                element: <ComingSoon title="Fine-Grained Policies" />,
+            },
+            {
+                path: '/sessions',
+                element: <ComingSoon title="Session Monitoring" />,
             },
         ],
     },
