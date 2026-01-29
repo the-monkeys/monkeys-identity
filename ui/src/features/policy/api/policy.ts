@@ -1,7 +1,4 @@
-import client from '@/pkg/api/client';
-
 export interface CreatePolicyRequest {
-    id: string;
     name: string;
     description: string;
     version: string;
@@ -12,10 +9,3 @@ export interface CreatePolicyRequest {
     is_system_policy: boolean;
     status: string;
 }
-
-export const policyAPI = {
-    createPolicy: async (data: CreatePolicyRequest) => {
-        const response = await client.post('/policies', data);
-        return response.data;
-    }
-};
