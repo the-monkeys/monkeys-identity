@@ -52,7 +52,8 @@ export const sidebarMenuItems = [
 export const secondaryMenuItems = [
     { 
         icon: React.createElement(Clock, { size: 20 }), 
-        label: 'Audit Logs' 
+        label: 'Audit Logs',
+        id: 'audit-logs'
     },
     /*{ 
         icon: React.createElement(AlertCircle, { size: 20 }), 
@@ -60,6 +61,7 @@ export const secondaryMenuItems = [
     },*/
     { 
         icon: React.createElement(Settings, { size: 20 }), 
-        label: 'Account Settings' 
+        label: 'Account Settings',
+        id: 'account-settings'
     },
 ];
