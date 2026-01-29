@@ -1,15 +1,11 @@
 import { useState } from 'react';
 import { Search, Filter, MoreVertical, Plus } from 'lucide-react';
 
-import { useAuth } from '@/context/AuthContext';
 import { mockIdentities } from '@/constants/dashboard';
-
 import MetricCard from '@/components/ui/MetricCard';
 
 const Dashboard = () => {
     const [searchQuery, setSearchQuery] = useState('');
-    const { user } = useAuth();
-    console.log(user);
 
 
     const filteredIdentities = mockIdentities.filter(id =>
