@@ -15,7 +15,7 @@ export const useUsers = () => {
         queryKey: userKeys.lists(),
         queryFn: async () => {
             const response = await userAPI.list();
-            return response.data.data as User[];
+            return (response.data.data || []) as User[];
         },
     });
 };
