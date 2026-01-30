@@ -26,7 +26,7 @@ const OrganizationsManagement = () => {
     const filteredOrgs = useMemo(() => {
         if (!searchQuery) return organizations;
         const lowerQuery = searchQuery.toLowerCase();
-        return organizations.filter(org =>
+        return organizations.filter((org: Organization) =>
             org.name.toLowerCase().includes(lowerQuery) ||
             org.slug.toLowerCase().includes(lowerQuery)
         );

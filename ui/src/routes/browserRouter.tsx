@@ -3,12 +3,15 @@ import { Suspense, lazy } from 'react';
 import { Login, Signup } from './index';
 import LandingLayout from '../layouts/LandingLayout';
 import ProtectedRouteLayout from '../layouts/ProtectedRouteLayout';
+import ComingSoon from '../components/ui/ComingSoon';
 
 // Lazy load components
 const Dashboard = lazy(() => import('../features/dashboard/pages/Dashboard'));
 const UsersManagement = lazy(() => import('../features/users/pages/UsersManagement'));
 const GroupsManagement = lazy(() => import('../features/groups/pages/GroupsManagement'));
 const OrganizationsManagement = lazy(() => import('../features/organizations/pages/OrganizationsManagement'));
+const AuditLogsPage = lazy(() => import('../features/audit/pages/AuditLogsPage'));
+const AccountSettingsPage = lazy(() => import('../features/settings/pages/AccountSettingsPage'));
 const HomePage = lazy(() => import('../features/landing/pages/HomePage'));
 
 const Loading = () => (
@@ -61,6 +64,30 @@ export const router = createBrowserRouter([
             {
                 path: '/organizations',
                 element: <OrganizationsManagement />,
+            },
+            {
+                path: '/audit-logs',
+                element: <AuditLogsPage />,
+            },
+            {
+                path: '/account-settings',
+                element: <AccountSettingsPage />,
+            },
+            {
+                path: '/groups',
+                element: <ComingSoon title="Groups Management" />,
+            },
+            {
+                path: '/roles',
+                element: <ComingSoon title="Role-Based Access Control" />,
+            },
+            {
+                path: '/policies',
+                element: <ComingSoon title="Fine-Grained Policies" />,
+            },
+            {
+                path: '/sessions',
+                element: <ComingSoon title="Session Monitoring" />,
             },
         ],
     },

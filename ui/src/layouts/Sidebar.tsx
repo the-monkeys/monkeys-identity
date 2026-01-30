@@ -19,6 +19,8 @@ const Sidebar = ({ activeView, collapsed }: SidebarProps) => {
             'roles': '/roles',
             'policies': '/policies',
             'sessions': '/sessions',
+            'audit-logs': '/audit-logs',
+            'account-settings': '/account-settings',
         };
 
         const route = routeMap[id];
@@ -69,9 +71,13 @@ const Sidebar = ({ activeView, collapsed }: SidebarProps) => {
                     {secondaryMenuItems.map((item) => (
                         <button
                             key={item.label}
-                            className="w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg text-gray-400 hover:bg-slate-700 transition-all group cursor-pointer"
+                            onClick={() => item.id && handleMenuClick(item.id)}
+                            className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg transition-all group cursor-pointer ${activeView === item.id
+                                ? 'bg-primary/10 text-primary font-bold'
+                                : 'text-gray-400 hover:bg-slate-700'
+                                }`}
                         >
-                            <div className="group-hover:text-primary transition-colors">
+                            <div className={`${activeView === item.id ? 'text-primary' : 'group-hover:text-primary transition-colors'}`}>
                                 {item.icon}
                             </div>
                             {!collapsed && <span className="text-sm truncate">{item.label}</span>}

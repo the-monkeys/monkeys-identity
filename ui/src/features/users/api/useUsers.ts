@@ -65,13 +65,18 @@ export const useDeleteUser = () => {
 
 export const useSuspendUser = () => {
     const queryClient = useQueryClient();
-    // Note: API for suspend/activate might be specific endpoints or just update?
-    // Assuming specific from previous code investigation (UsersManagement had handleSuspend)
-    // Wait, let's check userAPI. It currently only has generic CRUD.
-    // I need to update userAPI to include suspend/activate if they exist.
-    // In routes.go: users.Post("/:id/suspend")
     return useMutation({
-        mutationFn: (id: string) => userAPI.update(id, { status: 'suspended' }), // Fallback if API hasn't specific method yet
+        mutationFn: ({ id, reason }: { id: string; reason: string }) => userAPI.suspend(id, reason),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: userKeys.lists() });
+        },
+    });
+};
+
+export const useActivateUser = () => {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: (id: string) => userAPI.activate(id),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: userKeys.lists() });
         },
