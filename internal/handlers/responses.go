@@ -41,3 +41,13 @@ type VerifyEmailRequest struct {
 type ResendVerificationRequest struct {
 	Email string `json:"email" validate:"required,email" example:"user@example.com"`
 } //@name ResendVerificationRequest
+
+// SuspendUserRequest represents a request to suspend a user
+type SuspendUserRequest struct {
+	Reason string `json:"reason" validate:"required" example:"Violation of terms of service"`
+} //@name SuspendUserRequest
+
+// ActivateUserRequest represents a request to activate a user
+type ActivateUserRequest struct {
+	Reason string `json:"reason,omitempty" example:"Account verified"`
+} //@name ActivateUserRequest

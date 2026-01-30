@@ -85,11 +85,15 @@ type GroupMembership struct {
 	ID            string    `json:"id" db:"id"`
 	GroupID       string    `json:"group_id" db:"group_id"`
 	PrincipalID   string    `json:"principal_id" db:"principal_id"`
-	PrincipalType string    `json:"principal_type" db:"principal_type"`
+	PrincipalType string    `json:"type" db:"principal_type"` // Updated to match frontend 'type'
 	RoleInGroup   string    `json:"role_in_group" db:"role_in_group"`
 	JoinedAt      time.Time `json:"joined_at" db:"joined_at"`
 	ExpiresAt     time.Time `json:"expires_at" db:"expires_at"`
 	AddedBy       string    `json:"added_by" db:"added_by"`
+
+	// Joined fields
+	Name  string `json:"name,omitempty"`
+	Email string `json:"email,omitempty"`
 }
 
 // Resource represents any accessible object or service
