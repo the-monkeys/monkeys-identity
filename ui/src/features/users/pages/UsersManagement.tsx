@@ -1,11 +1,14 @@
 import { useState, useMemo } from 'react';
-import { Plus, Edit, Pause, Trash2, Info, Search, Filter, AlertCircle } from 'lucide-react';
-import { useUsers, useDeleteUser, useSuspendUser } from '../api/useUsers';
+import { Plus, Edit, Pause, Trash2, Search, Filter, AlertCircle } from 'lucide-react';
+import { useUsers, useDeleteUser, useActivateUser } from '../api/useUsers';
 import { User } from '../types/user';
 import EditUserModal from '../components/EditUserModal';
 import AddUserModal from '../components/AddUserModal';
+import SuspendConfirmDialog from '../components/SuspendConfirmDialog';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { DataTable, Column } from '@/components/ui/DataTable';
+import { useQueryClient } from '@tanstack/react-query';
+import { userKeys } from '../api/useUsers';
 import { cn } from '@/components/ui/utils';
 
 const UsersManagement = () => {
@@ -18,17 +21,19 @@ const UsersManagement = () => {
     const [showAddModal, setShowAddModal] = useState(false);
     const [showDeleteDialog, setShowDeleteDialog] = useState(false);
     const [showSuspendDialog, setShowSuspendDialog] = useState(false);
+    const [showActivateDialog, setShowActivateDialog] = useState(false);
 
     // Queries & Mutations
     const { data: users = [], isLoading, error } = useUsers();
     const deleteUserMutation = useDeleteUser();
-    const suspendUserMutation = useSuspendUser();
+    const activateUserMutation = useActivateUser();
+    const queryClient = useQueryClient();
 
     // Filters
     const filteredUsers = useMemo(() => {
         if (!searchQuery) return users;
         const lowerQuery = searchQuery.toLowerCase();
-        return users.filter(user =>
+        return users.filter((user: User) =>
             user.username?.toLowerCase().includes(lowerQuery) ||
             user.email?.toLowerCase().includes(lowerQuery) ||
             user.display_name?.toLowerCase().includes(lowerQuery)
@@ -48,7 +53,11 @@ const UsersManagement = () => {
 
     const handleSuspendClick = (user: User) => {
         setSelectedUser(user);
-        setShowSuspendDialog(true);
+        if (user.status === 'suspended') {
+            setShowActivateDialog(true);
+        } else {
+            setShowSuspendDialog(true);
+        }
     };
 
     const handleDeleteConfirm = () => {
@@ -59,12 +68,17 @@ const UsersManagement = () => {
     };
 
     const handleSuspendConfirm = () => {
+        setShowSuspendDialog(false);
+        queryClient.invalidateQueries({ queryKey: userKeys.lists() });
+    };
+
+    const handleActivateConfirm = () => {
         if (!selectedUser) return;
-        // TODO: Toggle suspend/activate based on current status? 
-        // For now assumes suspend. If already suspended, maybe Action should be "Activate".
-        // The mutation currently hardcodes 'suspended'.
-        suspendUserMutation.mutate(selectedUser.id, {
-            onSuccess: () => setShowSuspendDialog(false),
+        activateUserMutation.mutate(selectedUser.id, {
+            onSuccess: () => {
+                setShowActivateDialog(false);
+                queryClient.invalidateQueries({ queryKey: userKeys.lists() });
+            },
         });
     };
 
@@ -140,10 +154,10 @@ const UsersManagement = () => {
                     <button
                         onClick={(e) => { e.stopPropagation(); handleSuspendClick(user); }}
                         className="p-1.5 hover:bg-slate-700 rounded transition-colors text-gray-400 hover:text-yellow-400"
-                        title="Suspend User"
-                        disabled={user.status === 'suspended'}
+                        title={user.status === 'suspended' ? "Activate User" : "Suspend User"}
+                        disabled={false} // We want to allow toggling maybe? Or just keep it for now.
                     >
-                        <Pause size={16} />
+                        {user.status === 'suspended' ? <Plus size={16} className="text-green-500" /> : <Pause size={16} />}
                     </button>
                     <button
                         onClick={(e) => { e.stopPropagation(); handleDeleteClick(user); }}
@@ -162,7 +176,7 @@ const UsersManagement = () => {
             <div className="flex items-center justify-center h-64">
                 <div className="text-red-400 flex items-center space-x-2 bg-red-500/10 p-4 rounded-lg border border-red-500/20">
                     <AlertCircle size={20} />
-                    <span>{(error as any)?.response?.data?.message || 'Failed to load users'}</span>
+                    <span>{(error as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Failed to load users'}</span>
                 </div>
             </div>
         );
@@ -239,15 +253,23 @@ const UsersManagement = () => {
                 isLoading={deleteUserMutation.isPending}
             />
 
+            {showSuspendDialog && selectedUser && (
+                <SuspendConfirmDialog
+                    user={selectedUser}
+                    onClose={() => setShowSuspendDialog(false)}
+                    onConfirm={handleSuspendConfirm}
+                />
+            )}
+
             <ConfirmDialog
-                isOpen={showSuspendDialog}
-                onClose={() => setShowSuspendDialog(false)}
-                onConfirm={handleSuspendConfirm}
-                title="Suspend User"
-                message={`Are you sure you want to suspend ability for ${selectedUser?.username} to login?`}
-                variant="warning"
-                confirmText="Suspend"
-                isLoading={suspendUserMutation.isPending}
+                isOpen={showActivateDialog}
+                onClose={() => setShowActivateDialog(false)}
+                onConfirm={handleActivateConfirm}
+                title="Activate User"
+                message={`Are you sure you want to activate ${selectedUser?.username}? They will be able to login again.`}
+                variant="info"
+                confirmText="Activate"
+                isLoading={activateUserMutation.isPending}
             />
         </div>
     );

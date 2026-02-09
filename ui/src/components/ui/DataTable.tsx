@@ -51,7 +51,7 @@ export function DataTable<T>({
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-border-color-dark">
-                        {data.length > 0 ? (
+                        {data && data.length > 0 ? (
                             data.map((item) => (
                                 <tr
                                     key={keyExtractor(item)}

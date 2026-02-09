@@ -197,7 +197,15 @@ func (q *groupQueries) DeleteGroup(id string) error {
 }
 
 func (q *groupQueries) ListGroupMembers(groupID string) ([]models.GroupMembership, error) {
-	stmt := `SELECT id, group_id, principal_id, principal_type, role_in_group, joined_at, expires_at, added_by FROM group_memberships WHERE group_id=$1`
+	stmt := `
+		SELECT 
+			gm.id, gm.group_id, gm.principal_id, gm.principal_type, gm.role_in_group, gm.joined_at, gm.expires_at, gm.added_by,
+			COALESCE(u.display_name, u.username, sa.name, 'Unknown') as name,
+			COALESCE(u.email, '') as email
+		FROM group_memberships gm
+		LEFT JOIN users u ON gm.principal_id = u.id AND gm.principal_type = 'user'
+		LEFT JOIN service_accounts sa ON gm.principal_id = sa.id AND gm.principal_type = 'service_account'
+		WHERE gm.group_id = $1`
 	rows, err := q.query(stmt, groupID)
 	if err != nil {
 		return nil, err
@@ -206,7 +214,7 @@ func (q *groupQueries) ListGroupMembers(groupID string) ([]models.GroupMembershi
 	var members []models.GroupMembership
 	for rows.Next() {
 		var m models.GroupMembership
-		if err := rows.Scan(&m.ID, &m.GroupID, &m.PrincipalID, &m.PrincipalType, &m.RoleInGroup, &m.JoinedAt, &m.ExpiresAt, &m.AddedBy); err != nil {
+		if err := rows.Scan(&m.ID, &m.GroupID, &m.PrincipalID, &m.PrincipalType, &m.RoleInGroup, &m.JoinedAt, &m.ExpiresAt, &m.AddedBy, &m.Name, &m.Email); err != nil {
 			return nil, err
 		}
 		members = append(members, m)
