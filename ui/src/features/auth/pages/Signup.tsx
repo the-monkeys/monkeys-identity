@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AlertCircle, AlertTriangle, ChevronDown, Check } from 'lucide-react';
+import { AlertCircle, AlertTriangle } from 'lucide-react';
 
 import { authAPI } from '../api/auth';
 import { SignupFormData, SignupFormErrors } from '../types/auth';
@@ -10,32 +10,17 @@ const SignupPage = () => {
     const [formErrors, setFormErrors] = useState<SignupFormErrors>({});
     const [apiError, setApiError] = useState<string | null>(null);
 
-    const [organizations, setOrganizations] = useState<{ id: string; name: string }[]>([]);
-    const [selectedOrgId, setSelectedOrgId] = useState<string>(""); // "" means Create New
-    const [isLoadingOrgs, setIsLoadingOrgs] = useState(false);
+    const [orgMode, setOrgMode] = useState<'create' | 'join'>('create');
+    const [orgName, setOrgName] = useState("");
+    const [orgId, setOrgId] = useState("");
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     const navigate = useNavigate();
-
-    useEffect(() => {
-        const fetchOrgs = async () => {
-            setIsLoadingOrgs(true);
-            try {
-                const res = await authAPI.getPublicOrganizations();
-                if (res.data && res.data.data) {
-                    setOrganizations(res.data.data);
-                }
-            } catch (error) {
-                console.error("Failed to fetch organizations", error);
-            } finally {
-                setIsLoadingOrgs(false);
-            }
-        };
-        fetchOrgs();
-    }, []);
 
     const handleFormSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
         setApiError(null);
+        setIsSubmitting(true);
 
         const formDataObj = new FormData(e.currentTarget);
 
@@ -45,7 +30,7 @@ const SignupPage = () => {
         const data: SignupFormData = {
             email: formDataObj.get('email') as string,
             username: formDataObj.get('username') as string,
-            organization_id: selectedOrgId, // Empty for new, UUID for existing
+            organization_id: orgMode === 'join' ? orgId : "", // Empty for new
             first_name: formDataObj.get('first_name') as string,
             last_name: formDataObj.get('last_name') as string,
             password: password,
@@ -58,16 +43,37 @@ const SignupPage = () => {
         };
 
         const validationErrors = validateSignupForm(data, confirmPassword);
+
+        // Additional validation for org mode
+        if (orgMode === 'create' && !orgName.trim()) {
+            validationErrors.organization_id = "Organization name is required";
+        } else if (orgMode === 'join' && !orgId.trim()) {
+            validationErrors.organization_id = "Organization ID is required";
+        }
+
         setFormErrors(validationErrors);
 
         if (Object.keys(validationErrors).length === 0) {
             try {
-                await authAPI.createAdmin(payload);
+                if (orgMode === 'create') {
+                    // Create New Organization
+                    await authAPI.registerOrganization({
+                        organization_name: orgName,
+                        ...payload
+                    });
+                } else {
+                    // Join Existing Organization
+                    await authAPI.createAdmin(payload);
+                }
                 navigate('/login');
             } catch (error: any) {
                 console.error("Signup failed:", error);
                 setApiError(error.response?.data?.message || 'Failed to create account. Please try again.');
+            } finally {
+                setIsSubmitting(false);
             }
+        } else {
+            setIsSubmitting(false);
         }
     };
 
@@ -90,26 +96,62 @@ const SignupPage = () => {
                     )}
 
                     <form onSubmit={handleFormSubmit} className="space-y-6">
-                        {/* Organization Selection */}
-                        <div className="space-y-1">
-                            <label htmlFor="org_select" className="block text-sm font-bold text-gray-200">Organization</label>
-                            <p className="text-xs text-gray-400 mb-2">Join an existing organization or create a new one.</p>
-                            <div className="relative">
-                                <select
-                                    id="org_select"
-                                    value={selectedOrgId}
-                                    onChange={(e) => setSelectedOrgId(e.target.value)}
-                                    className="w-full px-3 py-2 text-gray-50 border border-slate-600 bg-slate-900 rounded focus:border-primary focus:border-2 focus:outline-none transition-all appearance-none cursor-pointer"
+                        {/* Organization Mode Selection */}
+                        <div className="space-y-4">
+                            <div className="flex gap-4 p-1 bg-slate-900 border border-slate-700 rounded-md">
+                                <button
+                                    type="button"
+                                    onClick={() => setOrgMode('create')}
+                                    className={`flex-1 py-1.5 px-3 rounded text-sm font-medium transition-all ${orgMode === 'create'
+                                        ? 'bg-primary text-white shadow-sm'
+                                        : 'text-gray-400 hover:text-gray-200'
+                                        }`}
                                 >
-                                    <option value="">Create New Organization (Default)</option>
-                                    {organizations.map((org) => (
-                                        <option key={org.id} value={org.id}>
-                                            {org.name} ({org.id})
-                                        </option>
-                                    ))}
-                                </select>
-                                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                                    New Organization
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setOrgMode('join')}
+                                    className={`flex-1 py-1.5 px-3 rounded text-sm font-medium transition-all ${orgMode === 'join'
+                                        ? 'bg-primary text-white shadow-sm'
+                                        : 'text-gray-400 hover:text-gray-200'
+                                        }`}
+                                >
+                                    Join Existing
+                                </button>
                             </div>
+
+                            {orgMode === 'create' ? (
+                                <div className="space-y-1">
+                                    <label htmlFor="org_name" className="block text-sm font-bold text-gray-200">Organization Name</label>
+                                    <p className="text-xs text-gray-400 mb-2">Provide a name for your new organization.</p>
+                                    <input
+                                        id="org_name"
+                                        type="text"
+                                        value={orgName}
+                                        onChange={(e) => setOrgName(e.target.value)}
+                                        className={`w-full px-3 py-2 text-gray-50 border ${formErrors.organization_id && orgMode === 'create' ? 'border-red-500' : 'border-slate-600'} bg-slate-900 rounded focus:border-primary focus:border-2 focus:outline-none transition-all`}
+                                        placeholder="Acme Corp"
+                                        required={orgMode === 'create'}
+                                    />
+                                    {formErrors.organization_id && orgMode === 'create' && <p className="text-red-500 text-xs mt-1">{formErrors.organization_id}</p>}
+                                </div>
+                            ) : (
+                                <div className="space-y-1">
+                                    <label htmlFor="org_id" className="block text-sm font-bold text-gray-200">Organization ID</label>
+                                    <p className="text-xs text-gray-400 mb-2">Enter the UUID of the organization you wish to join.</p>
+                                    <input
+                                        id="org_id"
+                                        type="text"
+                                        value={orgId}
+                                        onChange={(e) => setOrgId(e.target.value)}
+                                        className={`w-full px-3 py-2 text-gray-50 border ${formErrors.organization_id && orgMode === 'join' ? 'border-red-500' : 'border-slate-600'} bg-slate-900 rounded focus:border-primary focus:border-2 focus:outline-none transition-all`}
+                                        placeholder="00000000-0000-0000-0000-000000000000"
+                                        required={orgMode === 'join'}
+                                    />
+                                    {formErrors.organization_id && orgMode === 'join' && <p className="text-red-500 text-xs mt-1">{formErrors.organization_id}</p>}
+                                </div>
+                            )}
                         </div>
 
                         {/* Email */}
@@ -222,9 +264,10 @@ const SignupPage = () => {
                         <div className="pt-6">
                             <button
                                 type="submit"
-                                className="w-full px-8 py-3 bg-primary text-white font-bold rounded shadow-sm hover:bg-opacity-90 transition-all cursor-pointer"
+                                disabled={isSubmitting}
+                                className={`w-full px-8 py-3 bg-primary text-white font-bold rounded shadow-sm hover:bg-opacity-90 transition-all ${isSubmitting ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
                             >
-                                Verify & Create Admin Account
+                                {isSubmitting ? 'Creating Account...' : 'Verify & Create Admin Account'}
                             </button>
                         </div>
                     </form>

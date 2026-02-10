@@ -1,6 +1,12 @@
 package routes
 
 import (
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/x509"
+	"encoding/pem"
+	"time"
+
 	"github.com/gofiber/fiber/v2"
 	"github.com/redis/go-redis/v9"
 	"github.com/the-monkeys/monkeys-identity/internal/config"
@@ -10,9 +16,11 @@ import (
 	"github.com/the-monkeys/monkeys-identity/internal/queries"
 	"github.com/the-monkeys/monkeys-identity/internal/services"
 	"github.com/the-monkeys/monkeys-identity/pkg/logger"
+	"github.com/the-monkeys/monkeys-identity/pkg/utils"
 )
 
 func SetupRoutes(
+	root fiber.Router,
 	api fiber.Router,
 	db *database.DB,
 	redis *redis.Client,
@@ -21,8 +29,35 @@ func SetupRoutes(
 	auditService services.AuditService,
 	mfaService services.MFAService,
 ) {
-	// Initialize middleware
-	authMiddleware := middleware.NewAuthMiddleware(cfg.JWTSecret)
+	// Ensure we have a valid JWT private key for RS256 signing
+	var privKey *rsa.PrivateKey
+	var err error
+	if cfg.JWTPrivateKey != "" {
+		privKey, err = utils.LoadRSAPrivateKey(cfg.JWTPrivateKey)
+		if err != nil {
+			logger.Warn("Failed to load provided JWT private key: %v. Generating a temporary one instead.", err)
+		}
+	}
+
+	if privKey == nil {
+		logger.Warn("Using temporary RSA key for this session (not for production use)")
+		// Generate a new 2048-bit RSA key
+		privKey, err = rsa.GenerateKey(rand.Reader, 2048)
+		if err != nil {
+			logger.Error("Failed to generate temporary RSA key: %v", err)
+		} else {
+			// Encode to PEM format for consistent transport/storage
+			privBytes := x509.MarshalPKCS1PrivateKey(privKey)
+			privPEM := pem.EncodeToMemory(&pem.Block{
+				Type:  "RSA PRIVATE KEY",
+				Bytes: privBytes,
+			})
+			cfg.JWTPrivateKey = string(privPEM)
+		}
+	}
+
+	// Initialize middleware with the guaranteed key
+	authMiddleware := middleware.NewAuthMiddleware(cfg.JWTSecret, cfg.JWTPrivateKey, redis)
 
 	// Initialize queries
 	q := queries.New(db, redis)
@@ -40,11 +75,17 @@ func SetupRoutes(
 	policyHandler := handlers.NewPolicyHandler(db, redis, logger, auditService, authzSvc)
 	roleHandler := handlers.NewRoleHandler(db, redis, logger)
 	sessionHandler := handlers.NewSessionHandler(db, redis, logger)
-	oidcHandler := handlers.NewOIDCHandler(oidcSvc, q, *logger)
+	oidcHandler := handlers.NewOIDCHandler(oidcSvc, q, *logger, cfg)
 
 	// Create queries instance for audit handler
 	auditQueries := queries.New(db, redis)
 	auditHandler := handlers.NewAuditHandler(auditQueries, logger, auditService)
+
+	// Global API Rate Limiting
+	if cfg.RateLimitEnabled {
+		// General API limit: 1000 requests per minute
+		api.Use(middleware.RateLimiter(1000, 1*time.Minute))
+	}
 
 	// Public routes (no authentication required)
 	public := api.Group("/public")
@@ -55,9 +96,14 @@ func SetupRoutes(
 
 	// Authentication routes
 	auth := api.Group("/auth")
+	if cfg.RateLimitEnabled {
+		// Stricter limit for auth endpoints: 100 requests per minute to prevent brute force
+		auth.Use(middleware.RateLimiter(100, 1*time.Minute))
+	}
 	auth.Post("/login", authHandler.Login)
 	auth.Post("/login/mfa-verify", authHandler.LoginMFAVerify)
 	auth.Post("/register", authHandler.Register)
+	auth.Post("/register-org", authHandler.RegisterOrganization)
 	auth.Post("/refresh", authHandler.RefreshToken)
 	auth.Post("/logout", authMiddleware.RequireAuth(), authHandler.Logout)
 	auth.Post("/forgot-password", authHandler.ForgotPassword)
@@ -69,14 +115,23 @@ func SetupRoutes(
 	auth.Post("/create-admin", authHandler.CreateAdminUser)
 
 	// OIDC/Federation routes
-	federation := api.Group("/")
+	federation := root.Group("/")
 	federation.Get("/.well-known/openid-configuration", oidcHandler.GetDiscovery)
 	federation.Get("/.well-known/jwks.json", oidcHandler.GetJWKS)
 
 	oauth2 := api.Group("/oauth2")
-	oauth2.Get("/authorize", authMiddleware.RequireAuth(), oidcHandler.Authorize)
+	oauth2.Get("/authorize", authMiddleware.OptionalAuth(), oidcHandler.Authorize)
 	oauth2.Post("/token", oidcHandler.Token)
 	oauth2.Get("/userinfo", authMiddleware.RequireAuth(), oidcHandler.UserInfo)
+	oauth2.Get("/client-info", oidcHandler.GetPublicClientInfo)
+	oauth2.Post("/consent", authMiddleware.RequireAuth(), oidcHandler.HandleConsent)
+
+	// OIDC Client Management routes (for ecosystem app registration)
+	oidcClients := oauth2.Group("/clients", authMiddleware.RequireAuth())
+	oidcClients.Post("/", authMiddleware.RequireRole("admin"), oidcHandler.RegisterClient)
+	oidcClients.Get("/", oidcHandler.ListClients)
+	oidcClients.Put("/:id", authMiddleware.RequireRole("admin"), oidcHandler.UpdateClient)
+	oidcClients.Delete("/:id", authMiddleware.RequireRole("admin"), oidcHandler.DeleteClient)
 
 	// MFA routes
 	mfa := auth.Group("/mfa")
@@ -101,6 +156,7 @@ func SetupRoutes(
 	users.Post("/:id/activate", authMiddleware.RequireRole("admin"), userHandler.ActivateUser)
 	users.Get("/:id/sessions", userHandler.GetUserSessions)
 	users.Delete("/:id/sessions", userHandler.RevokeUserSessions)
+	users.Post("/:id/change-password", userHandler.ChangePassword)
 
 	// Organization management routes
 	orgs := protected.Group("/organizations")
@@ -181,11 +237,11 @@ func SetupRoutes(
 	serviceAccounts := protected.Group("/service-accounts")
 	serviceAccounts.Get("/", authMiddleware.RequireRole("admin"), userHandler.ListServiceAccounts)
 	serviceAccounts.Post("/", authMiddleware.RequireRole("admin"), userHandler.CreateServiceAccount)
-	serviceAccounts.Get("/:id", userHandler.GetServiceAccount)
+	serviceAccounts.Get("/:id", authMiddleware.RequireRole("admin"), userHandler.GetServiceAccount)
 	serviceAccounts.Put("/:id", authMiddleware.RequireRole("admin"), userHandler.UpdateServiceAccount)
 	serviceAccounts.Delete("/:id", authMiddleware.RequireRole("admin"), userHandler.DeleteServiceAccount)
 	serviceAccounts.Post("/:id/keys", authMiddleware.RequireRole("admin"), userHandler.GenerateAPIKey)
-	serviceAccounts.Get("/:id/keys", userHandler.ListAPIKeys)
+	serviceAccounts.Get("/:id/keys", authMiddleware.RequireRole("admin"), userHandler.ListAPIKeys)
 	serviceAccounts.Delete("/:id/keys/:key_id", authMiddleware.RequireRole("admin"), userHandler.RevokeAPIKey)
 	serviceAccounts.Post("/:id/rotate-keys", authMiddleware.RequireRole("admin"), userHandler.RotateServiceAccountKeys)
 

@@ -6,28 +6,29 @@ import (
 
 // User represents a human identity in the system
 type User struct {
-	ID                  string    `json:"id" db:"id"`
-	Username            string    `json:"username" db:"username"`
-	Email               string    `json:"email" db:"email"`
-	EmailVerified       bool      `json:"email_verified" db:"email_verified"`
-	DisplayName         string    `json:"display_name" db:"display_name"`
-	AvatarURL           string    `json:"avatar_url" db:"avatar_url"`
-	OrganizationID      string    `json:"organization_id" db:"organization_id"`
-	PasswordHash        string    `json:"-" db:"password_hash"` // Hidden from JSON
-	PasswordChangedAt   time.Time `json:"password_changed_at" db:"password_changed_at"`
-	MFAEnabled          bool      `json:"mfa_enabled" db:"mfa_enabled"`
-	MFAMethods          []string  `json:"mfa_methods" db:"mfa_methods"`
-	TOTPSecret          string    `json:"-" db:"totp_secret"`           // Hidden from JSON
-	MFABackupCodes      []string  `json:"-" db:"mfa_backup_codes"`      // Hidden from JSON
-	Attributes          string    `json:"attributes" db:"attributes"`   // JSONB as string
-	Preferences         string    `json:"preferences" db:"preferences"` // JSONB as string
-	LastLogin           time.Time `json:"last_login" db:"last_login"`
-	FailedLoginAttempts int       `json:"failed_login_attempts" db:"failed_login_attempts"`
-	LockedUntil         time.Time `json:"locked_until" db:"locked_until"`
-	Status              string    `json:"status" db:"status"`
-	CreatedAt           time.Time `json:"created_at" db:"created_at"`
-	UpdatedAt           time.Time `json:"updated_at" db:"updated_at"`
-	DeletedAt           time.Time `json:"deleted_at" db:"deleted_at"`
+	ID                  string     `json:"id" db:"id"`
+	Username            string     `json:"username" db:"username"`
+	Email               string     `json:"email" db:"email"`
+	EmailVerified       bool       `json:"email_verified" db:"email_verified"`
+	DisplayName         string     `json:"display_name" db:"display_name"`
+	AvatarURL           *string    `json:"avatar_url" db:"avatar_url"`
+	OrganizationID      string     `json:"organization_id" db:"organization_id"`
+	PasswordHash        string     `json:"-" db:"password_hash"` // Hidden from JSON
+	PasswordChangedAt   *time.Time `json:"password_changed_at" db:"password_changed_at"`
+	MFAEnabled          bool       `json:"mfa_enabled" db:"mfa_enabled"`
+	MFAMethods          []string   `json:"mfa_methods" db:"mfa_methods"`
+	TOTPSecret          string     `json:"-" db:"totp_secret"`           // Hidden from JSON
+	MFABackupCodes      []string   `json:"-" db:"mfa_backup_codes"`      // Hidden from JSON
+	Attributes          string     `json:"attributes" db:"attributes"`   // JSONB as string
+	Preferences         string     `json:"preferences" db:"preferences"` // JSONB as string
+	Role                string     `json:"role,omitempty" db:"role"`     // Added for UI display
+	LastLogin           *time.Time `json:"last_login" db:"last_login"`
+	FailedLoginAttempts int        `json:"failed_login_attempts" db:"failed_login_attempts"`
+	LockedUntil         *time.Time `json:"locked_until" db:"locked_until"`
+	Status              string     `json:"status" db:"status"`
+	CreatedAt           time.Time  `json:"created_at" db:"created_at"`
+	UpdatedAt           time.Time  `json:"updated_at" db:"updated_at"`
+	DeletedAt           *time.Time `json:"deleted_at" db:"deleted_at"`
 }
 
 // Organization represents a tenant entity
@@ -50,19 +51,19 @@ type Organization struct {
 
 // ServiceAccount represents a machine identity
 type ServiceAccount struct {
-	ID                string    `json:"id" db:"id"`
-	Name              string    `json:"name" db:"name"`
-	Description       string    `json:"description" db:"description"`
-	OrganizationID    string    `json:"organization_id" db:"organization_id"`
-	KeyRotationPolicy string    `json:"key_rotation_policy" db:"key_rotation_policy"` // JSONB as string
-	AllowedIPRanges   []string  `json:"allowed_ip_ranges" db:"allowed_ip_ranges"`
-	MaxTokenLifetime  string    `json:"max_token_lifetime" db:"max_token_lifetime"`
-	LastKeyRotation   time.Time `json:"last_key_rotation" db:"last_key_rotation"`
-	Attributes        string    `json:"attributes" db:"attributes"` // JSONB as string
-	Status            string    `json:"status" db:"status"`
-	CreatedAt         time.Time `json:"created_at" db:"created_at"`
-	UpdatedAt         time.Time `json:"updated_at" db:"updated_at"`
-	DeletedAt         time.Time `json:"deleted_at" db:"deleted_at"`
+	ID                string     `json:"id" db:"id"`
+	Name              string     `json:"name" db:"name"`
+	Description       string     `json:"description" db:"description"`
+	OrganizationID    string     `json:"organization_id" db:"organization_id"`
+	KeyRotationPolicy string     `json:"key_rotation_policy" db:"key_rotation_policy"` // JSONB as string
+	AllowedIPRanges   []string   `json:"allowed_ip_ranges" db:"allowed_ip_ranges"`
+	MaxTokenLifetime  string     `json:"max_token_lifetime" db:"max_token_lifetime"`
+	LastKeyRotation   time.Time  `json:"last_key_rotation" db:"last_key_rotation"`
+	Attributes        string     `json:"attributes" db:"attributes"` // JSONB as string
+	Status            string     `json:"status" db:"status"`
+	CreatedAt         time.Time  `json:"created_at" db:"created_at"`
+	UpdatedAt         time.Time  `json:"updated_at" db:"updated_at"`
+	DeletedAt         *time.Time `json:"deleted_at" db:"deleted_at"`
 }
 
 // Group represents a collection of users and service accounts
@@ -126,22 +127,22 @@ type Resource struct {
 
 // Policy represents access control policies
 type Policy struct {
-	ID             string    `json:"id" db:"id"`
-	Name           string    `json:"name" db:"name"`
-	Description    string    `json:"description" db:"description"`
-	Version        string    `json:"version" db:"version"`
-	OrganizationID string    `json:"organization_id" db:"organization_id"`
-	Document       string    `json:"document" db:"document"` // JSONB as string
-	PolicyType     string    `json:"policy_type" db:"policy_type"`
-	Effect         string    `json:"effect" db:"effect"`
-	IsSystemPolicy bool      `json:"is_system_policy" db:"is_system_policy"`
-	CreatedBy      string    `json:"created_by" db:"created_by"`
-	ApprovedBy     string    `json:"approved_by" db:"approved_by"`
-	ApprovedAt     time.Time `json:"approved_at" db:"approved_at"`
-	Status         string    `json:"status" db:"status"`
-	CreatedAt      time.Time `json:"created_at" db:"created_at"`
-	UpdatedAt      time.Time `json:"updated_at" db:"updated_at"`
-	DeletedAt      time.Time `json:"deleted_at" db:"deleted_at"`
+	ID             string     `json:"id" db:"id"`
+	Name           string     `json:"name" db:"name"`
+	Description    string     `json:"description" db:"description"`
+	Version        string     `json:"version" db:"version"`
+	OrganizationID string     `json:"organization_id" db:"organization_id"`
+	Document       string     `json:"document" db:"document"` // JSONB as string
+	PolicyType     string     `json:"policy_type" db:"policy_type"`
+	Effect         string     `json:"effect" db:"effect"`
+	IsSystemPolicy bool       `json:"is_system_policy" db:"is_system_policy"`
+	CreatedBy      *string    `json:"created_by" db:"created_by"`
+	ApprovedBy     *string    `json:"approved_by" db:"approved_by"`
+	ApprovedAt     *time.Time `json:"approved_at" db:"approved_at"`
+	Status         string     `json:"status" db:"status"`
+	CreatedAt      time.Time  `json:"created_at" db:"created_at"`
+	UpdatedAt      time.Time  `json:"updated_at" db:"updated_at"`
+	DeletedAt      *time.Time `json:"deleted_at" db:"deleted_at"`
 }
 
 // Role represents named collections of policies
@@ -151,17 +152,17 @@ type Role struct {
 	Description         *string    `json:"description" db:"description"`
 	OrganizationID      string     `json:"organization_id" db:"organization_id"`
 	RoleType            string     `json:"role_type" db:"role_type"`
-	MaxSessionDuration  string     `json:"max_session_duration" db:"max_session_duration"`
+	MaxSessionDuration  *string    `json:"max_session_duration" db:"max_session_duration"`
 	TrustPolicy         string     `json:"trust_policy" db:"trust_policy"`             // JSONB as string
 	AssumeRolePolicy    string     `json:"assume_role_policy" db:"assume_role_policy"` // JSONB as string
 	Tags                string     `json:"tags" db:"tags"`                             // JSONB as string
 	IsSystemRole        bool       `json:"is_system_role" db:"is_system_role"`
-	Path                string     `json:"path" db:"path"`
-	PermissionsBoundary string     `json:"permissions_boundary" db:"permissions_boundary"`
+	Path                *string    `json:"path" db:"path"`
+	PermissionsBoundary *string    `json:"permissions_boundary" db:"permissions_boundary"`
 	Status              string     `json:"status" db:"status"`
 	CreatedAt           time.Time  `json:"created_at" db:"created_at"`
 	UpdatedAt           *time.Time `json:"updated_at" db:"updated_at"`
-	DeletedAt           time.Time  `json:"deleted_at" db:"deleted_at"`
+	DeletedAt           *time.Time `json:"deleted_at" db:"deleted_at"`
 }
 
 // RolePolicy represents the many-to-many relationship between roles and policies
@@ -175,14 +176,14 @@ type RolePolicy struct {
 
 // RoleAssignment represents assignment of roles to principals
 type RoleAssignment struct {
-	ID            string    `json:"id" db:"id"`
-	RoleID        string    `json:"role_id" db:"role_id"`
-	PrincipalID   string    `json:"principal_id" db:"principal_id"`
-	PrincipalType string    `json:"principal_type" db:"principal_type"`
-	AssignedBy    string    `json:"assigned_by" db:"assigned_by"`
-	AssignedAt    time.Time `json:"assigned_at" db:"assigned_at"`
-	ExpiresAt     time.Time `json:"expires_at" db:"expires_at"`
-	Conditions    string    `json:"conditions" db:"conditions"` // JSONB as string
+	ID            string     `json:"id" db:"id"`
+	RoleID        string     `json:"role_id" db:"role_id"`
+	PrincipalID   string     `json:"principal_id" db:"principal_id"`
+	PrincipalType string     `json:"principal_type" db:"principal_type"`
+	AssignedBy    string     `json:"assigned_by" db:"assigned_by"`
+	AssignedAt    time.Time  `json:"assigned_at" db:"assigned_at"`
+	ExpiresAt     *time.Time `json:"expires_at" db:"expires_at"`
+	Conditions    *string    `json:"conditions" db:"conditions"` // JSONB as string
 }
 
 // Session represents active authentication sessions
@@ -192,14 +193,14 @@ type Session struct {
 	PrincipalID       string    `json:"principal_id" db:"principal_id"`
 	PrincipalType     string    `json:"principal_type" db:"principal_type"`
 	OrganizationID    string    `json:"organization_id" db:"organization_id"`
-	AssumedRoleID     string    `json:"assumed_role_id" db:"assumed_role_id"`
+	AssumedRoleID     *string   `json:"assumed_role_id" db:"assumed_role_id"`
 	Permissions       string    `json:"permissions" db:"permissions"` // JSONB as string
 	Context           string    `json:"context" db:"context"`         // JSONB as string
 	MFAVerified       bool      `json:"mfa_verified" db:"mfa_verified"`
 	MFAMethodsUsed    []string  `json:"mfa_methods_used" db:"mfa_methods_used"`
-	IPAddress         string    `json:"ip_address" db:"ip_address"`
-	UserAgent         string    `json:"user_agent" db:"user_agent"`
-	DeviceFingerprint string    `json:"device_fingerprint" db:"device_fingerprint"`
+	IPAddress         *string   `json:"ip_address" db:"ip_address"`
+	UserAgent         *string   `json:"user_agent" db:"user_agent"`
+	DeviceFingerprint *string   `json:"device_fingerprint" db:"device_fingerprint"`
 	Location          string    `json:"location" db:"location"` // JSONB as string
 	IssuedAt          time.Time `json:"issued_at" db:"issued_at"`
 	ExpiresAt         time.Time `json:"expires_at" db:"expires_at"`
@@ -248,15 +249,16 @@ type OAuthClient struct {
 
 // OIDCAuthCode represents a temporary authorization code
 type OIDCAuthCode struct {
-	Code        string    `json:"code" db:"code"`
-	UserID      string    `json:"user_id" db:"user_id"`
-	ClientID    string    `json:"client_id" db:"client_id"`
-	Scope       string    `json:"scope" db:"scope"`
-	Nonce       *string   `json:"nonce" db:"nonce"`
-	RedirectURI string    `json:"redirect_uri" db:"redirect_uri"`
-	ExpiresAt   time.Time `json:"expires_at" db:"expires_at"`
-	Used        bool      `json:"used" db:"used"`
-	CreatedAt   time.Time `json:"created_at" db:"created_at"`
+	Code           string    `json:"code" db:"code"`
+	UserID         string    `json:"user_id" db:"user_id"`
+	ClientID       string    `json:"client_id" db:"client_id"`
+	Scope          string    `json:"scope" db:"scope"`
+	Nonce          *string   `json:"nonce" db:"nonce"`
+	RedirectURI    string    `json:"redirect_uri" db:"redirect_uri"`
+	ExpiresAt      time.Time `json:"expires_at" db:"expires_at"`
+	Used           bool      `json:"used" db:"used"`
+	OrganizationID string    `json:"organization_id" db:"organization_id"`
+	CreatedAt      time.Time `json:"created_at" db:"created_at"`
 }
 
 // AuditEvent represents audit trail entries

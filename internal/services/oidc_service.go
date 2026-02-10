@@ -3,8 +3,6 @@ package services
 import (
 	"crypto/rand"
 	"crypto/rsa"
-	"crypto/x509"
-	"encoding/pem"
 	"errors"
 	"fmt"
 	"time"
@@ -14,15 +12,17 @@ import (
 	"github.com/the-monkeys/monkeys-identity/internal/config"
 	"github.com/the-monkeys/monkeys-identity/internal/models"
 	"github.com/the-monkeys/monkeys-identity/internal/queries"
+	"github.com/the-monkeys/monkeys-identity/pkg/utils"
 	"golang.org/x/crypto/bcrypt"
 )
 
 type OIDCService interface {
 	ValidateClient(clientID, clientSecret, redirectURI string) (*models.OAuthClient, error)
-	CreateAuthorizationCode(userID, clientID, scope, nonce, redirectURI string) (string, error)
+	CreateAuthorizationCode(userID, orgID, clientID, scope, nonce, redirectURI string) (string, error)
 	ExchangeCodeForToken(code, clientID, clientSecret string) (*TokenResponse, error)
 	GetDiscoveryConfiguration() map[string]interface{}
 	GetJWKS() (map[string]interface{}, error)
+	UpdateClient(clientID string, client *models.OAuthClient) error
 }
 
 type TokenResponse struct {
@@ -48,7 +48,7 @@ func NewOIDCService(queries *queries.Queries, cfg *config.Config) OIDCService {
 
 	// Try to load private key from config
 	if cfg.JWTPrivateKey != "" {
-		priv, err := loadRSAPrivateKey(cfg.JWTPrivateKey)
+		priv, err := utils.LoadRSAPrivateKey(cfg.JWTPrivateKey)
 		if err == nil {
 			s.privateKey = priv
 		}
@@ -97,15 +97,16 @@ func (s *oidcService) ValidateClient(clientID, clientSecret, redirectURI string)
 	return client, nil
 }
 
-func (s *oidcService) CreateAuthorizationCode(userID, clientID, scope, nonce, redirectURI string) (string, error) {
+func (s *oidcService) CreateAuthorizationCode(userID, orgID, clientID, scope, nonce, redirectURI string) (string, error) {
 	code := uuid.New().String()
 	authCode := &models.OIDCAuthCode{
-		Code:        code,
-		UserID:      userID,
-		ClientID:    clientID,
-		Scope:       scope,
-		RedirectURI: redirectURI,
-		ExpiresAt:   time.Now().Add(10 * time.Minute),
+		Code:           code,
+		UserID:         userID,
+		OrganizationID: orgID,
+		ClientID:       clientID,
+		Scope:          scope,
+		RedirectURI:    redirectURI,
+		ExpiresAt:      time.Now().Add(10 * time.Minute),
 	}
 	if nonce != "" {
 		authCode.Nonce = &nonce
@@ -153,11 +154,27 @@ func (s *oidcService) ExchangeCodeForToken(code, clientID, clientSecret string) 
 		return nil, fmt.Errorf("failed to sign id_token: %w", err)
 	}
 
-	// Access Token (simplified for this upgrade, in production use structured claims)
-	accessToken := uuid.New().String()
+	// Access Token (Structured RS256 JWT)
+	accessClaims := jwt.MapClaims{
+		"iss":             s.config.OIDCIssuer,
+		"sub":             authCode.UserID,
+		"aud":             clientID,
+		"exp":             now.Add(time.Hour).Unix(),
+		"iat":             now.Unix(),
+		"scope":           authCode.Scope,
+		"client_id":       clientID,
+		"type":            "access",
+		"organization_id": authCode.OrganizationID,
+	}
+
+	accessToken := jwt.NewWithClaims(jwt.SigningMethodRS256, accessClaims)
+	accessTokenString, err := accessToken.SignedString(s.privateKey)
+	if err != nil {
+		return nil, fmt.Errorf("failed to sign access_token: %w", err)
+	}
 
 	return &TokenResponse{
-		AccessToken: accessToken,
+		AccessToken: accessTokenString,
 		IDToken:     idTokenString,
 		TokenType:   "Bearer",
 		ExpiresIn:   3600,
@@ -169,15 +186,37 @@ func (s *oidcService) GetDiscoveryConfiguration() map[string]interface{} {
 	issuer := s.config.OIDCIssuer
 	return map[string]interface{}{
 		"issuer":                                issuer,
-		"authorization_endpoint":                issuer + "/oauth2/authorize",
-		"token_endpoint":                        issuer + "/oauth2/token",
-		"userinfo_endpoint":                     issuer + "/oauth2/userinfo",
+		"authorization_endpoint":                issuer + "/api/v1/oauth2/authorize",
+		"token_endpoint":                        issuer + "/api/v1/oauth2/token",
+		"userinfo_endpoint":                     issuer + "/api/v1/oauth2/userinfo",
 		"jwks_uri":                              issuer + "/.well-known/jwks.json",
 		"scopes_supported":                      []string{"openid", "profile", "email"},
 		"response_types_supported":              []string{"code", "token", "id_token"},
 		"subject_types_supported":               []string{"public"},
 		"id_token_signing_alg_values_supported": []string{"RS256"},
 	}
+}
+
+func (s *oidcService) UpdateClient(clientID string, client *models.OAuthClient) error {
+	existing, err := s.queries.OIDC.GetClientByID(clientID)
+	if err != nil {
+		return err
+	}
+	if existing == nil {
+		return errors.New("client_not_found")
+	}
+
+	// Update fields
+	existing.ClientName = client.ClientName
+	existing.RedirectURIs = client.RedirectURIs
+	existing.Scope = client.Scope
+	existing.IsPublic = client.IsPublic
+	existing.LogoURL = client.LogoURL
+	existing.PolicyURI = client.PolicyURI
+	existing.TosURI = client.TosURI
+	existing.UpdatedAt = time.Now()
+
+	return s.queries.OIDC.UpdateClient(existing)
 }
 
 func (s *oidcService) GetJWKS() (map[string]interface{}, error) {
@@ -201,19 +240,4 @@ func (s *oidcService) GetJWKS() (map[string]interface{}, error) {
 			},
 		},
 	}, nil
-}
-
-// Helper to load RSA private key from PEM string
-func loadRSAPrivateKey(pemStr string) (*rsa.PrivateKey, error) {
-	block, _ := pem.Decode([]byte(pemStr))
-	if block == nil {
-		return nil, errors.New("failed to parse PEM block")
-	}
-
-	priv, err := x509.ParsePKCS1PrivateKey(block.Bytes)
-	if err != nil {
-		return nil, err
-	}
-
-	return priv, nil
 }

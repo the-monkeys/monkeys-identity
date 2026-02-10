@@ -8,50 +8,68 @@ import {
     Clock,
     Clock1,
     LayoutDashboard,
-    Building
+    Building,
+    Link,
+    Box,
+    Server
 } from 'lucide-react';
 
 export const sidebarMenuItems = [
-    { 
-        icon: React.createElement(LayoutDashboard, { size: 20 }), 
-        label: 'Overview', 
-        id: 'overview' 
+    {
+        icon: React.createElement(LayoutDashboard, { size: 20 }),
+        label: 'Overview',
+        id: 'overview'
     },
     {
         icon: React.createElement(Building, { size: 20 }),
         label: 'Organization',
         id: 'organizations'
     },
-    { 
-        icon: React.createElement(Users, { size: 20 }), 
-        label: 'Users', 
-        id: 'users' 
+    {
+        icon: React.createElement(Users, { size: 20 }),
+        label: 'Users',
+        id: 'users'
     },
-    { 
-        icon: React.createElement(Database, { size: 20 }), 
-        label: 'Groups', 
-        id: 'groups' 
+    {
+        icon: React.createElement(Database, { size: 20 }),
+        label: 'Groups',
+        id: 'groups'
     },
-    { 
-        icon: React.createElement(Key, { size: 20 }), 
-        label: 'Roles', 
-        id: 'roles' 
+    {
+        icon: React.createElement(Key, { size: 20 }),
+        label: 'Roles',
+        id: 'roles'
     },
-    { 
-        icon: React.createElement(Shield, { size: 20 }), 
-        label: 'Policies', 
-        id: 'policies' 
+    {
+        icon: React.createElement(Shield, { size: 20 }),
+        label: 'Policies',
+        id: 'policies'
+    },
+    {
+        icon: React.createElement(Box, { size: 20 }),
+        label: 'Resources',
+        id: 'resources'
+    },
+    {
+        icon: React.createElement(Server, { size: 20 }),
+        label: 'Service Accounts',
+        id: 'service-accounts'
     },
     {
         icon: React.createElement(Clock1, { size: 20 }),
         label: 'Sessions',
         id: 'sessions'
+    },
+    {
+        icon: React.createElement(Link, { size: 20 }),
+        label: 'Ecosystem',
+        id: 'ecosystem'
     }
 ];
 
 export const secondaryMenuItems = [
-    { 
-        icon: React.createElement(Clock, { size: 20 }), 
+    {
+        icon: React.createElement(Clock, { size: 20 }),
         label: 'Audit Logs',
         id: 'audit-logs'
     },
@@ -59,8 +77,8 @@ export const secondaryMenuItems = [
         icon: React.createElement(AlertCircle, { size: 20 }), 
         label: 'Security Alerts' 
     },*/
-    { 
-        icon: React.createElement(Settings, { size: 20 }), 
+    {
+        icon: React.createElement(Settings, { size: 20 }),
         label: 'Account Settings',
         id: 'account-settings'
     },

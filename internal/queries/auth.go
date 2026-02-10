@@ -45,6 +45,9 @@ type AuthQueries interface {
 	SetEmailVerificationToken(userID, token string, expiry time.Duration) error
 	GetEmailVerificationToken(token string) (string, error)
 	DeleteEmailVerificationToken(token string) error
+
+	// MFA
+	UpdateBackupCodes(userID, organizationID string, codes []string) error
 }
 
 // authQueries implements AuthQueries
@@ -114,8 +117,8 @@ func (q *authQueries) query(query string, args ...interface{}) (*sql.Rows, error
 // GetUserByEmail retrieves a user by email address
 func (q *authQueries) GetUserByEmail(email string, organizationID string) (*models.User, error) {
 	query := `
-		SELECT id, username, email, display_name, organization_id, password_hash, 
-		       status, email_verified, mfa_enabled, mfa_methods, totp_secret, mfa_backup_codes,
+		SELECT id, username, email, COALESCE(display_name, ''), organization_id, COALESCE(password_hash, ''), 
+		       status, email_verified, mfa_enabled, mfa_methods, COALESCE(totp_secret, ''), mfa_backup_codes,
 		       created_at, updated_at, last_login
 		FROM users WHERE email = $1 AND deleted_at IS NULL`
 	args := []interface{}{email}
@@ -125,22 +128,17 @@ func (q *authQueries) GetUserByEmail(email string, organizationID string) (*mode
 	}
 
 	var user models.User
-	var lastLogin *time.Time
 
-	err := q.queryRow(query, email).Scan(
+	err := q.queryRow(query, args...).Scan(
 		&user.ID, &user.Username, &user.Email, &user.DisplayName,
 		&user.OrganizationID, &user.PasswordHash, &user.Status,
 		&user.EmailVerified, &user.MFAEnabled, (*database.StringArray)(&user.MFAMethods),
 		&user.TOTPSecret, (*database.StringArray)(&user.MFABackupCodes),
-		&user.CreatedAt, &user.UpdatedAt, &lastLogin,
+		&user.CreatedAt, &user.UpdatedAt, &user.LastLogin,
 	)
 
 	if err != nil {
 		return nil, err
-	}
-
-	if lastLogin != nil {
-		user.LastLogin = *lastLogin
 	}
 
 	return &user, nil
@@ -149,8 +147,8 @@ func (q *authQueries) GetUserByEmail(email string, organizationID string) (*mode
 // GetUserByID retrieves a user by ID
 func (q *authQueries) GetUserByID(id string, organizationID string) (*models.User, error) {
 	query := `
-		SELECT id, username, email, display_name, organization_id, password_hash, 
-		       status, email_verified, mfa_enabled, mfa_methods, totp_secret, mfa_backup_codes,
+		SELECT id, username, email, COALESCE(display_name, ''), organization_id, COALESCE(password_hash, ''), 
+		       status, email_verified, mfa_enabled, mfa_methods, COALESCE(totp_secret, ''), mfa_backup_codes,
 		       created_at, updated_at, last_login
 		FROM users WHERE id = $1 AND deleted_at IS NULL`
 	args := []interface{}{id}
@@ -160,22 +158,16 @@ func (q *authQueries) GetUserByID(id string, organizationID string) (*models.Use
 	}
 
 	var user models.User
-	var lastLogin *time.Time
-
 	err := q.queryRow(query, args...).Scan(
 		&user.ID, &user.Username, &user.Email, &user.DisplayName,
 		&user.OrganizationID, &user.PasswordHash, &user.Status,
 		&user.EmailVerified, &user.MFAEnabled, (*database.StringArray)(&user.MFAMethods),
 		&user.TOTPSecret, (*database.StringArray)(&user.MFABackupCodes),
-		&user.CreatedAt, &user.UpdatedAt, &lastLogin,
+		&user.CreatedAt, &user.UpdatedAt, &user.LastLogin,
 	)
 
 	if err != nil {
 		return nil, err
-	}
-
-	if lastLogin != nil {
-		user.LastLogin = *lastLogin
 	}
 
 	return &user, nil
@@ -271,11 +263,12 @@ func (q *authQueries) CreateAdminUser(user *models.User) error {
 		return err
 	}
 
-	// Create admin role if it doesn't exist
+	// Create admin role if it doesn't exist, or restore it if soft-deleted
 	roleQuery := `
-		INSERT INTO roles (id, name, description, organization_id, created_at, updated_at)
-		VALUES (gen_random_uuid(), 'admin', 'Administrator with full system access', $1, $2, $3)
-		ON CONFLICT (name, organization_id) DO NOTHING
+		INSERT INTO roles (id, name, description, organization_id, is_system_role, status, created_at, updated_at)
+		VALUES (gen_random_uuid(), 'admin', 'Administrator with full system access', $1, TRUE, 'active', $2, $3)
+		ON CONFLICT (name, organization_id) DO UPDATE
+			SET status = 'active', deleted_at = NULL, is_system_role = TRUE, updated_at = EXCLUDED.updated_at
 	`
 	_, err = tx.ExecContext(q.ctx, roleQuery, user.OrganizationID, now, now)
 	if err != nil {
@@ -414,7 +407,6 @@ func (q *authQueries) GetPrimaryRoleForUser(userID string, organizationID string
 		JOIN roles r ON ra.role_id = r.id
 		WHERE ra.principal_id = $1
 		  AND ra.principal_type = 'user'
-		  AND r.deleted_at IS NULL
 		  AND r.organization_id = $2
 		ORDER BY r.created_at ASC
 		LIMIT 1
@@ -523,6 +515,19 @@ func (q *authQueries) DisableMFA(userID, organizationID string) error {
 	_, err := q.exec(query, time.Now(), userID, organizationID)
 	return err
 }
+
+func (q *authQueries) UpdateBackupCodes(userID, organizationID string, codes []string) error {
+	query := `
+		UPDATE users 
+		SET mfa_backup_codes = $1,
+		    updated_at = $2
+		WHERE id = $3 AND organization_id = $4
+	`
+	_, err := q.exec(query, database.StringArray(codes), time.Now(), userID, organizationID)
+	return err
+}
+
+// CreateSession creates a new session in Redis
 
 // CreateSession creates a new session in Redis
 func (q *authQueries) CreateSession(sessionID, userID, token string) error {

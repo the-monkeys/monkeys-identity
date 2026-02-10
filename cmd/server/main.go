@@ -86,7 +86,7 @@ func main() {
 		Format: "[${time}] ${status} - ${method} ${path} - ${ip} - ${latency}\n",
 	}))
 	app.Use(cors.New(cors.Config{
-		AllowOrigins:     "http://localhost:3000,http://localhost:5173,http://localhost:8080,https://localhost:3000,https://localhost:8080",
+		AllowOrigins:     cfg.AllowedOrigins,
 		AllowMethods:     "GET,POST,PUT,DELETE,OPTIONS,PATCH",
 		AllowHeaders:     "Origin,Content-Type,Accept,Authorization,X-Request-ID",
 		AllowCredentials: true,
@@ -130,7 +130,7 @@ func main() {
 	mfaService := services.NewMFAService(appLogger)
 
 	// Initialize routes
-	routes.SetupRoutes(v1, db, redis, appLogger, cfg, auditService, mfaService)
+	routes.SetupRoutes(app, v1, db, redis, appLogger, cfg, auditService, mfaService)
 
 	// Function to open browser
 	openBrowser := func(url string) {

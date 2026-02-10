@@ -69,6 +69,15 @@ func (q *auditQueries) getDB() interface {
 	return q.db
 }
 
+// toNullUUID returns nil if the string is empty, otherwise returns the string.
+// This is useful for UUID columns in PostgreSQL that should be NULL instead of an empty string.
+func toNullUUID(id string) interface{} {
+	if id == "" {
+		return nil
+	}
+	return id
+}
+
 // LogAuditEvent creates a new audit event
 func (q *auditQueries) LogAuditEvent(event models.AuditEvent) error {
 	query := `
@@ -86,25 +95,31 @@ func (q *auditQueries) LogAuditEvent(event models.AuditEvent) error {
 		timestamp = time.Now()
 	}
 
+	// Handle empty JSON context
+	additionalContext := event.AdditionalContext
+	if additionalContext == "" {
+		additionalContext = "{}"
+	}
+
 	db := q.getDB()
 	_, err := db.Exec(query,
 		event.ID,
 		event.EventID,
 		timestamp,
 		event.OrganizationID,
-		event.PrincipalID,
-		event.PrincipalType,
-		event.SessionID,
+		toNullUUID(event.PrincipalID),
+		toNullUUID(event.PrincipalType),
+		toNullUUID(event.SessionID),
 		event.Action,
 		event.ResourceType,
-		event.ResourceID,
+		toNullUUID(event.ResourceID),
 		event.ResourceARN,
 		event.Result,
 		event.ErrorMessage,
 		event.IPAddress,
 		event.UserAgent,
 		event.RequestID,
-		event.AdditionalContext,
+		additionalContext,
 		event.Severity,
 	)
 

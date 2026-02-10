@@ -99,15 +99,33 @@ const ProfileForm = () => {
                 </div>
 
                 <div>
-                    <label className="block text-sm font-medium text-gray-400 mb-2">Avatar URL</label>
-                    <input
-                        type="text"
-                        value={avatarUrl}
-                        onChange={(e) => setAvatarUrl(e.target.value)}
-                        className="w-full bg-bg-main-dark border border-border-color-dark rounded-md px-4 py-2 text-white focus:outline-none focus:ring-1 focus:ring-primary"
-                        placeholder="https://example.com/avatar.png"
-                    />
-                    <p className="mt-1 text-xs text-gray-500">Provide a URL to your profile picture.</p>
+                    <label className="block text-sm font-medium text-gray-400 mb-2">Avatar</label>
+                    <div className="flex items-start gap-4">
+                        <div className="flex-shrink-0">
+                            {avatarUrl ? (
+                                <img
+                                    src={avatarUrl}
+                                    alt="Avatar preview"
+                                    className="w-16 h-16 rounded-full object-cover border-2 border-border-color-dark"
+                                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                                />
+                            ) : (
+                                <div className="w-16 h-16 rounded-full bg-slate-700 flex items-center justify-center border-2 border-border-color-dark">
+                                    <UserIcon className="h-8 w-8 text-gray-500" />
+                                </div>
+                            )}
+                        </div>
+                        <div className="flex-1">
+                            <input
+                                type="text"
+                                value={avatarUrl}
+                                onChange={(e) => setAvatarUrl(e.target.value)}
+                                className="w-full bg-bg-main-dark border border-border-color-dark rounded-md px-4 py-2 text-white focus:outline-none focus:ring-1 focus:ring-primary"
+                                placeholder="https://example.com/avatar.png"
+                            />
+                            <p className="mt-1 text-xs text-gray-500">Provide a URL to your profile picture.</p>
+                        </div>
+                    </div>
                 </div>
 
                 <div>

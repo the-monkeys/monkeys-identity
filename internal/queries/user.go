@@ -5,8 +5,8 @@ import (
 	"database/sql"
 	"fmt"
 	"strings"
-	"time"
 
+	"github.com/lib/pq"
 	"github.com/redis/go-redis/v9"
 	"github.com/the-monkeys/monkeys-identity/internal/database"
 	"github.com/the-monkeys/monkeys-identity/internal/models"
@@ -126,15 +126,18 @@ func (q *userQueries) ListUsers(params ListParams, organizationID string) (*List
 		order = "ASC"
 	}
 
-	// Query to get users with pagination
+	// Query to get users with pagination and role join
 	query := `
-		SELECT id, username, email, email_verified, display_name, avatar_url,
-		       organization_id, password_changed_at, mfa_enabled, mfa_methods,
-		       mfa_backup_codes, attributes, preferences, last_login,
-		       failed_login_attempts, locked_until, status, created_at, updated_at, deleted_at
-		FROM users
-		WHERE deleted_at IS NULL AND organization_id = $3
-		ORDER BY ` + sortColumn + ` ` + order + `
+		SELECT u.id, u.username, u.email, u.email_verified, u.display_name, u.avatar_url,
+		       u.organization_id, u.password_changed_at, u.mfa_enabled, u.mfa_methods,
+		       u.mfa_backup_codes, u.attributes, u.preferences, u.last_login,
+		       u.failed_login_attempts, u.locked_until, u.status, u.created_at, u.updated_at, u.deleted_at,
+		       COALESCE((SELECT r.name FROM roles r JOIN role_assignments ra ON r.id = ra.role_id 
+		                 WHERE ra.principal_id = u.id AND ra.principal_type = 'user' 
+		                 ORDER BY r.is_system_role DESC LIMIT 1), 'user') as role
+		FROM users u
+		WHERE u.deleted_at IS NULL AND u.organization_id = $3
+		ORDER BY u.` + sortColumn + ` ` + order + `
 		LIMIT $1 OFFSET $2
 	`
 
@@ -147,45 +150,35 @@ func (q *userQueries) ListUsers(params ListParams, organizationID string) (*List
 	var users []models.User
 	for rows.Next() {
 		var user models.User
-		var avatarURL sql.NullString
-		var lastLogin sql.NullTime
-		var lockedUntil sql.NullTime
-		var deletedAt sql.NullTime
 		var mfaMethods string
 		var mfaBackupCodes sql.NullString
-		var attributes string
-		var preferences string
+		var attributes sql.NullString
+		var preferences sql.NullString
 
 		err := rows.Scan(
 			&user.ID, &user.Username, &user.Email, &user.EmailVerified, &user.DisplayName,
-			&avatarURL, &user.OrganizationID, &user.PasswordChangedAt, &user.MFAEnabled,
+			&user.AvatarURL, &user.OrganizationID, &user.PasswordChangedAt, &user.MFAEnabled,
 			&mfaMethods, &mfaBackupCodes, &attributes, &preferences,
-			&lastLogin, &user.FailedLoginAttempts, &lockedUntil, &user.Status,
-			&user.CreatedAt, &user.UpdatedAt, &deletedAt,
+			&user.LastLogin, &user.FailedLoginAttempts, &user.LockedUntil, &user.Status,
+			&user.CreatedAt, &user.UpdatedAt, &user.DeletedAt, &user.Role,
 		)
 		if err != nil {
 			return nil, err
 		}
 
-		// Handle nullable fields
-		if avatarURL.Valid {
-			user.AvatarURL = avatarURL.String
+		// Handle nullable JSON strings
+		user.Attributes = "{}"
+		if attributes.Valid && attributes.String != "" {
+			user.Attributes = attributes.String
 		}
-		if lastLogin.Valid {
-			user.LastLogin = lastLogin.Time
-		}
-		if lockedUntil.Valid {
-			user.LockedUntil = lockedUntil.Time
-		}
-		if deletedAt.Valid {
-			user.DeletedAt = deletedAt.Time
+		user.Preferences = "{}"
+		if preferences.Valid && preferences.String != "" {
+			user.Preferences = preferences.String
 		}
 
 		// For now, set these as empty slices - proper JSON unmarshaling would be needed
 		user.MFAMethods = []string{}
 		user.MFABackupCodes = []string{}
-		user.Attributes = attributes
-		user.Preferences = preferences
 
 		users = append(users, user)
 	} // Get total count for pagination
@@ -213,46 +206,29 @@ func (q *userQueries) ListUsers(params ListParams, organizationID string) (*List
 func (q *userQueries) GetUser(id, organizationID string) (*models.User, error) {
 	query := `
 		SELECT
-			id, username, email, email_verified, display_name,
-			avatar_url, organization_id, password_changed_at, mfa_enabled,
-			mfa_methods, mfa_backup_codes, attributes, preferences,
-			last_login, failed_login_attempts, locked_until, status,
-			created_at, updated_at, deleted_at
-		FROM users
-		WHERE id = $1 AND organization_id = $2 AND deleted_at IS NULL
+			u.id, u.username, u.email, u.email_verified, u.display_name,
+			u.avatar_url, u.organization_id, u.password_changed_at, u.mfa_enabled,
+			u.mfa_methods, u.mfa_backup_codes, u.attributes, u.preferences,
+			u.last_login, u.failed_login_attempts, u.locked_until, u.status,
+			u.created_at, u.updated_at, u.deleted_at,
+			COALESCE((SELECT r.name FROM roles r JOIN role_assignments ra ON r.id = ra.role_id 
+			          WHERE ra.principal_id = u.id AND ra.principal_type = 'user' 
+			          ORDER BY r.is_system_role DESC LIMIT 1), 'user') as role
+		FROM users u
+		WHERE u.id = $1 AND u.organization_id = $2 AND u.deleted_at IS NULL
 	`
 
 	var user models.User
-	var avatarURL sql.NullString
-	var lastLogin sql.NullTime
-	var lockedUntil sql.NullTime
-	var deletedAt sql.NullTime
 	var mfaMethods string
 	var mfaBackupCodes sql.NullString
-	var attributes string
-	var preferences string
-
+	var attributes sql.NullString
+	var preferences sql.NullString
 	err := q.queryRow(query, id, organizationID).Scan(
-		&user.ID,
-		&user.Username,
-		&user.Email,
-		&user.EmailVerified,
-		&user.DisplayName,
-		&avatarURL,
-		&user.OrganizationID,
-		&user.PasswordChangedAt,
-		&user.MFAEnabled,
-		&mfaMethods,
-		&mfaBackupCodes,
-		&attributes,
-		&preferences,
-		&lastLogin,
-		&user.FailedLoginAttempts,
-		&lockedUntil,
-		&user.Status,
-		&user.CreatedAt,
-		&user.UpdatedAt,
-		&deletedAt,
+		&user.ID, &user.Username, &user.Email, &user.EmailVerified, &user.DisplayName,
+		&user.AvatarURL, &user.OrganizationID, &user.PasswordChangedAt, &user.MFAEnabled,
+		&mfaMethods, &mfaBackupCodes, &attributes, &preferences,
+		&user.LastLogin, &user.FailedLoginAttempts, &user.LockedUntil, &user.Status,
+		&user.CreatedAt, &user.UpdatedAt, &user.DeletedAt, &user.Role,
 	)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -261,18 +237,14 @@ func (q *userQueries) GetUser(id, organizationID string) (*models.User, error) {
 		return nil, err
 	}
 
-	// Handle nullable fields
-	if avatarURL.Valid {
-		user.AvatarURL = avatarURL.String
+	// Handle nullable JSON strings
+	user.Attributes = "{}"
+	if attributes.Valid && attributes.String != "" {
+		user.Attributes = attributes.String
 	}
-	if lastLogin.Valid {
-		user.LastLogin = lastLogin.Time
-	}
-	if lockedUntil.Valid {
-		user.LockedUntil = lockedUntil.Time
-	}
-	if deletedAt.Valid {
-		user.DeletedAt = deletedAt.Time
+	user.Preferences = "{}"
+	if preferences.Valid && preferences.String != "" {
+		user.Preferences = preferences.String
 	}
 
 	// For now, set these as empty slices - proper JSON unmarshaling would be needed
@@ -299,24 +271,6 @@ func (q *userQueries) CreateUser(user *models.User) error {
 		)
 	`
 
-	// Set default values for nullable fields
-	var avatarURL *string
-	if user.AvatarURL != "" {
-		avatarURL = &user.AvatarURL
-	}
-	var lastLogin *time.Time
-	if !user.LastLogin.IsZero() {
-		lastLogin = &user.LastLogin
-	}
-	var lockedUntil *time.Time
-	if !user.LockedUntil.IsZero() {
-		lockedUntil = &user.LockedUntil
-	}
-	var deletedAt *time.Time
-	if !user.DeletedAt.IsZero() {
-		deletedAt = &user.DeletedAt
-	}
-
 	// Convert slices to JSON strings for now (simplified)
 	mfaMethodsJSON := "[]"
 	if len(user.MFAMethods) > 0 {
@@ -334,10 +288,10 @@ func (q *userQueries) CreateUser(user *models.User) error {
 
 	_, err := q.exec(query,
 		user.ID, user.Username, user.Email, user.EmailVerified, user.DisplayName,
-		avatarURL, user.OrganizationID, user.PasswordHash, user.PasswordChangedAt,
+		user.AvatarURL, user.OrganizationID, user.PasswordHash, user.PasswordChangedAt,
 		user.MFAEnabled, mfaMethodsJSON, mfaBackupCodesStr, attributesJSON, preferencesJSON,
-		lastLogin, user.FailedLoginAttempts, lockedUntil, user.Status,
-		user.CreatedAt, user.UpdatedAt, deletedAt,
+		user.LastLogin, user.FailedLoginAttempts, user.LockedUntil, user.Status,
+		user.CreatedAt, user.UpdatedAt, user.DeletedAt,
 	)
 	return err
 }
@@ -367,23 +321,7 @@ func (q *userQueries) UpdateUser(user *models.User, organizationID string) error
 		WHERE id = $1 AND organization_id = $21
 	`
 
-	// Handle nullable fields
-	var avatarURL *string
-	if user.AvatarURL != "" {
-		avatarURL = &user.AvatarURL
-	}
-	var lastLogin *time.Time
-	if !user.LastLogin.IsZero() {
-		lastLogin = &user.LastLogin
-	}
-	var lockedUntil *time.Time
-	if !user.LockedUntil.IsZero() {
-		lockedUntil = &user.LockedUntil
-	}
-	var deletedAt *time.Time
-	if !user.DeletedAt.IsZero() {
-		deletedAt = &user.DeletedAt
-	}
+	// Since fields are now pointers in the model, we can pass them directly to the query
 
 	// Use the fields from the user model
 	attributesJSON := user.Attributes
@@ -401,10 +339,10 @@ func (q *userQueries) UpdateUser(user *models.User, organizationID string) error
 
 	_, err := q.exec(query,
 		user.ID, user.Username, user.Email, user.EmailVerified, user.DisplayName,
-		avatarURL, user.OrganizationID, user.PasswordHash, user.PasswordChangedAt,
+		user.AvatarURL, user.OrganizationID, user.PasswordHash, user.PasswordChangedAt,
 		user.MFAEnabled, mfaMethodsJSON, MFABackupCodesJSON, attributesJSON, preferencesJSON,
-		lastLogin, user.FailedLoginAttempts, lockedUntil, user.Status,
-		user.UpdatedAt, deletedAt, organizationID, // Added param
+		user.LastLogin, user.FailedLoginAttempts, user.LockedUntil, user.Status,
+		user.UpdatedAt, user.DeletedAt, organizationID,
 	)
 	return err
 }
@@ -443,7 +381,38 @@ func (q *userQueries) GetUserProfile(userID, organizationID string) (*models.Use
 }
 
 func (q *userQueries) UpdateUserProfile(userID string, updates map[string]interface{}) error {
-	// TODO: Implement
+	if len(updates) == 0 {
+		return nil
+	}
+
+	// Build dynamic SET clause
+	setClauses := []string{}
+	args := []interface{}{}
+	paramIdx := 1
+
+	for key, value := range updates {
+		setClauses = append(setClauses, fmt.Sprintf("%s = $%d", key, paramIdx))
+		args = append(args, value)
+		paramIdx++
+	}
+
+	query := fmt.Sprintf("UPDATE users SET %s WHERE id = $%d AND deleted_at IS NULL",
+		strings.Join(setClauses, ", "), paramIdx)
+	args = append(args, userID)
+
+	result, err := q.exec(query, args...)
+	if err != nil {
+		return err
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rowsAffected == 0 {
+		return fmt.Errorf("user not found")
+	}
+
 	return nil
 }
 
@@ -512,27 +481,13 @@ func (q *userQueries) GetUserSessions(userID, organizationID string) ([]models.S
 	var sessions []models.Session
 	for rows.Next() {
 		var s models.Session
-		var assumedRoleID sql.NullString
-		var ipAddress sql.NullString
-		var userAgent sql.NullString
-
 		err := rows.Scan(
 			&s.ID, &s.SessionToken, &s.PrincipalID, &s.PrincipalType, &s.OrganizationID,
-			&assumedRoleID, &s.MFAVerified, &ipAddress, &userAgent,
+			&s.AssumedRoleID, &s.MFAVerified, &s.IPAddress, &s.UserAgent,
 			&s.IssuedAt, &s.ExpiresAt, &s.Status,
 		)
 		if err != nil {
 			return nil, err
-		}
-
-		if assumedRoleID.Valid {
-			s.AssumedRoleID = assumedRoleID.String
-		}
-		if ipAddress.Valid {
-			s.IPAddress = ipAddress.String
-		}
-		if userAgent.Valid {
-			s.UserAgent = userAgent.String
 		}
 
 		sessions = append(sessions, s)
@@ -570,7 +525,7 @@ func (q *userQueries) ListServiceAccounts(params ListParams, organizationID stri
 
 		err := rows.Scan(
 			&sa.ID, &sa.Name, &description, &sa.OrganizationID, &sa.KeyRotationPolicy,
-			&sa.AllowedIPRanges, &sa.MaxTokenLifetime, &sa.LastKeyRotation, &sa.Attributes,
+			pq.Array(&sa.AllowedIPRanges), &sa.MaxTokenLifetime, &sa.LastKeyRotation, &sa.Attributes,
 			&sa.Status, &sa.CreatedAt, &sa.UpdatedAt, &deletedAt,
 		)
 		if err != nil {
@@ -581,7 +536,8 @@ func (q *userQueries) ListServiceAccounts(params ListParams, organizationID stri
 			sa.Description = description.String
 		}
 		if deletedAt.Valid {
-			sa.DeletedAt = deletedAt.Time
+			t := deletedAt.Time
+			sa.DeletedAt = &t
 		}
 
 		sas = append(sas, sa)
@@ -612,7 +568,7 @@ func (q *userQueries) CreateServiceAccount(sa *models.ServiceAccount) error {
 	`
 	return q.queryRow(query,
 		sa.ID, sa.Name, sa.Description, sa.OrganizationID, sa.KeyRotationPolicy,
-		sa.AllowedIPRanges, sa.MaxTokenLifetime, sa.Attributes, sa.Status,
+		pq.Array(sa.AllowedIPRanges), sa.MaxTokenLifetime, sa.Attributes, sa.Status,
 	).Scan(&sa.CreatedAt, &sa.UpdatedAt)
 }
 
@@ -630,7 +586,7 @@ func (q *userQueries) GetServiceAccount(id, organizationID string) (*models.Serv
 
 	err := q.queryRow(query, id, organizationID).Scan(
 		&sa.ID, &sa.Name, &description, &sa.OrganizationID, &sa.KeyRotationPolicy,
-		&sa.AllowedIPRanges, &sa.MaxTokenLifetime, &sa.LastKeyRotation, &sa.Attributes,
+		pq.Array(&sa.AllowedIPRanges), &sa.MaxTokenLifetime, &sa.LastKeyRotation, &sa.Attributes,
 		&sa.Status, &sa.CreatedAt, &sa.UpdatedAt, &deletedAt,
 	)
 	if err != nil {
@@ -644,7 +600,8 @@ func (q *userQueries) GetServiceAccount(id, organizationID string) (*models.Serv
 		sa.Description = description.String
 	}
 	if deletedAt.Valid {
-		sa.DeletedAt = deletedAt.Time
+		t := deletedAt.Time
+		sa.DeletedAt = &t
 	}
 
 	return &sa, nil
@@ -660,7 +617,7 @@ func (q *userQueries) UpdateServiceAccount(sa *models.ServiceAccount, organizati
 	`
 	result, err := q.exec(query,
 		sa.ID, sa.Name, sa.Description, sa.KeyRotationPolicy,
-		sa.AllowedIPRanges, sa.MaxTokenLifetime, sa.Attributes,
+		pq.Array(sa.AllowedIPRanges), sa.MaxTokenLifetime, sa.Attributes,
 		sa.Status, sa.OrganizationID,
 	)
 	if err != nil {
@@ -694,9 +651,10 @@ func (q *userQueries) GenerateAPIKey(saID string, key *models.APIKey, organizati
 		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 		RETURNING created_at
 	`
+	createdBy := sql.NullString{String: key.CreatedBy, Valid: key.CreatedBy != ""}
 	return q.queryRow(query,
 		key.ID, key.Name, key.KeyID, key.KeyHash, saID, organizationID,
-		key.Scopes, key.AllowedIPRanges, key.RateLimitPerHour, key.ExpiresAt, key.Status, key.CreatedBy,
+		pq.Array(key.Scopes), pq.Array(key.AllowedIPRanges), key.RateLimitPerHour, key.ExpiresAt, key.Status, createdBy,
 	).Scan(&key.CreatedAt)
 }
 
@@ -722,7 +680,7 @@ func (q *userQueries) ListAPIKeys(saID, organizationID string) ([]models.APIKey,
 
 		err := rows.Scan(
 			&key.ID, &key.Name, &key.KeyID, &key.ServiceAccountID, &key.OrganizationID,
-			&key.Scopes, &key.AllowedIPRanges, &key.RateLimitPerHour, &lastUsedAt,
+			pq.Array(&key.Scopes), pq.Array(&key.AllowedIPRanges), &key.RateLimitPerHour, &lastUsedAt,
 			&key.UsageCount, &key.ExpiresAt, &key.Status, &key.CreatedAt, &createdBy,
 		)
 		if err != nil {
@@ -742,7 +700,7 @@ func (q *userQueries) ListAPIKeys(saID, organizationID string) ([]models.APIKey,
 }
 
 func (q *userQueries) RevokeAPIKey(saID, keyID, organizationID string) error {
-	query := `UPDATE api_keys SET status = 'revoked' WHERE service_account_id = $1 AND id = $2 AND organization_id = $3`
+	query := `UPDATE api_keys SET status = 'deleted' WHERE service_account_id = $1 AND id = $2 AND organization_id = $3`
 	_, err := q.exec(query, saID, keyID, organizationID)
 	return err
 }

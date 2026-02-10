@@ -63,7 +63,7 @@ func (q *roleQueries) ListRoles(params ListParams, organizationID string) (*List
 		       permissions_boundary, status, created_at, updated_at, deleted_at,
 		       COUNT(*) OVER() as total_count
 		FROM roles 
-		WHERE status != 'deleted' AND organization_id = $1
+		WHERE status != 'deleted' AND (organization_id = $1 OR organization_id = '00000000-0000-0000-0000-000000000000')
 	`
 
 	args := []interface{}{organizationID}
@@ -210,7 +210,7 @@ func (q *roleQueries) GetRole(id, organizationID string) (*models.Role, error) {
 		       trust_policy, assume_role_policy, tags, is_system_role, path,
 		       permissions_boundary, status, created_at, updated_at, deleted_at
 		FROM roles 
-		WHERE id = $1 AND organization_id = $2 AND status != 'deleted'
+		WHERE id = $1 AND (organization_id = $2 OR organization_id = '00000000-0000-0000-0000-000000000000') AND status != 'deleted'
 	`
 
 	var role models.Role
@@ -323,7 +323,7 @@ func (q *roleQueries) GetRolePolicies(roleID, organizationID string) ([]models.P
 		FROM policies p
 		JOIN role_policies rp ON p.id = rp.policy_id
 		JOIN roles r ON rp.role_id = r.id
-		WHERE rp.role_id = $1 AND r.organization_id = $2 AND p.organization_id = $2 AND p.status = 'active'
+		WHERE rp.role_id = $1 AND (r.organization_id = $2 OR r.organization_id = '00000000-0000-0000-0000-000000000000') AND p.status = 'active'
 		ORDER BY rp.attached_at DESC
 	`
 
@@ -477,7 +477,7 @@ func (q *roleQueries) AssignRole(assignment *models.RoleAssignment, organization
 	query := `
 		INSERT INTO role_assignments (id, role_id, principal_id, principal_type,
 		                             assigned_by, expires_at, conditions)
-		SELECT $1, $2, $3, $4, $5, $6, $7
+		SELECT $1, $2, $3, $4, NULLIF($5, '')::uuid, $6, COALESCE($7, '{}'::jsonb)
 		FROM roles r
 		WHERE r.id = $2 AND r.organization_id = $8
 		ON CONFLICT (role_id, principal_id, principal_type) 

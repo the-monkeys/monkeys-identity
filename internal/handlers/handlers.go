@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
 	"github.com/the-monkeys/monkeys-identity/internal/authz"
@@ -502,8 +503,9 @@ func (h *ResourceHandler) CreateResource(c *fiber.Ctx) error {
 	}
 
 	// Generate ARN if not provided
+	// Format: arn:monkey:<service>:<region>:<account>:<resource-type>/<resource-id>
 	if resource.ARN == "" {
-		resource.ARN = "arn:monkeys:resource:" + resource.OrganizationID + ":" + resource.Type + "/" + resource.ID
+		resource.ARN = "arn:monkey:resource::" + resource.OrganizationID + ":" + resource.Type + "/" + resource.ID
 	}
 
 	if err := h.queries.Resource.CreateResource(&resource); err != nil {
@@ -575,14 +577,41 @@ func (h *ResourceHandler) UpdateResource(c *fiber.Ctx) error {
 
 	organizationID := c.Locals("organization_id").(string)
 
-	// Set the ID from the URL parameter
-	updates.ID = resourceID
-
-	if err := h.queries.Resource.UpdateResource(&updates, organizationID); err != nil {
-		h.logger.Error("update resource failed: %v", err)
+	// Fetch existing resource first, then merge updates
+	existing, err := h.queries.Resource.GetResource(resourceID, organizationID)
+	if err != nil {
+		h.logger.Error("get resource for update failed: %v", err)
 		if err.Error() == "resource not found" {
 			return c.Status(fiber.StatusNotFound).JSON(ErrorResponse{Status: fiber.StatusNotFound, Error: "resource_not_found", Message: "Resource not found"})
 		}
+		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{Status: fiber.StatusInternalServerError, Error: "internal_server_error", Message: "Failed to retrieve resource for update"})
+	}
+
+	// Only overwrite fields that were provided (non-empty)
+	if updates.Name != "" {
+		existing.Name = updates.Name
+	}
+	if updates.Description != nil && *updates.Description != "" {
+		existing.Description = updates.Description
+	}
+	if updates.Type != "" {
+		existing.Type = updates.Type
+	}
+	if updates.Status != "" {
+		existing.Status = updates.Status
+	}
+	if updates.Attributes != "" {
+		existing.Attributes = updates.Attributes
+	}
+	if updates.Tags != "" {
+		existing.Tags = updates.Tags
+	}
+	if updates.AccessLevel != "" {
+		existing.AccessLevel = updates.AccessLevel
+	}
+
+	if err := h.queries.Resource.UpdateResource(existing, organizationID); err != nil {
+		h.logger.Error("update resource failed: %v", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{Status: fiber.StatusInternalServerError, Error: "internal_server_error", Message: "Failed to update resource"})
 	}
 
@@ -832,8 +861,11 @@ func (h *ResourceHandler) ShareResource(c *fiber.Ctx) error {
 	organizationID := c.Locals("organization_id").(string)
 	if err := h.queries.Resource.ShareResource(&share, organizationID); err != nil {
 		h.logger.Error("share resource failed: %v", err)
-		if err.Error() == "resource not found" {
+		if err.Error() == "resource not found" || err.Error() == "resource not found or not in organization" {
 			return c.Status(fiber.StatusNotFound).JSON(ErrorResponse{Status: fiber.StatusNotFound, Error: "resource_not_found", Message: "Resource not found"})
+		}
+		if err.Error() == "resource already shared with this principal" {
+			return c.Status(fiber.StatusConflict).JSON(ErrorResponse{Status: fiber.StatusConflict, Error: "already_shared", Message: "Resource is already shared with this principal"})
 		}
 		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{Status: fiber.StatusInternalServerError, Error: "internal_server_error", Message: "Failed to share resource"})
 	}
@@ -996,6 +1028,10 @@ func (h *PolicyHandler) CreatePolicy(c *fiber.Ctx) error {
 		})
 	}
 
+	if req.ID == "" {
+		req.ID = uuid.New().String()
+	}
+
 	if len(req.Document) == 0 || !json.Valid(req.Document) {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
 			Error:   "invalid_policy_document",
@@ -1004,22 +1040,32 @@ func (h *PolicyHandler) CreatePolicy(c *fiber.Ctx) error {
 	}
 
 	organizationID := c.Locals("organization_id").(string)
+	userID := ""
+	if val, ok := c.Locals("user_id").(string); ok {
+		userID = val
+	}
+
+	// Robust handling of the Document field which might be a JSON object or a JSON-quoted string
+	var documentStr string
+	if err := json.Unmarshal(req.Document, &documentStr); err == nil {
+		// It was a JSON-quoted string
+	} else {
+		// It was a JSON object, use the raw bytes
+		documentStr = string(req.Document)
+	}
+
 	policy := models.Policy{
 		ID:             req.ID,
 		Name:           req.Name,
 		Description:    req.Description,
 		Version:        req.Version,
 		OrganizationID: organizationID, // Enforce context organization_id
-		Document:       string(req.Document),
+		Document:       documentStr,
 		PolicyType:     req.PolicyType,
 		Effect:         req.Effect,
 		IsSystemPolicy: req.IsSystemPolicy,
+		CreatedBy:      &userID,
 		Status:         req.Status,
-	}
-
-	// Generate ID if not provided
-	if policy.ID == "" {
-		policy.ID = uuid.New().String()
 	}
 
 	// Set defaults
@@ -1032,7 +1078,8 @@ func (h *PolicyHandler) CreatePolicy(c *fiber.Ctx) error {
 
 	if userIDVal := c.Locals("user_id"); userIDVal != nil {
 		if userID, ok := userIDVal.(string); ok && userID != "" {
-			policy.CreatedBy = userID
+			uid := userID
+			policy.CreatedBy = &uid
 		}
 	}
 
@@ -1157,13 +1204,23 @@ func (h *PolicyHandler) UpdatePolicy(c *fiber.Ctx) error {
 	}
 
 	organizationID := c.Locals("organization_id").(string)
+
+	// Robust handling of the Document field which might be a JSON object or a JSON-quoted string
+	var documentStr string
+	if err := json.Unmarshal(req.Document, &documentStr); err == nil {
+		// It was a JSON-quoted string
+	} else {
+		// It was a JSON object, use the raw bytes
+		documentStr = string(req.Document)
+	}
+
 	policy := models.Policy{
 		ID:             id,
 		Name:           req.Name,
 		Description:    req.Description,
 		Version:        req.Version,
 		OrganizationID: organizationID, // Enforce context organization_id
-		Document:       string(req.Document),
+		Document:       documentStr,
 		PolicyType:     req.PolicyType,
 		Effect:         req.Effect,
 		IsSystemPolicy: req.IsSystemPolicy,
@@ -1176,15 +1233,17 @@ func (h *PolicyHandler) UpdatePolicy(c *fiber.Ctx) error {
 	// Capture acting user for auditing/versioning
 	if userIDVal := c.Locals("user_id"); userIDVal != nil {
 		if userID, ok := userIDVal.(string); ok && userID != "" {
-			policy.CreatedBy = userID
+			uid := userID
+			policy.CreatedBy = &uid
 		}
 	}
 
 	if req.ApprovedBy != "" {
-		policy.ApprovedBy = req.ApprovedBy
+		approvedBy := req.ApprovedBy
+		policy.ApprovedBy = &approvedBy
 	}
 	if req.ApprovedAt != nil {
-		policy.ApprovedAt = *req.ApprovedAt
+		policy.ApprovedAt = req.ApprovedAt
 	}
 
 	err := h.queries.Policy.UpdatePolicy(&policy, organizationID)
@@ -1836,8 +1895,9 @@ func (h *RoleHandler) CreateRole(c *fiber.Ctx) error {
 	if role.RoleType == "" {
 		role.RoleType = "custom"
 	}
-	if role.MaxSessionDuration == "" {
-		role.MaxSessionDuration = "12 hours"
+	if role.MaxSessionDuration == nil {
+		defaultDuration := "12 hours"
+		role.MaxSessionDuration = &defaultDuration
 	}
 	if role.TrustPolicy == "" {
 		role.TrustPolicy = "{}"
@@ -1848,8 +1908,9 @@ func (h *RoleHandler) CreateRole(c *fiber.Ctx) error {
 	if role.Tags == "" {
 		role.Tags = "{}"
 	}
-	if role.Path == "" {
-		role.Path = "/"
+	if role.Path == nil || *role.Path == "" {
+		defaultPath := "/"
+		role.Path = &defaultPath
 	}
 	if role.Status == "" {
 		role.Status = "active"
@@ -1906,8 +1967,8 @@ func (h *RoleHandler) GetRole(c *fiber.Ctx) error {
 		})
 	}
 
-	// Call query layer
 	organizationID := c.Locals("organization_id").(string)
+	h.logger.Info("Fetching role: %s in organization: %s", roleID, organizationID)
 	role, err := h.queries.Role.GetRole(roleID, organizationID)
 	if err != nil {
 		if err.Error() == "role not found" {
@@ -1973,7 +2034,35 @@ func (h *RoleHandler) UpdateRole(c *fiber.Ctx) error {
 
 	// Call query layer
 	organizationID := c.Locals("organization_id").(string)
-	err := h.queries.Role.UpdateRole(&roleUpdates, organizationID)
+
+	// Fetch existing role to merge fields and avoid wiping out JSONB fields
+	existingRole, err := h.queries.Role.GetRole(roleID, organizationID)
+	if err != nil {
+		if err.Error() == "role not found" || err.Error() == "role not found or already deleted" {
+			return c.Status(fiber.StatusNotFound).JSON(ErrorResponse{
+				Status:  fiber.StatusNotFound,
+				Error:   "role_not_found",
+				Message: "Role not found or already deleted",
+			})
+		}
+		h.logger.Error("Failed to fetch existing role for update: %v", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{
+			Status:  fiber.StatusInternalServerError,
+			Error:   "internal_server_error",
+			Message: "Failed to update role",
+		})
+	}
+
+	// Merge updates into existing role
+	existingRole.Name = roleUpdates.Name
+	if roleUpdates.Description != nil {
+		existingRole.Description = roleUpdates.Description
+	} else {
+		// If it's a pointer and wasn't sent, keep existing Description.
+		// In this case, models.Role.Description is a pointer to string.
+	}
+
+	err = h.queries.Role.UpdateRole(existingRole, organizationID)
 	if err != nil {
 		if err.Error() == "role not found or already deleted" {
 			return c.Status(fiber.StatusNotFound).JSON(ErrorResponse{
@@ -2025,7 +2114,34 @@ func (h *RoleHandler) DeleteRole(c *fiber.Ctx) error {
 
 	// Call query layer
 	organizationID := c.Locals("organization_id").(string)
-	err := h.queries.Role.DeleteRole(roleID, organizationID)
+
+	// Protect the admin role from deletion
+	existingRole, err := h.queries.Role.GetRole(roleID, organizationID)
+	if err != nil {
+		if err.Error() == "role not found" || err.Error() == "role not found or already deleted" {
+			return c.Status(fiber.StatusNotFound).JSON(ErrorResponse{
+				Status:  fiber.StatusNotFound,
+				Error:   "role_not_found",
+				Message: "Role not found or already deleted",
+			})
+		}
+		h.logger.Error("Failed to fetch role for delete check: %v", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{
+			Status:  fiber.StatusInternalServerError,
+			Error:   "internal_server_error",
+			Message: "Failed to delete role",
+		})
+	}
+
+	if existingRole.Name == "admin" {
+		return c.Status(fiber.StatusForbidden).JSON(ErrorResponse{
+			Status:  fiber.StatusForbidden,
+			Error:   "cannot_delete_admin_role",
+			Message: "The admin role cannot be deleted",
+		})
+	}
+
+	err = h.queries.Role.DeleteRole(roleID, organizationID)
 	if err != nil {
 		if err.Error() == "role not found or already deleted" {
 			return c.Status(fiber.StatusNotFound).JSON(ErrorResponse{
@@ -2061,8 +2177,10 @@ func (h *RoleHandler) GetRolePolicies(c *fiber.Ctx) error {
 		})
 	}
 
-	// Ensure role exists (optional but provides clearer 404)
 	organizationID := c.Locals("organization_id").(string)
+	h.logger.Info("Fetching policies for role: %s in organization: %s", roleID, organizationID)
+
+	// Ensure role exists (optional but provides clearer 404)
 	if _, err := h.queries.Role.GetRole(roleID, organizationID); err != nil {
 		if err.Error() == "role not found" {
 			return c.Status(fiber.StatusNotFound).JSON(ErrorResponse{
@@ -2088,6 +2206,8 @@ func (h *RoleHandler) GetRolePolicies(c *fiber.Ctx) error {
 			Message: "Failed to retrieve role policies",
 		})
 	}
+
+	h.logger.Info("Retrieved %d policies for role: %s", len(policies), roleID)
 
 	return c.JSON(SuccessResponse{
 		Status:  fiber.StatusOK,
@@ -2260,6 +2380,8 @@ func (h *RoleHandler) GetRoleAssignments(c *fiber.Ctx) error {
 		})
 	}
 
+	h.logger.Info("Retrieved %d assignments for role: %s", len(assignments), roleID)
+
 	return c.JSON(SuccessResponse{
 		Status:  fiber.StatusOK,
 		Message: "Role assignments retrieved successfully",
@@ -2315,7 +2437,7 @@ func (h *RoleHandler) AssignRole(c *fiber.Ctx) error {
 	}
 
 	// Parse expires_at if provided
-	var expiresAt time.Time
+	var expiresAt *time.Time
 	if req.ExpiresAt != "" {
 		t, err := time.Parse(time.RFC3339, req.ExpiresAt)
 		if err != nil {
@@ -2325,7 +2447,12 @@ func (h *RoleHandler) AssignRole(c *fiber.Ctx) error {
 				Message: "expires_at must be RFC3339 format",
 			})
 		}
-		expiresAt = t
+		expiresAt = &t
+	}
+
+	var conditions *string
+	if req.Conditions != "" {
+		conditions = &req.Conditions
 	}
 
 	// Derive assigned_by from context if possible
@@ -2341,7 +2468,7 @@ func (h *RoleHandler) AssignRole(c *fiber.Ctx) error {
 		PrincipalType: req.PrincipalType,
 		AssignedBy:    assignedBy,
 		ExpiresAt:     expiresAt,
-		Conditions:    req.Conditions,
+		Conditions:    conditions,
 	}
 
 	organizationID := c.Locals("organization_id").(string)
@@ -2469,9 +2596,9 @@ func (h *SessionHandler) ListSessions(c *fiber.Ctx) error {
 		params.Order = order
 	}
 
-	// TODO: Get principal ID and type from JWT context
-	principalID := "current_user_id"
-	principalType := "user"
+	// Get principal ID and type from JWT context
+	principalID := c.Locals("user_id").(string)
+	principalType := "user" // Default to user for now
 
 	orgID := c.Locals("organization_id").(string)
 	result, err := h.queries.Session.ListSessions(params, orgID, principalID, principalType)
@@ -2499,8 +2626,8 @@ func (h *SessionHandler) ListSessions(c *fiber.Ctx) error {
 //	@Security	BearerAuth
 //	@Router		/sessions/current [get]
 func (h *SessionHandler) GetCurrentSession(c *fiber.Ctx) error {
-	// TODO: Get session ID from JWT context/claims
-	sessionID := c.Get("X-Session-ID", "")
+	// Get session ID from JWT JTI claim (set by auth middleware)
+	sessionID, _ := c.Locals("session_id").(string)
 	if sessionID == "" {
 		return c.Status(fiber.StatusUnauthorized).JSON(ErrorResponse{
 			Error:   "no_session",
@@ -2547,8 +2674,8 @@ func (h *SessionHandler) GetCurrentSession(c *fiber.Ctx) error {
 //	@Security	BearerAuth
 //	@Router		/sessions/current [delete]
 func (h *SessionHandler) RevokeCurrentSession(c *fiber.Ctx) error {
-	// TODO: Get session ID from JWT context/claims
-	sessionID := c.Get("X-Session-ID", "")
+	// Get session ID from JWT JTI claim (set by auth middleware)
+	sessionID, _ := c.Locals("session_id").(string)
 	if sessionID == "" {
 		return c.Status(fiber.StatusUnauthorized).JSON(ErrorResponse{
 			Error:   "no_session",
@@ -2618,13 +2745,12 @@ func (h *SessionHandler) GetSession(c *fiber.Ctx) error {
 		})
 	}
 
-	// TODO: Check if current user can access this session
+	// Check if current user can access this session
 	// For now, allow access to own sessions only
-	currentUserID := "current_user_id" // TODO: Get from JWT
+	currentUserID := c.Locals("user_id").(string)
 	if session.PrincipalID != currentUserID && session.PrincipalType == "user" {
 		// Allow admin users to view any session
-		// TODO: Check if user has admin role
-		userRole := "user" // TODO: Get from JWT
+		userRole := c.Locals("role").(string)
 		if userRole != "admin" && userRole != "super_admin" {
 			return c.Status(fiber.StatusForbidden).JSON(ErrorResponse{
 				Error:   "access_denied",
@@ -2681,13 +2807,40 @@ func (h *SessionHandler) RevokeSession(c *fiber.Ctx) error {
 	}
 
 	// Check authorization - admin can revoke any session, users can revoke their own
-	currentUserID := "current_user_id" // TODO: Get from JWT
-	userRole := "admin"                // TODO: Get from JWT
+	currentUserID := c.Locals("user_id").(string)
+	userRole := c.Locals("role").(string)
 	if userRole != "admin" && userRole != "super_admin" && session.PrincipalID != currentUserID {
 		return c.Status(fiber.StatusForbidden).JSON(ErrorResponse{
 			Error:   "access_denied",
 			Message: "You can only revoke your own sessions",
 		})
+	}
+
+	// Blacklist the token associated with this session
+	if session.SessionToken != "" {
+		token, _, err := new(jwt.Parser).ParseUnverified(session.SessionToken, jwt.MapClaims{})
+		if err == nil {
+			if claims, ok := token.Claims.(jwt.MapClaims); ok {
+				if jti, ok := claims["jti"].(string); ok {
+					var exp int64
+					switch v := claims["exp"].(type) {
+					case float64:
+						exp = int64(v)
+					case json.Number:
+						exp, _ = v.Int64()
+					}
+
+					ttl := time.Until(time.Unix(exp, 0))
+					if ttl > 0 {
+						if err := h.redis.Set(c.Context(), "blacklist:jti:"+jti, "revoked", ttl).Err(); err != nil {
+							h.logger.Error("Failed to blacklist JTI %s: %v", jti, err)
+						} else {
+							h.logger.Info("Blacklisted JTI %s for revoked session %s", jti, sessionID)
+						}
+					}
+				}
+			}
+		}
 	}
 
 	orgID = c.Locals("organization_id").(string)
@@ -2771,9 +2924,9 @@ func (h *SessionHandler) ExtendSession(c *fiber.Ctx) error {
 	}
 
 	// Check authorization - users can only extend their own sessions
-	currentUserID := "current_user_id" // TODO: Get from JWT
+	currentUserID := c.Locals("user_id").(string)
 	if session.PrincipalID != currentUserID && session.PrincipalType == "user" {
-		userRole := "user" // TODO: Get from JWT
+		userRole := c.Locals("role").(string)
 		if userRole != "admin" && userRole != "super_admin" {
 			return c.Status(fiber.StatusForbidden).JSON(ErrorResponse{
 				Error:   "access_denied",

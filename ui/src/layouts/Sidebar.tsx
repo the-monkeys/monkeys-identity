@@ -18,7 +18,10 @@ const Sidebar = ({ activeView, collapsed }: SidebarProps) => {
             'groups': '/groups',
             'roles': '/roles',
             'policies': '/policies',
+            'resources': '/resources',
+            'service-accounts': '/service-accounts',
             'sessions': '/sessions',
+            'ecosystem': '/ecosystem',
             'audit-logs': '/audit-logs',
             'account-settings': '/account-settings',
         };

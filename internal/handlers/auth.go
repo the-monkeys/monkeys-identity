@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"crypto/rsa"
 	"errors"
 	"strings"
 	"time"
@@ -15,16 +16,18 @@ import (
 	"github.com/the-monkeys/monkeys-identity/internal/queries"
 	"github.com/the-monkeys/monkeys-identity/internal/services"
 	"github.com/the-monkeys/monkeys-identity/pkg/logger"
+	"github.com/the-monkeys/monkeys-identity/pkg/utils"
 	"golang.org/x/crypto/bcrypt"
 )
 
 type AuthHandler struct {
-	queries *queries.Queries
-	redis   *redis.Client
-	logger  *logger.Logger
-	config  *config.Config
-	audit   services.AuditService
-	mfa     services.MFAService
+	queries    *queries.Queries
+	redis      *redis.Client
+	logger     *logger.Logger
+	config     *config.Config
+	audit      services.AuditService
+	mfa        services.MFAService
+	privateKey *rsa.PrivateKey
 }
 
 type LoginRequest struct {
@@ -57,7 +60,7 @@ type CreateAdminRequest struct {
 }
 
 func NewAuthHandler(queries *queries.Queries, redis *redis.Client, logger *logger.Logger, config *config.Config, audit services.AuditService, mfa services.MFAService) *AuthHandler {
-	return &AuthHandler{
+	h := &AuthHandler{
 		queries: queries,
 		redis:   redis,
 		logger:  logger,
@@ -65,6 +68,22 @@ func NewAuthHandler(queries *queries.Queries, redis *redis.Client, logger *logge
 		audit:   audit,
 		mfa:     mfa,
 	}
+
+	// Load RS256 private key for asymmetric token signing
+	if config.JWTPrivateKey != "" {
+		if priv, err := utils.LoadRSAPrivateKey(config.JWTPrivateKey); err == nil {
+			h.privateKey = priv
+		} else {
+			logger.Error("Failed to load JWT private key: %v", err)
+		}
+	}
+
+	// Generate a temporary key if none provided (useful for development)
+	if h.privateKey == nil {
+		h.logger.Warn("AuthHandler: No valid OIDC private key available. Token signing will fail.")
+	}
+
+	return h
 }
 
 // Login authenticates user and returns JWT tokens
@@ -150,7 +169,9 @@ func (h *AuthHandler) Login(c *fiber.Ctx) error {
 	}
 
 	// Generate tokens
-	accessToken, refreshToken, expiresIn, err := h.generateTokens(user)
+	accessID := uuid.New().String()
+	refreshID := uuid.New().String()
+	accessToken, refreshToken, expiresIn, err := h.generateTokens(user, accessID, refreshID)
 	if err != nil {
 		h.logger.Error("Failed to generate tokens: %v", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
@@ -160,8 +181,26 @@ func (h *AuthHandler) Login(c *fiber.Ctx) error {
 	}
 
 	// Create session
-	sessionID := uuid.New().String()
-	if err := h.queries.Auth.CreateSession(sessionID, user.ID, accessToken); err != nil {
+	ipAddr := c.IP()
+	userAgent := c.Get("User-Agent")
+	session := &models.Session{
+		ID:             accessID,
+		SessionToken:   accessToken,
+		PrincipalID:    user.ID,
+		PrincipalType:  "user",
+		OrganizationID: user.OrganizationID,
+		Permissions:    "{}",
+		Context:        "{}",
+		Location:       "{}",
+		MFAVerified:    user.MFAEnabled,
+		IPAddress:      &ipAddr,
+		UserAgent:      &userAgent,
+		IssuedAt:       time.Now(),
+		ExpiresAt:      time.Now().Add(time.Duration(expiresIn) * time.Second),
+		LastUsedAt:     time.Now(),
+		Status:         "active",
+	}
+	if err := h.queries.Session.CreateSession(session); err != nil {
 		h.logger.Error("Failed to create session: %v", err)
 	}
 
@@ -171,6 +210,18 @@ func (h *AuthHandler) Login(c *fiber.Ctx) error {
 	// Log successful login
 	h.audit.LogLogin(c.Context(), user.OrganizationID, user.ID, c.IP(), c.Get("User-Agent"), true, "")
 	h.logger.Info("User logged in successfully: %s", user.Email)
+
+	// Set access token cookie
+	c.Cookie(&fiber.Cookie{
+		Name:     "access_token",
+		Value:    accessToken,
+		Expires:  time.Now().Add(time.Duration(expiresIn) * time.Second),
+		HTTPOnly: true,
+		Secure:   h.config.Environment == "production",
+		SameSite: "Lax",
+		Path:     "/",
+		Domain:   h.config.CookieDomain,
+	})
 
 	return c.JSON(fiber.Map{
 		"success": true,
@@ -244,7 +295,9 @@ func (h *AuthHandler) LoginMFAVerify(c *fiber.Ctx) error {
 	}
 
 	// Generate tokens
-	accessToken, refreshToken, expiresIn, err := h.generateTokens(user)
+	accessID := uuid.New().String()
+	refreshID := uuid.New().String()
+	accessToken, refreshToken, expiresIn, err := h.generateTokens(user, accessID, refreshID)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error":   "Failed to generate tokens",
@@ -253,8 +306,28 @@ func (h *AuthHandler) LoginMFAVerify(c *fiber.Ctx) error {
 	}
 
 	// Create session
-	sessionID := uuid.New().String()
-	h.queries.Auth.CreateSession(sessionID, user.ID, accessToken)
+	ipAddr := c.IP()
+	userAgent := c.Get("User-Agent")
+	session := &models.Session{
+		ID:             accessID,
+		SessionToken:   accessToken,
+		PrincipalID:    user.ID,
+		PrincipalType:  "user",
+		OrganizationID: user.OrganizationID,
+		Permissions:    "{}",
+		Context:        "{}",
+		Location:       "{}",
+		MFAVerified:    true,
+		IPAddress:      &ipAddr,
+		UserAgent:      &userAgent,
+		IssuedAt:       time.Now(),
+		ExpiresAt:      time.Now().Add(time.Duration(expiresIn) * time.Second),
+		LastUsedAt:     time.Now(),
+		Status:         "active",
+	}
+	if err := h.queries.Session.CreateSession(session); err != nil {
+		h.logger.Error("Failed to create session: %v", err)
+	}
 
 	// Update last login
 	h.queries.Auth.UpdateLastLogin(user.ID, user.OrganizationID)
@@ -263,6 +336,18 @@ func (h *AuthHandler) LoginMFAVerify(c *fiber.Ctx) error {
 	h.redis.Del(c.Context(), "mfa_login:"+req.MFAToken)
 
 	h.audit.LogLogin(c.Context(), user.OrganizationID, user.ID, c.IP(), c.Get("User-Agent"), true, "")
+
+	// Set access token cookie
+	c.Cookie(&fiber.Cookie{
+		Name:     "access_token",
+		Value:    accessToken,
+		Expires:  time.Now().Add(time.Duration(expiresIn) * time.Second),
+		HTTPOnly: true,
+		Secure:   h.config.Environment == "production",
+		SameSite: "Lax",
+		Path:     "/",
+		Domain:   h.config.CookieDomain,
+	})
 
 	return c.JSON(fiber.Map{
 		"success": true,
@@ -413,13 +498,30 @@ func (h *AuthHandler) RefreshToken(c *fiber.Ctx) error {
 	}
 
 	// Generate new access token
-	accessToken, _, expiresIn, err := h.generateTokens(user)
+	accessID := uuid.New().String()
+	refreshID := uuid.New().String()
+	accessToken, _, expiresIn, err := h.generateTokens(user, accessID, refreshID)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error":   "Failed to generate new token",
 			"success": false,
 		})
 	}
+
+	// Update or Create session for the refreshed token if needed
+	// For now, just generate the token. Ideally we'd link this to an existing session.
+
+	// Set access token in cookie
+	c.Cookie(&fiber.Cookie{
+		Name:     "access_token",
+		Value:    accessToken,
+		Expires:  time.Now().Add(time.Duration(expiresIn) * time.Second),
+		HTTPOnly: true,
+		Secure:   h.config.Environment == "production",
+		SameSite: "Lax",
+		Path:     "/",
+		Domain:   h.config.CookieDomain,
+	})
 
 	return c.JSON(fiber.Map{
 		"success": true,
@@ -467,27 +569,48 @@ func (h *AuthHandler) Logout(c *fiber.Ctx) error {
 		token = authHeader[7:]
 	}
 
-	// Invalidate the specific session in Redis
-	ctx := context.Background()
-	pattern := "session:*"
+	// Find session by token and revoke it in database
+	orgID := c.Locals("organization_id").(string)
+	if session, err := h.queries.Session.GetSessionByToken(token, orgID); err == nil {
+		h.queries.Session.RevokeSession(session.ID, orgID)
+	}
 
-	// Find and delete the session with this token
-	keys, err := h.redis.Keys(ctx, pattern).Result()
-	if err != nil {
-		h.logger.Error("Failed to get session keys during logout: %v", err)
-	} else {
-		for _, key := range keys {
-			sessionToken, err := h.redis.HGet(ctx, key, "token").Result()
-			sessionUserID, err2 := h.redis.HGet(ctx, key, "user_id").Result()
+	// Invalidate legacy session in Redis if patterns match
+	h.queries.Auth.DeleteSession(token)
 
-			if err == nil && err2 == nil && sessionToken == token && sessionUserID == userID {
-				h.redis.Del(ctx, key)
-				break
+	// Blacklist the access token
+	// Parse token without validation (we just want claims) to get JTI and Exp
+	parsedToken, _, err := new(jwt.Parser).ParseUnverified(token, jwt.MapClaims{})
+	if err == nil {
+		if claims, ok := parsedToken.Claims.(jwt.MapClaims); ok {
+			if jti, ok := claims["jti"].(string); ok {
+				var exp int64
+				if expFloat, ok := claims["exp"].(float64); ok {
+					exp = int64(expFloat)
+				}
+
+				ttl := time.Duration(exp-time.Now().Unix()) * time.Second
+				if ttl > 0 {
+					// Store in Redis blacklist
+					h.redis.Set(c.Context(), "blacklist:"+jti, "revoked", ttl)
+				}
 			}
 		}
 	}
 
 	h.logger.Info("User logged out: %s", userID)
+
+	// Clear access token cookie
+	c.Cookie(&fiber.Cookie{
+		Name:     "access_token",
+		Value:    "",
+		Expires:  time.Now().Add(-time.Hour),
+		HTTPOnly: true,
+		Secure:   h.config.Environment == "production",
+		SameSite: "Lax",
+		Path:     "/",
+		Domain:   h.config.CookieDomain,
+	})
 
 	return c.JSON(fiber.Map{
 		"success": true,
@@ -602,7 +725,7 @@ func (h *AuthHandler) CreateAdminUser(c *fiber.Ctx) error {
 }
 
 // generateTokens creates JWT access and refresh tokens for a user
-func (h *AuthHandler) generateTokens(user *models.User) (string, string, int64, error) {
+func (h *AuthHandler) generateTokens(user *models.User, accessID, refreshID string) (string, string, int64, error) {
 	now := time.Now()
 	accessTokenExpiry := now.Add(time.Hour * 1)       // 1 hour
 	refreshTokenExpiry := now.Add(time.Hour * 24 * 7) // 7 days
@@ -618,6 +741,9 @@ func (h *AuthHandler) generateTokens(user *models.User) (string, string, int64, 
 
 	// Access Token Claims
 	accessClaims := jwt.MapClaims{
+		"iss":             h.config.OIDCIssuer,
+		"sub":             user.ID,
+		"jti":             accessID,
 		"user_id":         user.ID,
 		"email":           user.Email,
 		"organization_id": user.OrganizationID,
@@ -629,22 +755,24 @@ func (h *AuthHandler) generateTokens(user *models.User) (string, string, int64, 
 
 	// Refresh Token Claims
 	refreshClaims := jwt.MapClaims{
+		"sub":     user.ID,
+		"jti":     refreshID,
 		"user_id": user.ID,
 		"exp":     refreshTokenExpiry.Unix(),
 		"iat":     now.Unix(),
 		"type":    "refresh",
 	}
 
-	// Generate Access Token
-	accessToken := jwt.NewWithClaims(jwt.SigningMethodHS256, accessClaims)
-	accessTokenString, err := accessToken.SignedString([]byte(h.config.JWTSecret))
+	// Generate Access Token using RS256
+	accessToken := jwt.NewWithClaims(jwt.SigningMethodRS256, accessClaims)
+	accessTokenString, err := accessToken.SignedString(h.privateKey)
 	if err != nil {
 		return "", "", 0, err
 	}
 
-	// Generate Refresh Token
-	refreshToken := jwt.NewWithClaims(jwt.SigningMethodHS256, refreshClaims)
-	refreshTokenString, err := refreshToken.SignedString([]byte(h.config.JWTSecret))
+	// Generate Refresh Token using RS256
+	refreshToken := jwt.NewWithClaims(jwt.SigningMethodRS256, refreshClaims)
+	refreshTokenString, err := refreshToken.SignedString(h.privateKey)
 	if err != nil {
 		return "", "", 0, err
 	}
@@ -669,7 +797,63 @@ func (h *AuthHandler) generateTokens(user *models.User) (string, string, int64, 
 //	@Failure		500		{object}	ErrorResponse
 //	@Router			/auth/mfa/setup [post]
 func (h *AuthHandler) SetupMFA(c *fiber.Ctx) error {
-	return c.JSON(fiber.Map{"message": "MFA setup endpoint"})
+	userID := c.Locals("user_id").(string)
+	orgID := c.Locals("organization_id").(string)
+
+	// Get user to check if MFA is already enabled
+	user, err := h.queries.Auth.GetUserByID(userID, orgID)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error":   "Failed to retrieve user",
+			"success": false,
+		})
+	}
+
+	if user.MFAEnabled {
+		return c.Status(fiber.StatusConflict).JSON(fiber.Map{
+			"error":   "MFA is already enabled for this account",
+			"success": false,
+		})
+	}
+
+	// Generate TOTP secret and QR code
+	secret, provisionURL, qrCodeBase64, err := h.mfa.GenerateTOTPSecret(userID, user.Email)
+	if err != nil {
+		h.logger.Error("Failed to generate TOTP secret: %v", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error":   "Failed to generate MFA secret",
+			"success": false,
+		})
+	}
+
+	// Store secret in Redis temporarily (10 min) until user verifies with a code
+	err = h.redis.Set(c.Context(), "mfa_setup:"+userID, secret, 10*time.Minute).Err()
+	if err != nil {
+		h.logger.Error("Failed to store MFA setup secret: %v", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error":   "Failed to initiate MFA setup",
+			"success": false,
+		})
+	}
+
+	h.audit.LogEvent(c.Context(), models.AuditEvent{
+		OrganizationID: orgID,
+		PrincipalID:    userID,
+		PrincipalType:  "user",
+		Action:         "mfa_setup_initiated",
+		Result:         "success",
+		Severity:       "MEDIUM",
+	})
+
+	return c.JSON(fiber.Map{
+		"success": true,
+		"message": "MFA setup initiated. Scan the QR code with your authenticator app, then verify with a code.",
+		"data": models.SetupMFAResponse{
+			Secret:  secret,
+			QRCode:  qrCodeBase64,
+			Message: provisionURL,
+		},
+	})
 }
 
 // VerifyMFA verifies a multi-factor authentication code
@@ -751,7 +935,54 @@ func (h *AuthHandler) VerifyMFA(c *fiber.Ctx) error {
 //	@Failure		500	{object}	ErrorResponse
 //	@Router			/auth/mfa/backup-codes [post]
 func (h *AuthHandler) GenerateBackupCodes(c *fiber.Ctx) error {
-	return c.JSON(fiber.Map{"message": "Generate backup codes endpoint"})
+	userID := c.Locals("user_id").(string)
+	orgID := c.Locals("organization_id").(string)
+
+	// Verify MFA is enabled before regenerating backup codes
+	user, err := h.queries.Auth.GetUserByID(userID, orgID)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error":   "Failed to retrieve user",
+			"success": false,
+		})
+	}
+
+	if !user.MFAEnabled {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error":   "MFA is not enabled. Please set up MFA first.",
+			"success": false,
+		})
+	}
+
+	// Generate new backup codes
+	backupCodes := h.mfa.GenerateBackupCodes(10)
+
+	// Update user's backup codes in database
+	err = h.queries.Auth.UpdateBackupCodes(userID, orgID, backupCodes)
+	if err != nil {
+		h.logger.Error("Failed to update backup codes: %v", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error":   "Failed to generate backup codes",
+			"success": false,
+		})
+	}
+
+	h.audit.LogEvent(c.Context(), models.AuditEvent{
+		OrganizationID: orgID,
+		PrincipalID:    userID,
+		PrincipalType:  "user",
+		Action:         "mfa_backup_codes_regenerated",
+		Result:         "success",
+		Severity:       "MEDIUM",
+	})
+
+	return c.JSON(fiber.Map{
+		"success": true,
+		"data": models.BackupCodesResponse{
+			BackupCodes: backupCodes,
+			Message:     "New backup codes generated. Save these in a safe place. Previous codes are now invalid.",
+		},
+	})
 }
 
 // DisableMFA disables multi-factor authentication for a user
@@ -769,7 +1000,72 @@ func (h *AuthHandler) GenerateBackupCodes(c *fiber.Ctx) error {
 //	@Failure		500		{object}	ErrorResponse
 //	@Router			/auth/mfa/disable [delete]
 func (h *AuthHandler) DisableMFA(c *fiber.Ctx) error {
-	return c.JSON(fiber.Map{"message": "Disable MFA endpoint"})
+	userID := c.Locals("user_id").(string)
+	orgID := c.Locals("organization_id").(string)
+
+	var req models.DisableMFARequest
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error":   "Invalid request format",
+			"success": false,
+		})
+	}
+
+	// Verify user identity with password before disabling MFA
+	user, err := h.queries.Auth.GetUserByID(userID, orgID)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error":   "Failed to retrieve user",
+			"success": false,
+		})
+	}
+
+	if !user.MFAEnabled {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error":   "MFA is not currently enabled",
+			"success": false,
+		})
+	}
+
+	// Verify password
+	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(req.Password)); err != nil {
+		h.audit.LogEvent(c.Context(), models.AuditEvent{
+			OrganizationID: orgID,
+			PrincipalID:    userID,
+			PrincipalType:  "user",
+			Action:         "mfa_disable_failed",
+			Result:         "failure",
+			Severity:       "HIGH",
+		})
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error":   "Invalid password",
+			"success": false,
+		})
+	}
+
+	// Disable MFA
+	err = h.queries.Auth.DisableMFA(userID, orgID)
+	if err != nil {
+		h.logger.Error("Failed to disable MFA: %v", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error":   "Failed to disable MFA",
+			"success": false,
+		})
+	}
+
+	h.audit.LogEvent(c.Context(), models.AuditEvent{
+		OrganizationID: orgID,
+		PrincipalID:    userID,
+		PrincipalType:  "user",
+		Action:         "mfa_disabled",
+		Result:         "success",
+		Severity:       "HIGH",
+	})
+
+	return c.JSON(fiber.Map{
+		"success": true,
+		"message": "Multi-factor authentication has been disabled",
+	})
 }
 
 // ForgotPassword sends password reset email to user

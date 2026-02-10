@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/lib/pq"
 	"github.com/redis/go-redis/v9"
 	"github.com/the-monkeys/monkeys-identity/internal/database"
 	"github.com/the-monkeys/monkeys-identity/internal/models"
@@ -62,8 +63,8 @@ type SessionActivity struct {
 	ID        string    `json:"id"`
 	SessionID string    `json:"session_id"`
 	Action    string    `json:"action"`
-	IPAddress string    `json:"ip_address"`
-	UserAgent string    `json:"user_agent"`
+	IPAddress *string   `json:"ip_address"`
+	UserAgent *string   `json:"user_agent"`
 	Timestamp time.Time `json:"timestamp"`
 	Details   string    `json:"details"`
 }
@@ -106,7 +107,7 @@ func (q *sessionQueries) CreateSession(session *models.Session) error {
 	_, err := db.ExecContext(q.ctx, query,
 		session.ID, session.SessionToken, session.PrincipalID, session.PrincipalType,
 		session.OrganizationID, session.AssumedRoleID, session.Permissions, session.Context,
-		session.MFAVerified, session.MFAMethodsUsed, session.IPAddress, session.UserAgent,
+		session.MFAVerified, pq.Array(session.MFAMethodsUsed), session.IPAddress, session.UserAgent,
 		session.DeviceFingerprint, session.Location, session.IssuedAt, session.ExpiresAt,
 		session.LastUsedAt, session.Status)
 
@@ -153,7 +154,7 @@ func (q *sessionQueries) GetSession(sessionID, organizationID string) (*models.S
 	var s models.Session
 	err := db.QueryRowContext(q.ctx, query, sessionID, organizationID).Scan(
 		&s.ID, &s.SessionToken, &s.PrincipalID, &s.PrincipalType, &s.OrganizationID,
-		&s.AssumedRoleID, &s.Permissions, &s.Context, &s.MFAVerified, &s.MFAMethodsUsed,
+		&s.AssumedRoleID, &s.Permissions, &s.Context, &s.MFAVerified, pq.Array(&s.MFAMethodsUsed),
 		&s.IPAddress, &s.UserAgent, &s.DeviceFingerprint, &s.Location,
 		&s.IssuedAt, &s.ExpiresAt, &s.LastUsedAt, &s.Status)
 
@@ -196,7 +197,7 @@ func (q *sessionQueries) GetSessionByToken(token, organizationID string) (*model
 	var s models.Session
 	err := db.QueryRowContext(q.ctx, query, token, organizationID).Scan(
 		&s.ID, &s.SessionToken, &s.PrincipalID, &s.PrincipalType, &s.OrganizationID,
-		&s.AssumedRoleID, &s.Permissions, &s.Context, &s.MFAVerified, &s.MFAMethodsUsed,
+		&s.AssumedRoleID, &s.Permissions, &s.Context, &s.MFAVerified, pq.Array(&s.MFAMethodsUsed),
 		&s.IPAddress, &s.UserAgent, &s.DeviceFingerprint, &s.Location,
 		&s.IssuedAt, &s.ExpiresAt, &s.LastUsedAt, &s.Status)
 
@@ -231,7 +232,7 @@ func (q *sessionQueries) UpdateSession(session *models.Session, organizationID s
 
 	result, err := db.ExecContext(q.ctx, query,
 		session.ID, session.Permissions, session.Context, session.MFAVerified,
-		session.MFAMethodsUsed, session.IPAddress, session.UserAgent, session.DeviceFingerprint,
+		pq.Array(session.MFAMethodsUsed), session.IPAddress, session.UserAgent, session.DeviceFingerprint,
 		session.Location, session.ExpiresAt, session.LastUsedAt, session.Status, organizationID)
 
 	if err != nil {
@@ -336,7 +337,7 @@ func (q *sessionQueries) ListSessions(params ListParams, organizationID, princip
 		var s models.Session
 		err := rows.Scan(&s.ID, &s.SessionToken, &s.PrincipalID, &s.PrincipalType,
 			&s.OrganizationID, &s.AssumedRoleID, &s.Permissions, &s.Context,
-			&s.MFAVerified, &s.MFAMethodsUsed, &s.IPAddress, &s.UserAgent,
+			&s.MFAVerified, pq.Array(&s.MFAMethodsUsed), &s.IPAddress, &s.UserAgent,
 			&s.DeviceFingerprint, &s.Location, &s.IssuedAt, &s.ExpiresAt,
 			&s.LastUsedAt, &s.Status)
 		if err != nil {
@@ -420,7 +421,7 @@ func (q *sessionQueries) ListActiveSessions(organizationID string) ([]*models.Se
 		var s models.Session
 		err := rows.Scan(&s.ID, &s.SessionToken, &s.PrincipalID, &s.PrincipalType,
 			&s.OrganizationID, &s.AssumedRoleID, &s.Permissions, &s.Context,
-			&s.MFAVerified, &s.MFAMethodsUsed, &s.IPAddress, &s.UserAgent,
+			&s.MFAVerified, pq.Array(&s.MFAMethodsUsed), &s.IPAddress, &s.UserAgent,
 			&s.DeviceFingerprint, &s.Location, &s.IssuedAt, &s.ExpiresAt,
 			&s.LastUsedAt, &s.Status)
 		if err != nil {
@@ -588,7 +589,7 @@ func (q *sessionQueries) GetSessionsByIP(ipAddress, organizationID string) ([]*m
 		var s models.Session
 		err := rows.Scan(&s.ID, &s.SessionToken, &s.PrincipalID, &s.PrincipalType,
 			&s.OrganizationID, &s.AssumedRoleID, &s.Permissions, &s.Context,
-			&s.MFAVerified, &s.MFAMethodsUsed, &s.IPAddress, &s.UserAgent,
+			&s.MFAVerified, pq.Array(&s.MFAMethodsUsed), &s.IPAddress, &s.UserAgent,
 			&s.DeviceFingerprint, &s.Location, &s.IssuedAt, &s.ExpiresAt,
 			&s.LastUsedAt, &s.Status)
 		if err != nil {
@@ -626,7 +627,7 @@ func (q *sessionQueries) GetSessionsByDeviceFingerprint(fingerprint, organizatio
 		var s models.Session
 		err := rows.Scan(&s.ID, &s.SessionToken, &s.PrincipalID, &s.PrincipalType,
 			&s.OrganizationID, &s.AssumedRoleID, &s.Permissions, &s.Context,
-			&s.MFAVerified, &s.MFAMethodsUsed, &s.IPAddress, &s.UserAgent,
+			&s.MFAVerified, pq.Array(&s.MFAMethodsUsed), &s.IPAddress, &s.UserAgent,
 			&s.DeviceFingerprint, &s.Location, &s.IssuedAt, &s.ExpiresAt,
 			&s.LastUsedAt, &s.Status)
 		if err != nil {

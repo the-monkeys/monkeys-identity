@@ -21,9 +21,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setLoading(false);
     }, []);
 
-    const login = async (email: string, password: string) => {
+    const login = async (email: string, password: string, organizationID?: string) => {
         try {
-            const response = await authAPI.login(email, password);
+            const response = await authAPI.login(email, password, organizationID);
             const { access_token, user: userData } = response.data.data;
 
             localStorage.setItem('access_token', access_token);

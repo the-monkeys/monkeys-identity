@@ -89,6 +89,10 @@ func (s *auditService) LogEvent(ctx context.Context, event models.AuditEvent) {
 	if event.Timestamp.IsZero() {
 		event.Timestamp = time.Now()
 	}
+	if event.OrganizationID == "" {
+		// Default to system organization if not specified
+		event.OrganizationID = "00000000-0000-0000-0000-000000000000"
+	}
 
 	select {
 	case s.events <- event:
@@ -109,16 +113,16 @@ func (s *auditService) LogAccessDenied(ctx context.Context, orgID, principalID, 
 		ResourceID:     resourceID,
 		Result:         "failure",
 		ErrorMessage:   message,
-		Severity:       "HIGH",
+		Severity:       "critical",
 	})
 }
 
 func (s *auditService) LogAccessCheck(ctx context.Context, orgID, principalID, principalType, resourceType, resourceID, action string, allowed bool, reason string) {
 	result := "allowed"
-	severity := "INFO"
+	severity := "info"
 	if !allowed {
 		result = "denied"
-		severity = "HIGH"
+		severity = "error"
 	}
 
 	s.LogEvent(ctx, models.AuditEvent{
@@ -137,10 +141,10 @@ func (s *auditService) LogAccessCheck(ctx context.Context, orgID, principalID, p
 // LogLogin is a helper for logging authentication attempts
 func (s *auditService) LogLogin(ctx context.Context, orgID, userID, ip, userAgent string, success bool, err string) {
 	result := "success"
-	severity := "INFO"
+	severity := "info"
 	if !success {
 		result = "failure"
-		severity = "MEDIUM"
+		severity = "warn"
 	}
 
 	s.LogEvent(ctx, models.AuditEvent{
