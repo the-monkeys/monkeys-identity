@@ -124,8 +124,14 @@ func (am *AuthMiddleware) RequireAuth() fiber.Handler {
 			}
 		}
 
+		// Extract user ID, falling back to Subject (standard OIDC sub claim) if UserID is empty
+		userID := claims.UserID
+		if userID == "" {
+			userID = claims.Subject
+		}
+
 		// Store user info in context
-		c.Locals("user_id", claims.UserID)
+		c.Locals("user_id", userID)
 		c.Locals("organization_id", claims.OrganizationID)
 		c.Locals("email", claims.Email)
 		c.Locals("role", claims.Role)
@@ -238,7 +244,11 @@ func (am *AuthMiddleware) OptionalAuth() fiber.Handler {
 
 		if err == nil && token.Valid {
 			if claims, ok := token.Claims.(*Claims); ok {
-				c.Locals("user_id", claims.UserID)
+				userID := claims.UserID
+				if userID == "" {
+					userID = claims.Subject
+				}
+				c.Locals("user_id", userID)
 				c.Locals("organization_id", claims.OrganizationID)
 				c.Locals("email", claims.Email)
 				c.Locals("role", claims.Role)

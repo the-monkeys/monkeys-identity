@@ -476,8 +476,15 @@ func (q *authQueries) UpdateLastLogin(userID string, organizationID string) erro
 
 // UpdatePassword updates a user's password hash
 func (q *authQueries) UpdatePassword(userID, passwordHash string, organizationID string) error {
-	query := `UPDATE users SET password_hash = $1, password_changed_at = $2, updated_at = $3 WHERE id = $4 AND organization_id = $5`
-	_, err := q.exec(query, passwordHash, time.Now(), time.Now(), userID, organizationID)
+	query := `UPDATE users SET password_hash = $1, password_changed_at = $2, updated_at = $3 WHERE id = $4`
+	args := []interface{}{passwordHash, time.Now(), time.Now(), userID}
+
+	if organizationID != "" {
+		query += " AND organization_id = $5"
+		args = append(args, organizationID)
+	}
+
+	_, err := q.exec(query, args...)
 	return err
 }
 

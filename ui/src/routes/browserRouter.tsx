@@ -7,6 +7,9 @@ import ProtectedRouteLayout from '../layouts/ProtectedRouteLayout';
 // Lazy load components
 const Dashboard = lazy(() => import('../features/dashboard/pages/Dashboard'));
 const UsersManagement = lazy(() => import('../features/users/pages/UsersManagement'));
+const UserDetailPage = lazy(() => import('../features/users/pages/UserDetailPage'));
+const ForgotPasswordPage = lazy(() => import('../features/auth/pages/ForgotPassword'));
+const ResetPasswordPage = lazy(() => import('../features/auth/pages/ResetPassword'));
 const GroupsManagement = lazy(() => import('../features/groups/pages/GroupsManagement'));
 const OrganizationsManagement = lazy(() => import('../features/organizations/pages/OrganizationsManagement'));
 const AuditLogsPage = lazy(() => import('../features/audit/pages/AuditLogsPage'));
@@ -22,6 +25,8 @@ const ServiceAccountsManagement = lazy(() => import('../features/service-account
 const ServiceAccountDetailPage = lazy(() => import('../features/service-accounts/pages/ServiceAccountDetailPage'));
 const OIDCClientManagement = lazy(() => import('../features/oidc/pages/OIDCClientManagement'));
 const HomePage = lazy(() => import('../features/landing/pages/HomePage'));
+const DocumentationPage = lazy(() => import('../features/landing/pages/DocumentationPage'));
+
 
 const Loading = () => (
     <div className="h-screen w-screen bg-bg-main-dark flex items-center justify-center text-primary font-mono">
@@ -42,6 +47,10 @@ export const router = createBrowserRouter([
                 element: <HomePage />,
             },
             {
+                path: '/docs',
+                element: <DocumentationPage />,
+            },
+            {
                 path: '/login',
                 element: <Login />,
             },
@@ -52,6 +61,14 @@ export const router = createBrowserRouter([
             {
                 path: '/signup',
                 element: <Signup />,
+            },
+            {
+                path: '/forgot-password',
+                element: <ForgotPasswordPage />,
+            },
+            {
+                path: '/reset-password',
+                element: <ResetPasswordPage />,
             },
         ],
     },
@@ -69,6 +86,10 @@ export const router = createBrowserRouter([
             {
                 path: '/users',
                 element: <UsersManagement />,
+            },
+            {
+                path: '/users/:id',
+                element: <UserDetailPage />,
             },
             {
                 path: '/groups',

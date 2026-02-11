@@ -9,6 +9,7 @@ import (
 	"github.com/the-monkeys/monkeys-identity/internal/models"
 	"github.com/the-monkeys/monkeys-identity/internal/queries"
 	"github.com/the-monkeys/monkeys-identity/pkg/logger"
+	"github.com/the-monkeys/monkeys-identity/pkg/utils"
 )
 
 // AuditService handles security event logging and compliance reporting
@@ -106,13 +107,13 @@ func (s *auditService) LogEvent(ctx context.Context, event models.AuditEvent) {
 func (s *auditService) LogAccessDenied(ctx context.Context, orgID, principalID, principalType, resourceType, resourceID, message string) {
 	s.LogEvent(ctx, models.AuditEvent{
 		OrganizationID: orgID,
-		PrincipalID:    principalID,
-		PrincipalType:  principalType,
+		PrincipalID:    utils.StringPtr(principalID),
+		PrincipalType:  utils.StringPtr(principalType),
 		Action:         "access_denied",
-		ResourceType:   resourceType,
-		ResourceID:     resourceID,
+		ResourceType:   utils.StringPtr(resourceType),
+		ResourceID:     utils.StringPtr(resourceID),
 		Result:         "failure",
-		ErrorMessage:   message,
+		ErrorMessage:   utils.StringPtr(message),
 		Severity:       "critical",
 	})
 }
@@ -127,13 +128,13 @@ func (s *auditService) LogAccessCheck(ctx context.Context, orgID, principalID, p
 
 	s.LogEvent(ctx, models.AuditEvent{
 		OrganizationID: orgID,
-		PrincipalID:    principalID,
-		PrincipalType:  principalType,
+		PrincipalID:    utils.StringPtr(principalID),
+		PrincipalType:  utils.StringPtr(principalType),
 		Action:         action,
-		ResourceType:   resourceType,
-		ResourceID:     resourceID,
+		ResourceType:   utils.StringPtr(resourceType),
+		ResourceID:     utils.StringPtr(resourceID),
 		Result:         result,
-		ErrorMessage:   reason,
+		ErrorMessage:   utils.StringPtr(reason),
 		Severity:       severity,
 	})
 }
@@ -149,13 +150,13 @@ func (s *auditService) LogLogin(ctx context.Context, orgID, userID, ip, userAgen
 
 	s.LogEvent(ctx, models.AuditEvent{
 		OrganizationID: orgID,
-		PrincipalID:    userID,
-		PrincipalType:  "user",
+		PrincipalID:    utils.StringPtr(userID),
+		PrincipalType:  utils.StringPtr("user"),
 		Action:         "login",
 		Result:         result,
-		ErrorMessage:   err,
-		IPAddress:      ip,
-		UserAgent:      userAgent,
+		ErrorMessage:   utils.StringPtr(err),
+		IPAddress:      utils.StringPtr(ip),
+		UserAgent:      utils.StringPtr(userAgent),
 		Severity:       severity,
 	})
 }

@@ -15,4 +15,13 @@ export const authAPI = {
 
     generateBackupCodes: () =>
         client.post('/auth/mfa/backup-codes'),
+
+    setupMFA: () =>
+        client.post('/auth/mfa/setup'),
+
+    verifyMFA: (code: string) =>
+        client.post('/auth/mfa/verify', { code }),
+
+    disableMFA: (code: string) =>
+        client.delete('/auth/mfa/disable', { data: { code } }),
 };

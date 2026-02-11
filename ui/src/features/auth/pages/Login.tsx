@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { AlertCircle } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { LoginType } from '../types/auth';
@@ -171,7 +171,7 @@ const LoginPage = () => {
                         <div className="space-y-1">
                             <div className="flex justify-between items-center">
                                 <label htmlFor="password" className="block text-sm font-bold text-gray-200">Password</label>
-                                <a href="#" className="text-xs text-white font-bold hover:underline">Forgot password?</a>
+                                <Link to="/forgot-password" className="text-xs text-white font-bold hover:underline">Forgot password?</Link>
                             </div>
                             <input
                                 id="password"

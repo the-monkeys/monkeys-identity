@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 
+	"github.com/lib/pq"
 	"github.com/redis/go-redis/v9"
 	"github.com/the-monkeys/monkeys-identity/internal/database"
 	"github.com/the-monkeys/monkeys-identity/internal/models"
@@ -83,11 +84,10 @@ func (q *oidcQueries) GetClientByID(id string) (*models.OAuthClient, error) {
 		WHERE id = $1 AND deleted_at IS NULL`
 
 	client := &models.OAuthClient{}
-	var redirectURIs, grantTypes, responseTypes database.StringArray
 
 	err := q.queryRow(query, id).Scan(
 		&client.ID, &client.OrganizationID, &client.ClientName, &client.ClientSecretHash,
-		&redirectURIs, &grantTypes, &responseTypes, &client.Scope, &client.IsPublic,
+		pq.Array(&client.RedirectURIs), pq.Array(&client.GrantTypes), pq.Array(&client.ResponseTypes), &client.Scope, &client.IsPublic,
 		&client.IsTrusted, &client.LogoURL, &client.PolicyURI, &client.TosURI,
 		&client.CreatedAt, &client.UpdatedAt,
 	)
@@ -98,10 +98,6 @@ func (q *oidcQueries) GetClientByID(id string) (*models.OAuthClient, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to get oauth client: %w", err)
 	}
-
-	client.RedirectURIs = []string(redirectURIs)
-	client.GrantTypes = []string(grantTypes)
-	client.ResponseTypes = []string(responseTypes)
 
 	return client, nil
 }
@@ -163,8 +159,8 @@ func (q *oidcQueries) CreateClient(client *models.OAuthClient) error {
 
 	_, err := q.exec(query,
 		client.ID, client.OrganizationID, client.ClientName, client.ClientSecretHash,
-		database.StringArray(client.RedirectURIs), database.StringArray(client.GrantTypes),
-		database.StringArray(client.ResponseTypes), client.Scope, client.IsPublic, client.IsTrusted,
+		pq.Array(client.RedirectURIs), pq.Array(client.GrantTypes),
+		pq.Array(client.ResponseTypes), client.Scope, client.IsPublic, client.IsTrusted,
 		client.LogoURL, client.PolicyURI, client.TosURI, client.CreatedAt, client.UpdatedAt)
 
 	if err != nil {
@@ -199,19 +195,15 @@ func (q *oidcQueries) ListClientsByOrg(orgID string) ([]*models.OAuthClient, err
 	var clients []*models.OAuthClient
 	for rows.Next() {
 		client := &models.OAuthClient{}
-		var redirectURIs, grantTypes, responseTypes database.StringArray
 		err := rows.Scan(
 			&client.ID, &client.OrganizationID, &client.ClientName, &client.ClientSecretHash,
-			&redirectURIs, &grantTypes, &responseTypes, &client.Scope, &client.IsPublic,
+			pq.Array(&client.RedirectURIs), pq.Array(&client.GrantTypes), pq.Array(&client.ResponseTypes), &client.Scope, &client.IsPublic,
 			&client.IsTrusted, &client.LogoURL, &client.PolicyURI, &client.TosURI,
 			&client.CreatedAt, &client.UpdatedAt,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan oauth client: %w", err)
 		}
-		client.RedirectURIs = []string(redirectURIs)
-		client.GrantTypes = []string(grantTypes)
-		client.ResponseTypes = []string(responseTypes)
 		clients = append(clients, client)
 	}
 
@@ -228,8 +220,8 @@ func (q *oidcQueries) UpdateClient(client *models.OAuthClient) error {
 		WHERE id = $12 AND organization_id = $13 AND deleted_at IS NULL`
 
 	_, err := q.exec(query,
-		client.ClientName, database.StringArray(client.RedirectURIs),
-		database.StringArray(client.GrantTypes), database.StringArray(client.ResponseTypes),
+		client.ClientName, pq.Array(client.RedirectURIs),
+		pq.Array(client.GrantTypes), pq.Array(client.ResponseTypes),
 		client.Scope, client.IsPublic, client.IsTrusted, client.LogoURL,
 		client.PolicyURI, client.TosURI, client.UpdatedAt, client.ID, client.OrganizationID)
 

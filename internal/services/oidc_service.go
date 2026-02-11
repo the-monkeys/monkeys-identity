@@ -75,8 +75,9 @@ func (s *oidcService) ValidateClient(clientID, clientSecret, redirectURI string)
 		return nil, errors.New("invalid_client")
 	}
 
-	// Verify secret if it's a confidential client
-	if !client.IsPublic {
+	// Verify secret if it's a confidential client and secret is provided
+	// (Secret is not required for front-channel authorize/consent requests)
+	if !client.IsPublic && clientSecret != "" {
 		if err := bcrypt.CompareHashAndPassword([]byte(client.ClientSecretHash), []byte(clientSecret)); err != nil {
 			return nil, errors.New("invalid_client_secret")
 		}
@@ -128,8 +129,15 @@ func (s *oidcService) ExchangeCodeForToken(code, clientID, clientSecret string) 
 		return nil, errors.New("invalid_grant")
 	}
 
-	if authCode.ClientID != clientID {
-		return nil, errors.New("invalid_client")
+	// Validate client and secret
+	client, err := s.ValidateClient(clientID, clientSecret, authCode.RedirectURI)
+	if err != nil {
+		return nil, err
+	}
+
+	// Enforce client secret for confidential clients during token exchange
+	if !client.IsPublic && clientSecret == "" {
+		return nil, errors.New("invalid_client_secret")
 	}
 
 	// Mark code as used

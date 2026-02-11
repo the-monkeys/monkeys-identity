@@ -267,18 +267,18 @@ type AuditEvent struct {
 	EventID           string    `json:"event_id" db:"event_id"`
 	Timestamp         time.Time `json:"timestamp" db:"timestamp"`
 	OrganizationID    string    `json:"organization_id" db:"organization_id"`
-	PrincipalID       string    `json:"principal_id" db:"principal_id"`
-	PrincipalType     string    `json:"principal_type" db:"principal_type"`
-	SessionID         string    `json:"session_id" db:"session_id"`
+	PrincipalID       *string   `json:"principal_id" db:"principal_id"`
+	PrincipalType     *string   `json:"principal_type" db:"principal_type"`
+	SessionID         *string   `json:"session_id" db:"session_id"`
 	Action            string    `json:"action" db:"action"`
-	ResourceType      string    `json:"resource_type" db:"resource_type"`
-	ResourceID        string    `json:"resource_id" db:"resource_id"`
-	ResourceARN       string    `json:"resource_arn" db:"resource_arn"`
+	ResourceType      *string   `json:"resource_type" db:"resource_type"`
+	ResourceID        *string   `json:"resource_id" db:"resource_id"`
+	ResourceARN       *string   `json:"resource_arn" db:"resource_arn"`
 	Result            string    `json:"result" db:"result"`
-	ErrorMessage      string    `json:"error_message" db:"error_message"`
-	IPAddress         string    `json:"ip_address" db:"ip_address"`
-	UserAgent         string    `json:"user_agent" db:"user_agent"`
-	RequestID         string    `json:"request_id" db:"request_id"`
+	ErrorMessage      *string   `json:"error_message" db:"error_message"`
+	IPAddress         *string   `json:"ip_address" db:"ip_address"`
+	UserAgent         *string   `json:"user_agent" db:"user_agent"`
+	RequestID         *string   `json:"request_id" db:"request_id"`
 	AdditionalContext string    `json:"additional_context" db:"additional_context"` // JSONB as string
 	Severity          string    `json:"severity" db:"severity"`
 }

@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/google/uuid"
 	"github.com/the-monkeys/monkeys-identity/internal/config"
 	"github.com/the-monkeys/monkeys-identity/internal/models"
 	"github.com/the-monkeys/monkeys-identity/internal/queries"
@@ -109,9 +110,9 @@ func (h *OIDCHandler) Authorize(c *fiber.Ctx) error {
 		return c.Redirect(fmt.Sprintf("%s?code=%s&state=%s", redirectURI, code, state))
 	}
 
-	// Redirect to frontend consent page
-	consentURL := fmt.Sprintf("%s/consent?client_id=%s&scope=%s&state=%s",
-		h.config.FrontendURL, clientID, scope, state)
+	// Redirect to consent page
+	consentURL := fmt.Sprintf("%s/consent?client_id=%s&scope=%s&state=%s&redirect_uri=%s",
+		h.config.FrontendURL, clientID, scope, state, redirectURI)
 	return c.Redirect(consentURL)
 }
 
@@ -496,11 +497,9 @@ func (h *OIDCHandler) DeleteClient(c *fiber.Ctx) error {
 	})
 }
 
-// generateClientID creates a URL-safe client identifier
+// generateClientID creates a valid UUID for the client identifier
 func generateClientID() string {
-	b := make([]byte, 16)
-	rand.Read(b)
-	return fmt.Sprintf("mk_%s", base64.RawURLEncoding.EncodeToString(b))
+	return uuid.New().String()
 }
 
 // generateClientSecret creates a high-entropy client secret

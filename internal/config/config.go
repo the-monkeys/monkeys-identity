@@ -2,6 +2,7 @@ package config
 
 import (
 	"os"
+	"strconv"
 	"strings"
 )
 
@@ -79,6 +80,7 @@ func Load() *Config {
 	}
 
 	// If JWT_PRIVATE_KEY is empty, try to read from JWT_PRIVATE_KEY_FILE
+
 	if cfg.JWTPrivateKey == "" {
 		if keyFile := getEnv("JWT_PRIVATE_KEY_FILE", ""); keyFile != "" {
 			data, err := os.ReadFile(keyFile)
@@ -104,9 +106,9 @@ func getEnv(key, defaultValue string) string {
 
 func getEnvAsInt(key string, defaultValue int) int {
 	if value := os.Getenv(key); value != "" {
-		// Basic implementation
-		// In a real app, use strconv.Atoi
-		return defaultValue
+		if intVal, err := strconv.Atoi(value); err == nil {
+			return intVal
+		}
 	}
 	return defaultValue
 }

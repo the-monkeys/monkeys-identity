@@ -25,7 +25,10 @@ const LandingPage = () => {
                             <span>Explore Dashboard</span>
                             <ArrowRight className="w-5 h-5" />
                         </button>
-                        <button className="w-full sm:w-auto bg-slate-800 border border-border-color-dark hover:border-primary px-8 py-4 rounded-lg text-lg font-bold transition-all text-white flex items-center justify-center">
+                        <button
+                            onClick={() => navigate('/docs')}
+                            className="w-full sm:w-auto bg-slate-800 border border-border-color-dark hover:border-primary px-8 py-4 rounded-lg text-lg font-bold transition-all text-white flex items-center justify-center"
+                        >
                             View Documentation
                         </button>
                     </div>

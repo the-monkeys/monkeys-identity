@@ -13,6 +13,7 @@ import (
 	"github.com/the-monkeys/monkeys-identity/internal/queries"
 	"github.com/the-monkeys/monkeys-identity/internal/services"
 	"github.com/the-monkeys/monkeys-identity/pkg/logger"
+	"github.com/the-monkeys/monkeys-identity/pkg/utils"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -174,11 +175,11 @@ func (h *UserHandler) CreateUser(c *fiber.Ctx) error {
 
 	h.audit.LogEvent(c.Context(), models.AuditEvent{
 		OrganizationID: user.OrganizationID,
-		PrincipalID:    c.Locals("user_id").(string),
-		PrincipalType:  "user",
+		PrincipalID:    utils.StringPtr(c.Locals("user_id").(string)),
+		PrincipalType:  utils.StringPtr("user"),
 		Action:         "create_user",
-		ResourceType:   "user",
-		ResourceID:     user.ID,
+		ResourceType:   utils.StringPtr("user"),
+		ResourceID:     utils.StringPtr(user.ID),
 		Result:         "success",
 		Severity:       "MEDIUM",
 	})
@@ -590,11 +591,11 @@ func (h *UserHandler) ChangePassword(c *fiber.Ctx) error {
 
 	h.audit.LogEvent(c.Context(), models.AuditEvent{
 		OrganizationID: organizationID,
-		PrincipalID:    userID,
-		PrincipalType:  "user",
+		PrincipalID:    utils.StringPtr(userID),
+		PrincipalType:  utils.StringPtr("user"),
 		Action:         "change_password",
-		ResourceType:   "user",
-		ResourceID:     userID,
+		ResourceType:   utils.StringPtr("user"),
+		ResourceID:     utils.StringPtr(userID),
 		Result:         "success",
 		Severity:       "info",
 	})

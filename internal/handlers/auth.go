@@ -27,6 +27,7 @@ type AuthHandler struct {
 	config     *config.Config
 	audit      services.AuditService
 	mfa        services.MFAService
+	email      services.EmailService
 	privateKey *rsa.PrivateKey
 }
 
@@ -59,7 +60,7 @@ type CreateAdminRequest struct {
 	OrganizationID string `json:"organization_id,omitempty"`
 }
 
-func NewAuthHandler(queries *queries.Queries, redis *redis.Client, logger *logger.Logger, config *config.Config, audit services.AuditService, mfa services.MFAService) *AuthHandler {
+func NewAuthHandler(queries *queries.Queries, redis *redis.Client, logger *logger.Logger, config *config.Config, audit services.AuditService, mfa services.MFAService, email services.EmailService) *AuthHandler {
 	h := &AuthHandler{
 		queries: queries,
 		redis:   redis,
@@ -67,6 +68,7 @@ func NewAuthHandler(queries *queries.Queries, redis *redis.Client, logger *logge
 		config:  config,
 		audit:   audit,
 		mfa:     mfa,
+		email:   email,
 	}
 
 	// Load RS256 private key for asymmetric token signing
@@ -282,8 +284,8 @@ func (h *AuthHandler) LoginMFAVerify(c *fiber.Ctx) error {
 	if !h.mfa.VerifyTOTP(req.Code, user.TOTPSecret) {
 		h.audit.LogEvent(c.Context(), models.AuditEvent{
 			OrganizationID: user.OrganizationID,
-			PrincipalID:    user.ID,
-			PrincipalType:  "user",
+			PrincipalID:    utils.StringPtr(user.ID),
+			PrincipalType:  utils.StringPtr("user"),
 			Action:         "login_mfa_failed",
 			Result:         "failure",
 			Severity:       "MEDIUM",
@@ -431,7 +433,12 @@ func (h *AuthHandler) Register(c *fiber.Ctx) error {
 		h.logger.Error("Failed to store verification token: %v", err)
 	}
 
-	// TODO: Send verification email with verificationToken
+	// Send verification email with verificationToken
+	err = h.email.SendVerificationEmail(user.Email, user.Username, verificationToken)
+	if err != nil {
+		h.logger.Error("Failed to send verification email: %v", err)
+		// We still return success as the user was created, but they might need to resend the verification email
+	}
 
 	h.logger.Info("User registered successfully: %s", user.Email)
 
@@ -838,8 +845,8 @@ func (h *AuthHandler) SetupMFA(c *fiber.Ctx) error {
 
 	h.audit.LogEvent(c.Context(), models.AuditEvent{
 		OrganizationID: orgID,
-		PrincipalID:    userID,
-		PrincipalType:  "user",
+		PrincipalID:    utils.StringPtr(userID),
+		PrincipalType:  utils.StringPtr("user"),
 		Action:         "mfa_setup_initiated",
 		Result:         "success",
 		Severity:       "MEDIUM",
@@ -898,8 +905,8 @@ func (h *AuthHandler) VerifyMFA(c *fiber.Ctx) error {
 			h.redis.Del(c.Context(), "mfa_setup:"+userID)
 			h.audit.LogEvent(c.Context(), models.AuditEvent{
 				OrganizationID: orgID,
-				PrincipalID:    userID,
-				PrincipalType:  "user",
+				PrincipalID:    utils.StringPtr(userID),
+				PrincipalType:  utils.StringPtr("user"),
 				Action:         "mfa_setup_complete",
 				Result:         "success",
 				Severity:       "MEDIUM",
@@ -969,8 +976,8 @@ func (h *AuthHandler) GenerateBackupCodes(c *fiber.Ctx) error {
 
 	h.audit.LogEvent(c.Context(), models.AuditEvent{
 		OrganizationID: orgID,
-		PrincipalID:    userID,
-		PrincipalType:  "user",
+		PrincipalID:    utils.StringPtr(userID),
+		PrincipalType:  utils.StringPtr("user"),
 		Action:         "mfa_backup_codes_regenerated",
 		Result:         "success",
 		Severity:       "MEDIUM",
@@ -1031,8 +1038,8 @@ func (h *AuthHandler) DisableMFA(c *fiber.Ctx) error {
 	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(req.Password)); err != nil {
 		h.audit.LogEvent(c.Context(), models.AuditEvent{
 			OrganizationID: orgID,
-			PrincipalID:    userID,
-			PrincipalType:  "user",
+			PrincipalID:    utils.StringPtr(userID),
+			PrincipalType:  utils.StringPtr("user"),
 			Action:         "mfa_disable_failed",
 			Result:         "failure",
 			Severity:       "HIGH",
@@ -1055,8 +1062,8 @@ func (h *AuthHandler) DisableMFA(c *fiber.Ctx) error {
 
 	h.audit.LogEvent(c.Context(), models.AuditEvent{
 		OrganizationID: orgID,
-		PrincipalID:    userID,
-		PrincipalType:  "user",
+		PrincipalID:    utils.StringPtr(userID),
+		PrincipalType:  utils.StringPtr("user"),
 		Action:         "mfa_disabled",
 		Result:         "success",
 		Severity:       "HIGH",
@@ -1113,7 +1120,12 @@ func (h *AuthHandler) ForgotPassword(c *fiber.Ctx) error {
 		})
 	}
 
-	// TODO: Send email with reset link containing the resetToken
+	// Send email with reset link containing the resetToken
+	err = h.email.SendPasswordResetEmail(user.Email, user.Username, resetToken)
+	if err != nil {
+		h.logger.Error("Failed to send password reset email: %v", err)
+		// We should probably still return success to prevent user enumeration
+	}
 	h.logger.Info("Password reset requested for user: %s", user.Email)
 
 	return c.JSON(fiber.Map{
@@ -1146,7 +1158,7 @@ func (h *AuthHandler) ResetPassword(c *fiber.Ctx) error {
 
 	// Verify reset token
 	userID, err := h.queries.Auth.GetPasswordResetToken(req.Token)
-	if err != nil {
+	if err != nil || userID == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error":   "Invalid or expired reset token",
 			"success": false,
@@ -1294,7 +1306,11 @@ func (h *AuthHandler) ResendVerification(c *fiber.Ctx) error {
 		})
 	}
 
-	// TODO: Send verification email with verificationToken
+	// Send verification email with verificationToken
+	err = h.email.SendVerificationEmail(user.Email, user.Username, verificationToken)
+	if err != nil {
+		h.logger.Error("Failed to resend verification email: %v", err)
+	}
 	h.logger.Info("Email verification resent for user: %s", user.Email)
 
 	return c.JSON(fiber.Map{

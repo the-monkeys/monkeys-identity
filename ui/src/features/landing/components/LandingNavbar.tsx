@@ -23,8 +23,13 @@ const Navbar = () => {
                         </span>
                     </div>
 
-                    <div className="flex items-center space-x-8">
-                        <a href="#" className="text-sm font-medium text-gray-400 hover:text-white transition-colors cursor-pointer">Documentation</a>
+                    <div className="flex items-center space-x-8 text-white">
+                        <button
+                            onClick={() => navigate('/docs')}
+                            className="text-sm font-medium text-gray-400 hover:text-white transition-colors cursor-pointer"
+                        >
+                            Documentation
+                        </button>
                         <a href="https://github.com/the-monkeys/monkeys-identity/tree/main" target="_blank" rel="noopener noreferrer"
                             className="group flex items-center space-x-1 text-sm font-medium text-gray-400 hover:text-white transition-colors cursor-pointer"
                         >

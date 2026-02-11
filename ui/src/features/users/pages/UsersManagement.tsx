@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Plus, Edit, Pause, Trash2, Search, Filter, AlertCircle } from 'lucide-react';
 import { useUsers, useDeleteUser, useActivateUser } from '../api/useUsers';
 import { User } from '../types/user';
@@ -12,6 +13,7 @@ import { userKeys } from '../api/useUsers';
 import { cn } from '@/components/ui/utils';
 
 const UsersManagement = () => {
+    const navigate = useNavigate();
     // State
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedUser, setSelectedUser] = useState<User | null>(null);
@@ -223,7 +225,7 @@ const UsersManagement = () => {
                 keyExtractor={(user) => user.id}
                 isLoading={isLoading}
                 emptyMessage="No users found."
-                onRowClick={handleEdit}
+                onRowClick={(user) => navigate(`/users/${user.id}`)}
             />
 
             {/* Modals */}

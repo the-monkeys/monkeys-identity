@@ -65,9 +65,10 @@ func SetupRoutes(
 	// Initialize services
 	authzSvc := services.NewAuthzService(q)
 	oidcSvc := services.NewOIDCService(q, cfg)
+	emailSvc := services.NewEmailService(cfg, logger)
 
 	// Initialize handlers
-	authHandler := handlers.NewAuthHandler(q, redis, logger, cfg, auditService, mfaService)
+	authHandler := handlers.NewAuthHandler(q, redis, logger, cfg, auditService, mfaService, emailSvc)
 	userHandler := handlers.NewUserHandler(q, logger, auditService)
 	organizationHandler := handlers.NewOrganizationHandler(db, redis, logger)
 	groupHandler := handlers.NewGroupHandler(db, redis, logger)
