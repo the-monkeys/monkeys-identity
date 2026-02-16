@@ -8,6 +8,7 @@ import (
 	"github.com/the-monkeys/monkeys-identity/internal/handlers"
 	"github.com/the-monkeys/monkeys-identity/internal/middleware"
 	"github.com/the-monkeys/monkeys-identity/internal/queries"
+	"github.com/the-monkeys/monkeys-identity/internal/services"
 	"github.com/the-monkeys/monkeys-identity/pkg/logger"
 )
 
@@ -17,6 +18,8 @@ func SetupRoutes(
 	redis *redis.Client,
 	logger *logger.Logger,
 	cfg *config.Config,
+	auditService services.AuditService,
+	mfaService services.MFAService,
 ) {
 	// Initialize middleware
 	authMiddleware := middleware.NewAuthMiddleware(cfg.JWTSecret)
@@ -24,19 +27,24 @@ func SetupRoutes(
 	// Initialize queries
 	q := queries.New(db, redis)
 
+	// Initialize services
+	authzSvc := services.NewAuthzService(q)
+	oidcSvc := services.NewOIDCService(q, cfg)
+
 	// Initialize handlers
-	authHandler := handlers.NewAuthHandler(q, redis, logger, cfg)
-	userHandler := handlers.NewUserHandler(q, logger)
+	authHandler := handlers.NewAuthHandler(q, redis, logger, cfg, auditService, mfaService)
+	userHandler := handlers.NewUserHandler(q, logger, auditService)
 	organizationHandler := handlers.NewOrganizationHandler(db, redis, logger)
 	groupHandler := handlers.NewGroupHandler(db, redis, logger)
 	resourceHandler := handlers.NewResourceHandler(db, redis, logger)
-	policyHandler := handlers.NewPolicyHandler(db, redis, logger)
+	policyHandler := handlers.NewPolicyHandler(db, redis, logger, auditService, authzSvc)
 	roleHandler := handlers.NewRoleHandler(db, redis, logger)
 	sessionHandler := handlers.NewSessionHandler(db, redis, logger)
+	oidcHandler := handlers.NewOIDCHandler(oidcSvc, q, *logger)
 
 	// Create queries instance for audit handler
-	queries := queries.New(db, redis)
-	auditHandler := handlers.NewAuditHandler(queries, logger)
+	auditQueries := queries.New(db, redis)
+	auditHandler := handlers.NewAuditHandler(auditQueries, logger, auditService)
 
 	// Public routes (no authentication required)
 	public := api.Group("/public")
@@ -48,6 +56,7 @@ func SetupRoutes(
 	// Authentication routes
 	auth := api.Group("/auth")
 	auth.Post("/login", authHandler.Login)
+	auth.Post("/login/mfa-verify", authHandler.LoginMFAVerify)
 	auth.Post("/register", authHandler.Register)
 	auth.Post("/refresh", authHandler.RefreshToken)
 	auth.Post("/logout", authMiddleware.RequireAuth(), authHandler.Logout)
@@ -58,6 +67,16 @@ func SetupRoutes(
 
 	// Bootstrap admin creation (no auth required for initial setup)
 	auth.Post("/create-admin", authHandler.CreateAdminUser)
+
+	// OIDC/Federation routes
+	federation := api.Group("/")
+	federation.Get("/.well-known/openid-configuration", oidcHandler.GetDiscovery)
+	federation.Get("/.well-known/jwks.json", oidcHandler.GetJWKS)
+
+	oauth2 := api.Group("/oauth2")
+	oauth2.Get("/authorize", authMiddleware.RequireAuth(), oidcHandler.Authorize)
+	oauth2.Post("/token", oidcHandler.Token)
+	oauth2.Get("/userinfo", authMiddleware.RequireAuth(), oidcHandler.UserInfo)
 
 	// MFA routes
 	mfa := auth.Group("/mfa")
@@ -104,24 +123,24 @@ func SetupRoutes(
 	groups.Post("/", authMiddleware.RequireRole("admin"), groupHandler.CreateGroup)
 	groups.Get("/:id", groupHandler.GetGroup)
 	groups.Put("/:id", authMiddleware.RequireRole("admin"), groupHandler.UpdateGroup)
-	groups.Delete("/:id", authMiddleware.RequireRole("admin"), groupHandler.DeleteGroup)
+	groups.Delete("/:id", authMiddleware.RequirePermission(authzSvc, "monkeys:iam:delete_group"), groupHandler.DeleteGroup)
 	groups.Get("/:id/members", groupHandler.GetGroupMembers)
-	groups.Post("/:id/members", authMiddleware.RequireRole("admin"), groupHandler.AddGroupMember)
-	groups.Delete("/:id/members/:user_id", authMiddleware.RequireRole("admin"), groupHandler.RemoveGroupMember)
-	groups.Get("/:id/permissions", groupHandler.GetGroupPermissions)
+	groups.Post("/:id/members", authMiddleware.RequirePermission(authzSvc, "monkeys:iam:manage_group_membership"), groupHandler.AddGroupMember)
+	groups.Delete("/:id/members/:user_id", authMiddleware.RequirePermission(authzSvc, "monkeys:iam:manage_group_membership"), groupHandler.RemoveGroupMember)
+	groups.Get("/:id/permissions", authMiddleware.RequirePermission(authzSvc, "monkeys:iam:view_group_permissions"), groupHandler.GetGroupPermissions)
 
 	// Resource management routes
 	resources := protected.Group("/resources")
 	resources.Get("/", resourceHandler.ListResources)
 	resources.Post("/", resourceHandler.CreateResource)
 	resources.Get("/:id", resourceHandler.GetResource)
-	resources.Put("/:id", resourceHandler.UpdateResource)
-	resources.Delete("/:id", resourceHandler.DeleteResource)
-	resources.Get("/:id/permissions", resourceHandler.GetResourcePermissions)
-	resources.Post("/:id/permissions", authMiddleware.RequireRole("admin"), resourceHandler.SetResourcePermissions)
-	resources.Get("/:id/access-log", resourceHandler.GetResourceAccessLog)
-	resources.Post("/:id/share", resourceHandler.ShareResource)
-	resources.Delete("/:id/share", resourceHandler.UnshareResource)
+	resources.Put("/:id", authMiddleware.RequirePermission(authzSvc, "monkeys:resource:update"), resourceHandler.UpdateResource)
+	resources.Delete("/:id", authMiddleware.RequirePermission(authzSvc, "monkeys:resource:delete"), resourceHandler.DeleteResource)
+	resources.Get("/:id/permissions", authMiddleware.RequirePermission(authzSvc, "monkeys:resource:view_permissions"), resourceHandler.GetResourcePermissions)
+	resources.Post("/:id/permissions", authMiddleware.RequirePermission(authzSvc, "monkeys:resource:manage_permissions"), resourceHandler.SetResourcePermissions)
+	resources.Get("/:id/access-log", authMiddleware.RequirePermission(authzSvc, "monkeys:resource:view_audit"), resourceHandler.GetResourceAccessLog)
+	resources.Post("/:id/share", authMiddleware.RequirePermission(authzSvc, "monkeys:resource:share"), resourceHandler.ShareResource)
+	resources.Delete("/:id/share", authMiddleware.RequirePermission(authzSvc, "monkeys:resource:unshare"), resourceHandler.UnshareResource)
 
 	// Policy management routes
 	policies := protected.Group("/policies")

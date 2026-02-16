@@ -24,6 +24,7 @@
 package main
 
 import (
+	"context"
 	"log"
 	"os/exec"
 	"runtime"
@@ -40,7 +41,9 @@ import (
 	"github.com/the-monkeys/monkeys-identity/internal/config"
 	"github.com/the-monkeys/monkeys-identity/internal/database"
 	"github.com/the-monkeys/monkeys-identity/internal/middleware"
+	"github.com/the-monkeys/monkeys-identity/internal/queries"
 	"github.com/the-monkeys/monkeys-identity/internal/routes"
+	"github.com/the-monkeys/monkeys-identity/internal/services"
 	"github.com/the-monkeys/monkeys-identity/pkg/logger"
 )
 
@@ -118,8 +121,16 @@ func main() {
 	api := app.Group("/api")
 	v1 := api.Group("/v1")
 
+	// Initialize services
+	auditQueries := queries.New(db, redis).Audit
+	auditService := services.NewAuditService(auditQueries, appLogger)
+	auditService.Start(context.Background())
+	defer auditService.Stop()
+
+	mfaService := services.NewMFAService(appLogger)
+
 	// Initialize routes
-	routes.SetupRoutes(v1, db, redis, appLogger, cfg)
+	routes.SetupRoutes(v1, db, redis, appLogger, cfg, auditService, mfaService)
 
 	// Function to open browser
 	openBrowser := func(url string) {

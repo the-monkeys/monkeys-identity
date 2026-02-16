@@ -19,16 +19,18 @@ type AuthQueries interface {
 	WithContext(ctx context.Context) AuthQueries
 
 	// User management
-	GetUserByEmail(email string) (*models.User, error)
-	GetUserByID(id string) (*models.User, error)
+	GetUserByEmail(email string, organizationID string) (*models.User, error)
+	GetUserByID(id string, organizationID string) (*models.User, error)
 	CreateUser(user *models.User) error
 	CreateAdminUser(user *models.User) error
 	CheckAdminExists() (bool, error)
-	UpdateUser(user *models.User) error
-	UpdateLastLogin(userID string) error
-	UpdatePassword(userID, passwordHash string) error
-	UpdateEmailVerification(userID string, verified bool) error
-	GetPrimaryRoleForUser(userID string) (string, error)
+	UpdateUser(user *models.User, organizationID string) error
+	UpdateLastLogin(userID string, organizationID string) error
+	UpdatePassword(userID, passwordHash string, organizationID string) error
+	UpdateEmailVerification(userID string, verified bool, organizationID string) error
+	GetPrimaryRoleForUser(userID string, organizationID string) (string, error)
+	EnableMFA(userID, organizationID string, secret string, backupCodes []string) error
+	DisableMFA(userID, organizationID string) error
 
 	// Session management
 	CreateSession(sessionID, userID, token string) error
@@ -110,12 +112,17 @@ func (q *authQueries) query(query string, args ...interface{}) (*sql.Rows, error
 }
 
 // GetUserByEmail retrieves a user by email address
-func (q *authQueries) GetUserByEmail(email string) (*models.User, error) {
+func (q *authQueries) GetUserByEmail(email string, organizationID string) (*models.User, error) {
 	query := `
 		SELECT id, username, email, display_name, organization_id, password_hash, 
-		       status, email_verified, created_at, updated_at, last_login
-		FROM users WHERE email = $1 AND deleted_at IS NULL
-	`
+		       status, email_verified, mfa_enabled, mfa_methods, totp_secret, mfa_backup_codes,
+		       created_at, updated_at, last_login
+		FROM users WHERE email = $1 AND deleted_at IS NULL`
+	args := []interface{}{email}
+	if organizationID != "" {
+		query += " AND organization_id = $2"
+		args = append(args, organizationID)
+	}
 
 	var user models.User
 	var lastLogin *time.Time
@@ -123,7 +130,9 @@ func (q *authQueries) GetUserByEmail(email string) (*models.User, error) {
 	err := q.queryRow(query, email).Scan(
 		&user.ID, &user.Username, &user.Email, &user.DisplayName,
 		&user.OrganizationID, &user.PasswordHash, &user.Status,
-		&user.EmailVerified, &user.CreatedAt, &user.UpdatedAt, &lastLogin,
+		&user.EmailVerified, &user.MFAEnabled, (*database.StringArray)(&user.MFAMethods),
+		&user.TOTPSecret, (*database.StringArray)(&user.MFABackupCodes),
+		&user.CreatedAt, &user.UpdatedAt, &lastLogin,
 	)
 
 	if err != nil {
@@ -138,20 +147,27 @@ func (q *authQueries) GetUserByEmail(email string) (*models.User, error) {
 }
 
 // GetUserByID retrieves a user by ID
-func (q *authQueries) GetUserByID(id string) (*models.User, error) {
+func (q *authQueries) GetUserByID(id string, organizationID string) (*models.User, error) {
 	query := `
 		SELECT id, username, email, display_name, organization_id, password_hash, 
-		       status, email_verified, created_at, updated_at, last_login
-		FROM users WHERE id = $1 AND deleted_at IS NULL
-	`
+		       status, email_verified, mfa_enabled, mfa_methods, totp_secret, mfa_backup_codes,
+		       created_at, updated_at, last_login
+		FROM users WHERE id = $1 AND deleted_at IS NULL`
+	args := []interface{}{id}
+	if organizationID != "" {
+		query += " AND organization_id = $2"
+		args = append(args, organizationID)
+	}
 
 	var user models.User
 	var lastLogin *time.Time
 
-	err := q.queryRow(query, id).Scan(
+	err := q.queryRow(query, args...).Scan(
 		&user.ID, &user.Username, &user.Email, &user.DisplayName,
 		&user.OrganizationID, &user.PasswordHash, &user.Status,
-		&user.EmailVerified, &user.CreatedAt, &user.UpdatedAt, &lastLogin,
+		&user.EmailVerified, &user.MFAEnabled, (*database.StringArray)(&user.MFAMethods),
+		&user.TOTPSecret, (*database.StringArray)(&user.MFABackupCodes),
+		&user.CreatedAt, &user.UpdatedAt, &lastLogin,
 	)
 
 	if err != nil {
@@ -391,7 +407,7 @@ func (q *authQueries) organizationExists(tx *sql.Tx, organizationID string) (boo
 	return exists, err
 }
 
-func (q *authQueries) GetPrimaryRoleForUser(userID string) (string, error) {
+func (q *authQueries) GetPrimaryRoleForUser(userID string, organizationID string) (string, error) {
 	query := `
 		SELECT r.name
 		FROM role_assignments ra
@@ -399,6 +415,7 @@ func (q *authQueries) GetPrimaryRoleForUser(userID string) (string, error) {
 		WHERE ra.principal_id = $1
 		  AND ra.principal_type = 'user'
 		  AND r.deleted_at IS NULL
+		  AND r.organization_id = $2
 		ORDER BY r.created_at ASC
 		LIMIT 1
 	`
@@ -410,7 +427,7 @@ func (q *authQueries) GetPrimaryRoleForUser(userID string) (string, error) {
 		db = q.tx
 	}
 
-	err := db.QueryRowContext(q.ctx, query, userID).Scan(&role)
+	err := db.QueryRowContext(q.ctx, query, userID, organizationID).Scan(&role)
 	if err == sql.ErrNoRows {
 		return "", nil
 	}
@@ -442,40 +459,68 @@ func (q *authQueries) CheckAdminExists() (bool, error) {
 }
 
 // UpdateUser updates an existing user
-func (q *authQueries) UpdateUser(user *models.User) error {
+func (q *authQueries) UpdateUser(user *models.User, organizationID string) error {
 	query := `
 		UPDATE users 
 		SET username = $2, email = $3, display_name = $4, organization_id = $5, 
 		    status = $6, email_verified = $7, updated_at = $8
-		WHERE id = $1 AND deleted_at IS NULL
+		WHERE id = $1 AND organization_id = $9 AND deleted_at IS NULL
 	`
 
 	_, err := q.exec(query,
 		user.ID, user.Username, user.Email, user.DisplayName,
-		user.OrganizationID, user.Status, user.EmailVerified, user.UpdatedAt,
+		user.OrganizationID, user.Status, user.EmailVerified, user.UpdatedAt, organizationID,
 	)
 
 	return err
 }
 
 // UpdateLastLogin updates the last login timestamp for a user
-func (q *authQueries) UpdateLastLogin(userID string) error {
-	query := `UPDATE users SET last_login = $1 WHERE id = $2`
-	_, err := q.exec(query, time.Now(), userID)
+func (q *authQueries) UpdateLastLogin(userID string, organizationID string) error {
+	query := `UPDATE users SET last_login = $1 WHERE id = $2 AND organization_id = $3`
+	_, err := q.exec(query, time.Now(), userID, organizationID)
 	return err
 }
 
 // UpdatePassword updates a user's password hash
-func (q *authQueries) UpdatePassword(userID, passwordHash string) error {
-	query := `UPDATE users SET password_hash = $1, password_changed_at = $2, updated_at = $3 WHERE id = $4`
-	_, err := q.exec(query, passwordHash, time.Now(), time.Now(), userID)
+func (q *authQueries) UpdatePassword(userID, passwordHash string, organizationID string) error {
+	query := `UPDATE users SET password_hash = $1, password_changed_at = $2, updated_at = $3 WHERE id = $4 AND organization_id = $5`
+	_, err := q.exec(query, passwordHash, time.Now(), time.Now(), userID, organizationID)
 	return err
 }
 
 // UpdateEmailVerification updates a user's email verification status
-func (q *authQueries) UpdateEmailVerification(userID string, verified bool) error {
-	query := `UPDATE users SET email_verified = $1, updated_at = $2 WHERE id = $3`
-	_, err := q.exec(query, verified, time.Now(), userID)
+func (q *authQueries) UpdateEmailVerification(userID string, verified bool, organizationID string) error {
+	query := `UPDATE users SET email_verified = $1, updated_at = $2 WHERE id = $3 AND organization_id = $4`
+	_, err := q.exec(query, verified, time.Now(), userID, organizationID)
+	return err
+}
+
+func (q *authQueries) EnableMFA(userID, organizationID string, secret string, backupCodes []string) error {
+	query := `
+		UPDATE users 
+		SET mfa_enabled = TRUE, 
+		    mfa_methods = ARRAY['totp']::mfa_method[], 
+		    totp_secret = $1, 
+		    mfa_backup_codes = $2,
+		    updated_at = $3
+		WHERE id = $4 AND organization_id = $5
+	`
+	_, err := q.exec(query, secret, database.StringArray(backupCodes), time.Now(), userID, organizationID)
+	return err
+}
+
+func (q *authQueries) DisableMFA(userID, organizationID string) error {
+	query := `
+		UPDATE users 
+		SET mfa_enabled = FALSE, 
+		    mfa_methods = '{}', 
+		    totp_secret = NULL, 
+		    mfa_backup_codes = NULL,
+		    updated_at = $1
+		WHERE id = $2 AND organization_id = $3
+	`
+	_, err := q.exec(query, time.Now(), userID, organizationID)
 	return err
 }
 

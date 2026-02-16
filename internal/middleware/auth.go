@@ -1,11 +1,14 @@
 package middleware
 
 import (
+	"fmt"
 	"strings"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/the-monkeys/monkeys-identity/internal/authz"
+	"github.com/the-monkeys/monkeys-identity/internal/services"
 )
 
 type AuthMiddleware struct {
@@ -110,6 +113,49 @@ func (am *AuthMiddleware) RequireRole(allowedRoles ...string) fiber.Handler {
 			"error":   "Insufficient permissions",
 			"success": false,
 		})
+	}
+}
+
+// RequirePermission validates user has specific permission using AuthzService
+func (am *AuthMiddleware) RequirePermission(authzSvc services.AuthzService, action string) fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		userID := c.Locals("user_id").(string)
+		orgID := c.Locals("organization_id").(string)
+
+		// Determine resource ARN.
+		// For now, we use a convention: if :id is in path, it's the resource.
+		// Otherwise, we use a generic resource or let the handler specify it.
+		// In a real system, this might be more complex.
+		resource := "*"
+		if id := c.Params("id"); id != "" {
+			// Extract resource type from path if possible, or use generic
+			pathParts := strings.Split(strings.Trim(c.Path(), "/"), "/")
+			resType := "resource"
+			if len(pathParts) > 1 {
+				resType = pathParts[len(pathParts)-2] // e.g. /users/:id -> users
+			}
+			resource = fmt.Sprintf("arn:monkeys:resource:%s:%s/%s", orgID, resType, id)
+		}
+
+		decision, err := authzSvc.Authorize(c.Context(), userID, "user", orgID, action, resource, map[string]interface{}{
+			"ip": c.IP(),
+		})
+
+		if err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"error":   "Authorization check failed",
+				"success": false,
+			})
+		}
+
+		if decision != authz.DecisionAllow {
+			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+				"error":   "Forbidden: Insufficient permissions",
+				"success": false,
+			})
+		}
+
+		return c.Next()
 	}
 }
 

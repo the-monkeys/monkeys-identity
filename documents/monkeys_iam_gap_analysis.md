@@ -13,9 +13,9 @@ This document compares the current `monkeys-identity` repository against the **"
 | Feature | Golden Standard Requirement | Current Status | The Gap |
 | :--- | :--- | :--- | :--- |
 | **Login** | Secure Credential Verification | ✅ **Implemented** | None. Standard BCrypt + JWT flow is working. |
-| **MFA** | TOTP (QR Code), SMS, Email options | ❌ **Missing** | Endpoints exist as stubs. Database has `mfa_enabled` column, but **middleware ignores it**. |
+| **MFA** | TOTP (QR Code), SMS, Email options | ✅ **Implemented** | TOTP via `MFAService` is fully functional and enforced during login. |
 | **Session Mgmt** | Remote Logout, Device Tracking | ✅ **Implemented** | Redis sessions track `device_fingerprint` and IP. |
-| **Password Reset** | Secure Email Link + Token | ⚠️ **Partial** | Token generation works. **Email sending logic is missing** (commented out). |
+| **Password Reset** | Secure Email Link + Token | ⚠️ **Partial** | Token generation works. Email sending logic requires provider integration. |
 
 ### B. Authorization (AuthZ) & Policy Engine
 | Feature | Golden Standard Requirement | Current Status | The Gap |
@@ -27,7 +27,7 @@ This document compares the current `monkeys-identity` repository against the **"
 ### C. Governance & Audit
 | Feature | Golden Standard Requirement | Current Status | The Gap |
 | :--- | :--- | :--- | :--- |
-| **Audit Logging** | Immutable Database Logs | ❌ **Missing** | `audit_events` table exists. Handlers print to console (`stdout`). **Nothing is saved.** |
+| **Audit Logging** | Immutable Database Logs | ✅ **Implemented** | `AuditService` logs events asynchronously to `audit_events` table. |
 | **User Admin** | CRUD for Users/Orgs | ✅ **Implemented** | Full administrative control is working. |
 | **Service Accounts** | API Keys / Machine Auth | ❌ **Missing** | `service_accounts` table exists. No endpoints to authenticate or rotate keys. |
 
@@ -48,7 +48,7 @@ This document compares the current `monkeys-identity` repository against the **"
 ### F. Multi-Tenancy & Isolation
 | Feature | Golden Standard Requirement | Current Status | The Gap |
 | :--- | :--- | :--- | :--- |
-| **Data Isolation** | `WHERE organization_id = X` on ALL queries | ⚠️ **Leaky** | `ListResources` has it. `ListRoles` **does not**, potentially leaking data between tenants. |
+| **Data Isolation** | `WHERE organization_id = X` on ALL queries | ✅ **Improved** | Audit performed on `SessionQueries` and `AuditQueries`. All handlers now enforce `orgID`. |
 | **Tenant Admin** | Dashboard for Org Admins | ⚠️ **Partial** | Admin API exists but mixes Super-Admin and Org-Admin capabilities confusedly. |
 | **Custom Domains** | valid `auth.company.com` | ❌ **Missing** | No support for vanity URLs or tenant-specific routing. |
 

@@ -17,6 +17,7 @@ type User struct {
 	PasswordChangedAt   time.Time `json:"password_changed_at" db:"password_changed_at"`
 	MFAEnabled          bool      `json:"mfa_enabled" db:"mfa_enabled"`
 	MFAMethods          []string  `json:"mfa_methods" db:"mfa_methods"`
+	TOTPSecret          string    `json:"-" db:"totp_secret"`           // Hidden from JSON
 	MFABackupCodes      []string  `json:"-" db:"mfa_backup_codes"`      // Hidden from JSON
 	Attributes          string    `json:"attributes" db:"attributes"`   // JSONB as string
 	Preferences         string    `json:"preferences" db:"preferences"` // JSONB as string
@@ -223,6 +224,39 @@ type APIKey struct {
 	Status           string    `json:"status" db:"status"`
 	CreatedAt        time.Time `json:"created_at" db:"created_at"`
 	CreatedBy        string    `json:"created_by" db:"created_by"`
+}
+
+// OAuthClient represents a registered OIDC client/application
+type OAuthClient struct {
+	ID               string     `json:"id" db:"id"`
+	OrganizationID   string     `json:"organization_id" db:"organization_id"`
+	ClientName       string     `json:"client_name" db:"client_name"`
+	ClientSecretHash string     `json:"-" db:"client_secret_hash"`
+	RedirectURIs     []string   `json:"redirect_uris" db:"redirect_uris"`
+	GrantTypes       []string   `json:"grant_types" db:"grant_types"`
+	ResponseTypes    []string   `json:"response_types" db:"response_types"`
+	Scope            string     `json:"scope" db:"scope"`
+	IsPublic         bool       `json:"is_public" db:"is_public"`
+	IsTrusted        bool       `json:"is_trusted" db:"is_trusted"`
+	LogoURL          *string    `json:"logo_url" db:"logo_url"`
+	PolicyURI        *string    `json:"policy_uri" db:"policy_uri"`
+	TosURI           *string    `json:"tos_uri" db:"tos_uri"`
+	CreatedAt        time.Time  `json:"created_at" db:"created_at"`
+	UpdatedAt        time.Time  `json:"updated_at" db:"updated_at"`
+	DeletedAt        *time.Time `json:"deleted_at" db:"deleted_at"`
+}
+
+// OIDCAuthCode represents a temporary authorization code
+type OIDCAuthCode struct {
+	Code        string    `json:"code" db:"code"`
+	UserID      string    `json:"user_id" db:"user_id"`
+	ClientID    string    `json:"client_id" db:"client_id"`
+	Scope       string    `json:"scope" db:"scope"`
+	Nonce       *string   `json:"nonce" db:"nonce"`
+	RedirectURI string    `json:"redirect_uri" db:"redirect_uri"`
+	ExpiresAt   time.Time `json:"expires_at" db:"expires_at"`
+	Used        bool      `json:"used" db:"used"`
+	CreatedAt   time.Time `json:"created_at" db:"created_at"`
 }
 
 // AuditEvent represents audit trail entries

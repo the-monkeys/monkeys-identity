@@ -27,19 +27,21 @@ type ResourceQueries interface {
 	// Resource CRUD operations
 	ListResources(params ListParams, organizationID string) (*ListResult[*models.Resource], error)
 	CreateResource(resource *models.Resource) error
-	GetResource(id string) (*models.Resource, error)
-	UpdateResource(resource *models.Resource) error
-	DeleteResource(id string) error
+	GetResource(id, organizationID string) (*models.Resource, error)
+	UpdateResource(resource *models.Resource, organizationID string) error
+	DeleteResource(id, organizationID string) error
 
 	// Resource permissions
-	GetResourcePermissions(resourceID string) ([]ResourcePermission, error)
-	SetResourcePermissions(resourceID string, permissions []ResourcePermission) error
-	GetResourceAccessLog(resourceID string, params ListParams) (*ListResult[*ResourceAccessLog], error)
+	GetResourcePermissions(resourceID, organizationID string) ([]ResourcePermission, error)
+	SetResourcePermissions(resourceID, organizationID string, permissions []ResourcePermission) error
+	GetResourceAccessLog(resourceID, organizationID string, params ListParams) (*ListResult[*ResourceAccessLog], error)
 
 	// Resource sharing
-	ShareResource(share *ResourceShare) error
-	UnshareResource(resourceID, principalID, principalType string) error
-	GetResourceShares(resourceID string) ([]ResourceShare, error)
+	ShareResource(share *ResourceShare, organizationID string) error
+	UnshareResource(resourceID, organizationID, principalID, principalType string) error
+	GetResourceShares(resourceID, organizationID string) ([]ResourceShare, error)
+	GetPrincipalShares(principalID, principalType, organizationID string) ([]ResourceShare, error)
+	GetPrincipalPermissions(principalID, principalType, organizationID string) ([]ResourcePermission, error)
 }
 
 type ResourcePermission struct {
@@ -206,14 +208,14 @@ func (q *resourceQueries) CreateResource(resource *models.Resource) error {
 	return nil
 }
 
-func (q *resourceQueries) GetResource(id string) (*models.Resource, error) {
+func (q *resourceQueries) GetResource(id, organizationID string) (*models.Resource, error) {
 	query := `
 		SELECT id, arn, name, description, type, organization_id, parent_resource_id,
 		       owner_id, owner_type, attributes, tags, encryption_key_id, lifecycle_policy,
 		       access_level, content_type, size_bytes, checksum, version, status,
 		       created_at, updated_at, accessed_at, deleted_at
 		FROM resources 
-		WHERE id = $1 AND deleted_at IS NULL`
+		WHERE id = $1 AND organization_id = $2 AND deleted_at IS NULL`
 
 	var db DBTX = q.db
 	if q.tx != nil {
@@ -221,7 +223,7 @@ func (q *resourceQueries) GetResource(id string) (*models.Resource, error) {
 	}
 
 	var r models.Resource
-	err := db.QueryRowContext(q.ctx, query, id).Scan(
+	err := db.QueryRowContext(q.ctx, query, id, organizationID).Scan(
 		&r.ID, &r.ARN, &r.Name, &r.Description, &r.Type, &r.OrganizationID,
 		&r.ParentResourceID, &r.OwnerID, &r.OwnerType, &r.Attributes, &r.Tags,
 		&r.EncryptionKeyID, &r.LifecyclePolicy, &r.AccessLevel, &r.ContentType,
@@ -238,7 +240,7 @@ func (q *resourceQueries) GetResource(id string) (*models.Resource, error) {
 	return &r, nil
 }
 
-func (q *resourceQueries) UpdateResource(resource *models.Resource) error {
+func (q *resourceQueries) UpdateResource(resource *models.Resource, organizationID string) error {
 	query := `
 		UPDATE resources SET
 			name = $2, description = $3, type = $4, parent_resource_id = $5,
@@ -246,7 +248,7 @@ func (q *resourceQueries) UpdateResource(resource *models.Resource) error {
 			encryption_key_id = $10, lifecycle_policy = $11, access_level = $12,
 			content_type = $13, size_bytes = $14, checksum = $15, version = $16,
 			status = $17, updated_at = $18
-		WHERE id = $1 AND deleted_at IS NULL`
+		WHERE id = $1 AND organization_id = $19 AND deleted_at IS NULL`
 
 	var db DBTX = q.db
 	if q.tx != nil {
@@ -259,7 +261,7 @@ func (q *resourceQueries) UpdateResource(resource *models.Resource) error {
 		resource.Attributes, resource.Tags, resource.EncryptionKeyID,
 		resource.LifecyclePolicy, resource.AccessLevel, resource.ContentType,
 		resource.SizeBytes, resource.Checksum, resource.Version,
-		resource.Status, time.Now())
+		resource.Status, time.Now(), organizationID)
 
 	if err != nil {
 		return fmt.Errorf("failed to update resource: %w", err)
@@ -277,15 +279,15 @@ func (q *resourceQueries) UpdateResource(resource *models.Resource) error {
 	return nil
 }
 
-func (q *resourceQueries) DeleteResource(id string) error {
-	query := `UPDATE resources SET deleted_at = $2 WHERE id = $1 AND deleted_at IS NULL`
+func (q *resourceQueries) DeleteResource(id, organizationID string) error {
+	query := `UPDATE resources SET deleted_at = $3 WHERE id = $1 AND organization_id = $2 AND deleted_at IS NULL`
 
 	var db DBTX = q.db
 	if q.tx != nil {
 		db = q.tx
 	}
 
-	result, err := db.ExecContext(q.ctx, query, id, time.Now())
+	result, err := db.ExecContext(q.ctx, query, id, organizationID, time.Now())
 	if err != nil {
 		return fmt.Errorf("failed to delete resource: %w", err)
 	}
@@ -302,19 +304,20 @@ func (q *resourceQueries) DeleteResource(id string) error {
 	return nil
 }
 
-func (q *resourceQueries) GetResourcePermissions(resourceID string) ([]ResourcePermission, error) {
+func (q *resourceQueries) GetResourcePermissions(resourceID, organizationID string) ([]ResourcePermission, error) {
 	query := `
-		SELECT id, resource_id, principal_id, principal_type, permission, effect, created_at, created_by
-		FROM resource_permissions 
-		WHERE resource_id = $1
-		ORDER BY created_at DESC`
+		SELECT rp.id, rp.resource_id, rp.principal_id, rp.principal_type, rp.permission, rp.effect, rp.created_at, rp.created_by
+		FROM resource_permissions rp
+		JOIN resources r ON rp.resource_id = r.id
+		WHERE rp.resource_id = $1 AND r.organization_id = $2
+		ORDER BY rp.created_at DESC`
 
 	var db DBTX = q.db
 	if q.tx != nil {
 		db = q.tx
 	}
 
-	rows, err := db.QueryContext(q.ctx, query, resourceID)
+	rows, err := db.QueryContext(q.ctx, query, resourceID, organizationID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get resource permissions: %w", err)
 	}
@@ -334,14 +337,25 @@ func (q *resourceQueries) GetResourcePermissions(resourceID string) ([]ResourceP
 	return permissions, nil
 }
 
-func (q *resourceQueries) SetResourcePermissions(resourceID string, permissions []ResourcePermission) error {
+func (q *resourceQueries) SetResourcePermissions(resourceID, organizationID string, permissions []ResourcePermission) error {
 	var db DBTX = q.db
 	if q.tx != nil {
 		db = q.tx
 	}
 
+	// Verify resource exists in organization
+	var exists bool
+	checkQuery := `SELECT EXISTS(SELECT 1 FROM resources WHERE id = $1 AND organization_id = $2)`
+	err := db.QueryRowContext(q.ctx, checkQuery, resourceID, organizationID).Scan(&exists)
+	if err != nil {
+		return fmt.Errorf("failed to verify resource: %w", err)
+	}
+	if !exists {
+		return fmt.Errorf("resource not found or not in organization")
+	}
+
 	// Delete existing permissions
-	_, err := db.ExecContext(q.ctx, "DELETE FROM resource_permissions WHERE resource_id = $1", resourceID)
+	_, err = db.ExecContext(q.ctx, "DELETE FROM resource_permissions WHERE resource_id = $1", resourceID)
 	if err != nil {
 		return fmt.Errorf("failed to delete existing permissions: %w", err)
 	}
@@ -363,12 +377,13 @@ func (q *resourceQueries) SetResourcePermissions(resourceID string, permissions 
 	return nil
 }
 
-func (q *resourceQueries) GetResourceAccessLog(resourceID string, params ListParams) (*ListResult[*ResourceAccessLog], error) {
+func (q *resourceQueries) GetResourceAccessLog(resourceID, organizationID string, params ListParams) (*ListResult[*ResourceAccessLog], error) {
 	query := `
-		SELECT id, resource_id, user_id, action, ip_address, user_agent, timestamp, success, details
-		FROM resource_access_log 
-		WHERE resource_id = $1
-		ORDER BY timestamp DESC
+		SELECT ral.id, ral.resource_id, ral.user_id, ral.action, ral.ip_address, ral.user_agent, ral.timestamp, ral.success, ral.details
+		FROM resource_access_log ral
+		JOIN resources r ON ral.resource_id = r.id
+		WHERE ral.resource_id = $1 AND r.organization_id = $4
+		ORDER BY ral.timestamp DESC
 		LIMIT $2 OFFSET $3`
 
 	var db DBTX = q.db
@@ -376,7 +391,7 @@ func (q *resourceQueries) GetResourceAccessLog(resourceID string, params ListPar
 		db = q.tx
 	}
 
-	rows, err := db.QueryContext(q.ctx, query, resourceID, params.Limit, params.Offset)
+	rows, err := db.QueryContext(q.ctx, query, resourceID, params.Limit, params.Offset, organizationID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get access log: %w", err)
 	}
@@ -395,7 +410,12 @@ func (q *resourceQueries) GetResourceAccessLog(resourceID string, params ListPar
 
 	// Get total count
 	var total int
-	err = db.QueryRowContext(q.ctx, "SELECT COUNT(*) FROM resource_access_log WHERE resource_id = $1", resourceID).Scan(&total)
+	countQuery := `
+		SELECT COUNT(*) 
+		FROM resource_access_log ral
+		JOIN resources r ON ral.resource_id = r.id
+		WHERE ral.resource_id = $1 AND r.organization_id = $2`
+	err = db.QueryRowContext(q.ctx, countQuery, resourceID, organizationID).Scan(&total)
 	if err != nil {
 		return nil, fmt.Errorf("failed to count access log: %w", err)
 	}
@@ -416,17 +436,28 @@ func (q *resourceQueries) GetResourceAccessLog(resourceID string, params ListPar
 	}, nil
 }
 
-func (q *resourceQueries) ShareResource(share *ResourceShare) error {
-	query := `
-		INSERT INTO resource_shares (id, resource_id, principal_id, principal_type, access_level, expires_at, shared_by, created_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`
-
+func (q *resourceQueries) ShareResource(share *ResourceShare, organizationID string) error {
 	var db DBTX = q.db
 	if q.tx != nil {
 		db = q.tx
 	}
 
-	_, err := db.ExecContext(q.ctx, query,
+	// Verify resource exists in organization
+	var exists bool
+	checkQuery := `SELECT EXISTS(SELECT 1 FROM resources WHERE id = $1 AND organization_id = $2)`
+	err := db.QueryRowContext(q.ctx, checkQuery, share.ResourceID, organizationID).Scan(&exists)
+	if err != nil {
+		return fmt.Errorf("failed to verify resource: %w", err)
+	}
+	if !exists {
+		return fmt.Errorf("resource not found or not in organization")
+	}
+
+	query := `
+		INSERT INTO resource_shares (id, resource_id, principal_id, principal_type, access_level, expires_at, shared_by, created_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`
+
+	_, err = db.ExecContext(q.ctx, query,
 		share.ID, share.ResourceID, share.PrincipalID, share.PrincipalType,
 		share.AccessLevel, share.ExpiresAt, share.SharedBy, share.CreatedAt)
 
@@ -440,15 +471,18 @@ func (q *resourceQueries) ShareResource(share *ResourceShare) error {
 	return nil
 }
 
-func (q *resourceQueries) UnshareResource(resourceID, principalID, principalType string) error {
-	query := `DELETE FROM resource_shares WHERE resource_id = $1 AND principal_id = $2 AND principal_type = $3`
+func (q *resourceQueries) UnshareResource(resourceID, organizationID, principalID, principalType string) error {
+	query := `
+		DELETE FROM resource_shares 
+		WHERE resource_id = $1 AND principal_id = $2 AND principal_type = $3
+		AND EXISTS (SELECT 1 FROM resources WHERE id = $1 AND organization_id = $4)`
 
 	var db DBTX = q.db
 	if q.tx != nil {
 		db = q.tx
 	}
 
-	result, err := db.ExecContext(q.ctx, query, resourceID, principalID, principalType)
+	result, err := db.ExecContext(q.ctx, query, resourceID, principalID, principalType, organizationID)
 	if err != nil {
 		return fmt.Errorf("failed to unshare resource: %w", err)
 	}
@@ -465,19 +499,20 @@ func (q *resourceQueries) UnshareResource(resourceID, principalID, principalType
 	return nil
 }
 
-func (q *resourceQueries) GetResourceShares(resourceID string) ([]ResourceShare, error) {
+func (q *resourceQueries) GetResourceShares(resourceID, organizationID string) ([]ResourceShare, error) {
 	query := `
-		SELECT id, resource_id, principal_id, principal_type, access_level, expires_at, shared_by, created_at
-		FROM resource_shares 
-		WHERE resource_id = $1 AND (expires_at IS NULL OR expires_at > NOW())
-		ORDER BY created_at DESC`
+		SELECT rs.id, rs.resource_id, rs.principal_id, rs.principal_type, rs.access_level, rs.expires_at, rs.shared_by, rs.created_at
+		FROM resource_shares rs
+		JOIN resources r ON rs.resource_id = r.id
+		WHERE rs.resource_id = $1 AND r.organization_id = $2 AND (rs.expires_at IS NULL OR rs.expires_at > NOW())
+		ORDER BY rs.created_at DESC`
 
 	var db DBTX = q.db
 	if q.tx != nil {
 		db = q.tx
 	}
 
-	rows, err := db.QueryContext(q.ctx, query, resourceID)
+	rows, err := db.QueryContext(q.ctx, query, resourceID, organizationID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get resource shares: %w", err)
 	}
@@ -495,4 +530,61 @@ func (q *resourceQueries) GetResourceShares(resourceID string) ([]ResourceShare,
 	}
 
 	return shares, nil
+}
+
+func (q *resourceQueries) GetPrincipalShares(principalID, principalType, organizationID string) ([]ResourceShare, error) {
+	query := `SELECT rs.id, rs.resource_id, rs.principal_id, rs.principal_type, rs.access_level, rs.expires_at, rs.shared_by, rs.created_at
+	          FROM resource_shares rs
+	          JOIN resources r ON rs.resource_id = r.id
+	          WHERE rs.principal_id = $1 AND rs.principal_type = $2 AND r.organization_id = $3
+	          AND (rs.expires_at IS NULL OR rs.expires_at > NOW())`
+
+	var db DBTX = q.db
+	if q.tx != nil {
+		db = q.tx
+	}
+
+	rows, err := db.QueryContext(q.ctx, query, principalID, principalType, organizationID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get principal shares: %w", err)
+	}
+	defer rows.Close()
+
+	var shares []ResourceShare
+	for rows.Next() {
+		var s ResourceShare
+		if err := rows.Scan(&s.ID, &s.ResourceID, &s.PrincipalID, &s.PrincipalType, &s.AccessLevel, &s.ExpiresAt, &s.SharedBy, &s.CreatedAt); err != nil {
+			return nil, fmt.Errorf("failed to scan share: %w", err)
+		}
+		shares = append(shares, s)
+	}
+	return shares, nil
+}
+
+func (q *resourceQueries) GetPrincipalPermissions(principalID, principalType, organizationID string) ([]ResourcePermission, error) {
+	query := `SELECT id, resource_id, principal_id, principal_type, permission, effect, created_at, created_by
+	          FROM resource_permissions
+	          WHERE principal_id = $1 AND principal_type = $2
+	          AND resource_id IN (SELECT id FROM resources WHERE organization_id = $3)`
+
+	var db DBTX = q.db
+	if q.tx != nil {
+		db = q.tx
+	}
+
+	rows, err := db.QueryContext(q.ctx, query, principalID, principalType, organizationID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get principal permissions: %w", err)
+	}
+	defer rows.Close()
+
+	var perms []ResourcePermission
+	for rows.Next() {
+		var p ResourcePermission
+		if err := rows.Scan(&p.ID, &p.ResourceID, &p.PrincipalID, &p.PrincipalType, &p.Permission, &p.Effect, &p.CreatedAt, &p.CreatedBy); err != nil {
+			return nil, fmt.Errorf("failed to scan permission: %w", err)
+		}
+		perms = append(perms, p)
+	}
+	return perms, nil
 }

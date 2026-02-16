@@ -23,21 +23,21 @@ type PolicyQueries interface {
 	// Policy CRUD operations
 	ListPolicies(params ListParams, organizationID string) (*ListResult[*models.Policy], error)
 	CreatePolicy(policy *models.Policy) error
-	GetPolicy(id string) (*models.Policy, error)
-	UpdatePolicy(policy *models.Policy) error
-	DeletePolicy(id string) error
+	GetPolicy(id, organizationID string) (*models.Policy, error)
+	UpdatePolicy(policy *models.Policy, organizationID string) error
+	DeletePolicy(id, organizationID string) error
 
 	// Policy versioning and approval
-	GetPolicyVersions(policyID string) ([]*PolicyVersion, error)
-	ApprovePolicy(policyID, approvedBy string) error
-	RollbackPolicy(policyID, toVersion string) error
+	GetPolicyVersions(policyID, organizationID string) ([]*PolicyVersion, error)
+	ApprovePolicy(policyID, organizationID, approvedBy string) error
+	RollbackPolicy(policyID, organizationID, toVersion string) error
 
 	// Policy simulation and evaluation
 	SimulatePolicy(request *PolicySimulationRequest) (*PolicySimulationResult, error)
 	EvaluatePolicy(policyDocument string, context *PolicyEvaluationContext) (*PolicyEvaluationResult, error)
-	CheckPermission(request *PermissionCheckRequest) (*PermissionCheckResult, error)
-	BulkCheckPermissions(requests []*PermissionCheckRequest) ([]*PermissionCheckResult, error)
+	BulkCheckPermissions(organizationID string, requests []*PermissionCheckRequest) ([]*PermissionCheckResult, error)
 	GetEffectivePermissions(principalID, principalType, organizationID string) (*EffectivePermissions, error)
+	GetPrincipalPolicies(principalID, principalType, organizationID string) ([]*models.Policy, error)
 }
 
 // Policy versioning and simulation types
@@ -102,11 +102,12 @@ type PolicyEvaluationResult struct {
 }
 
 type PermissionCheckRequest struct {
-	PrincipalID   string                   `json:"principal_id"`
-	PrincipalType string                   `json:"principal_type"`
-	Resource      string                   `json:"resource"`
-	Action        string                   `json:"action"`
-	Context       *PolicyEvaluationContext `json:"context"`
+	PrincipalID    string                   `json:"principal_id"`
+	PrincipalType  string                   `json:"principal_type"`
+	OrganizationID string                   `json:"organization_id"`
+	Resource       string                   `json:"resource"`
+	Action         string                   `json:"action"`
+	Context        *PolicyEvaluationContext `json:"context"`
 }
 
 type PermissionCheckResult struct {
@@ -305,13 +306,13 @@ func (q *policyQueries) CreatePolicy(policy *models.Policy) error {
 	return nil
 }
 
-func (q *policyQueries) GetPolicy(id string) (*models.Policy, error) {
+func (q *policyQueries) GetPolicy(id, organizationID string) (*models.Policy, error) {
 	query := `
 		SELECT id, name, description, version, organization_id, document, policy_type,
 		       effect, is_system_policy, created_by, approved_by, approved_at, status,
 		       created_at, updated_at, deleted_at
 		FROM policies 
-		WHERE id = $1 AND deleted_at IS NULL`
+		WHERE id = $1 AND organization_id = $2 AND deleted_at IS NULL`
 
 	var db DBTX = q.db
 	if q.tx != nil {
@@ -326,7 +327,7 @@ func (q *policyQueries) GetPolicy(id string) (*models.Policy, error) {
 		deletedAt  sql.NullTime
 	)
 
-	err := db.QueryRowContext(q.ctx, query, id).Scan(
+	err := db.QueryRowContext(q.ctx, query, id, organizationID).Scan(
 		&p.ID, &p.Name, &p.Description, &p.Version, &p.OrganizationID,
 		&p.Document, &p.PolicyType, &p.Effect, &p.IsSystemPolicy, &createdBy,
 		&approvedBy, &approvedAt, &p.Status, &p.CreatedAt, &p.UpdatedAt, &deletedAt)
@@ -354,14 +355,14 @@ func (q *policyQueries) GetPolicy(id string) (*models.Policy, error) {
 	return &p, nil
 }
 
-func (q *policyQueries) UpdatePolicy(policy *models.Policy) error {
+func (q *policyQueries) UpdatePolicy(policy *models.Policy, organizationID string) error {
 	// Validate policy document
 	if err := q.validatePolicyDocument(policy.Document); err != nil {
 		return fmt.Errorf("invalid policy document: %w", err)
 	}
 
 	// Get current policy to compare versions
-	currentPolicy, err := q.GetPolicy(policy.ID)
+	currentPolicy, err := q.GetPolicy(policy.ID, organizationID)
 	if err != nil {
 		return err
 	}
@@ -400,7 +401,7 @@ func (q *policyQueries) UpdatePolicy(policy *models.Policy) error {
 		UPDATE policies SET
 			name = $2, description = $3, version = $4, document = $5, policy_type = $6,
 			effect = $7, status = $8, updated_at = $9
-		WHERE id = $1 AND deleted_at IS NULL`
+		WHERE id = $1 AND organization_id = $10 AND deleted_at IS NULL`
 
 	var db DBTX = q.db
 	if q.tx != nil {
@@ -410,7 +411,7 @@ func (q *policyQueries) UpdatePolicy(policy *models.Policy) error {
 	policy.UpdatedAt = time.Now()
 	result, err := db.ExecContext(q.ctx, query,
 		policy.ID, policy.Name, policy.Description, policy.Version, policy.Document,
-		policy.PolicyType, policy.Effect, policy.Status, policy.UpdatedAt)
+		policy.PolicyType, policy.Effect, policy.Status, policy.UpdatedAt, organizationID)
 
 	if err != nil {
 		return fmt.Errorf("failed to update policy: %w", err)
@@ -428,15 +429,15 @@ func (q *policyQueries) UpdatePolicy(policy *models.Policy) error {
 	return nil
 }
 
-func (q *policyQueries) DeletePolicy(id string) error {
-	query := `UPDATE policies SET deleted_at = $2, status = 'deleted' WHERE id = $1 AND deleted_at IS NULL`
+func (q *policyQueries) DeletePolicy(id, organizationID string) error {
+	query := `UPDATE policies SET deleted_at = $3, status = 'deleted' WHERE id = $1 AND organization_id = $2 AND deleted_at IS NULL`
 
 	var db DBTX = q.db
 	if q.tx != nil {
 		db = q.tx
 	}
 
-	result, err := db.ExecContext(q.ctx, query, id, time.Now())
+	result, err := db.ExecContext(q.ctx, query, id, organizationID, time.Now())
 	if err != nil {
 		return fmt.Errorf("failed to delete policy: %w", err)
 	}
@@ -453,19 +454,20 @@ func (q *policyQueries) DeletePolicy(id string) error {
 	return nil
 }
 
-func (q *policyQueries) GetPolicyVersions(policyID string) ([]*PolicyVersion, error) {
+func (q *policyQueries) GetPolicyVersions(policyID, organizationID string) ([]*PolicyVersion, error) {
 	query := `
-		SELECT id, policy_id, version, document, created_by, created_at, status
-		FROM policy_versions 
-		WHERE policy_id = $1
-		ORDER BY created_at DESC`
+		SELECT pv.id, pv.policy_id, pv.version, pv.document, pv.created_by, pv.created_at, pv.status
+		FROM policy_versions pv
+		JOIN policies p ON pv.policy_id = p.id
+		WHERE pv.policy_id = $1 AND p.organization_id = $2
+		ORDER BY pv.created_at DESC`
 
 	var db DBTX = q.db
 	if q.tx != nil {
 		db = q.tx
 	}
 
-	rows, err := db.QueryContext(q.ctx, query, policyID)
+	rows, err := db.QueryContext(q.ctx, query, policyID, organizationID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get policy versions: %w", err)
 	}
@@ -485,11 +487,11 @@ func (q *policyQueries) GetPolicyVersions(policyID string) ([]*PolicyVersion, er
 	return versions, nil
 }
 
-func (q *policyQueries) ApprovePolicy(policyID, approvedBy string) error {
+func (q *policyQueries) ApprovePolicy(policyID, organizationID, approvedBy string) error {
 	query := `
 		UPDATE policies SET 
 			status = 'active', approved_by = $2, approved_at = $3, updated_at = $3
-		WHERE id = $1 AND deleted_at IS NULL`
+		WHERE id = $1 AND organization_id = $4 AND deleted_at IS NULL`
 
 	var db DBTX = q.db
 	if q.tx != nil {
@@ -497,7 +499,7 @@ func (q *policyQueries) ApprovePolicy(policyID, approvedBy string) error {
 	}
 
 	now := time.Now()
-	result, err := db.ExecContext(q.ctx, query, policyID, approvedBy, now)
+	result, err := db.ExecContext(q.ctx, query, policyID, approvedBy, now, organizationID)
 	if err != nil {
 		return fmt.Errorf("failed to approve policy: %w", err)
 	}
@@ -524,9 +526,13 @@ func (q *policyQueries) ApprovePolicy(policyID, approvedBy string) error {
 	return nil
 }
 
-func (q *policyQueries) RollbackPolicy(policyID, toVersion string) error {
+func (q *policyQueries) RollbackPolicy(policyID, organizationID, toVersion string) error {
 	// Get the target version document
-	versionQuery := `SELECT document FROM policy_versions WHERE policy_id = $1 AND version = $2`
+	versionQuery := `
+		SELECT pv.document 
+		FROM policy_versions pv
+		JOIN policies p ON pv.policy_id = p.id
+		WHERE pv.policy_id = $1 AND pv.version = $2 AND p.organization_id = $3`
 
 	var db DBTX = q.db
 	if q.tx != nil {
@@ -534,7 +540,7 @@ func (q *policyQueries) RollbackPolicy(policyID, toVersion string) error {
 	}
 
 	var document string
-	err := db.QueryRowContext(q.ctx, versionQuery, policyID, toVersion).Scan(&document)
+	err := db.QueryRowContext(q.ctx, versionQuery, policyID, toVersion, organizationID).Scan(&document)
 	if err == sql.ErrNoRows {
 		return fmt.Errorf("policy version not found")
 	}
@@ -546,10 +552,10 @@ func (q *policyQueries) RollbackPolicy(policyID, toVersion string) error {
 	updateQuery := `
 		UPDATE policies SET 
 			document = $2, version = $3, status = 'active', updated_at = $4
-		WHERE id = $1 AND deleted_at IS NULL`
+		WHERE id = $1 AND organization_id = $5 AND deleted_at IS NULL`
 
 	now := time.Now()
-	result, err := db.ExecContext(q.ctx, updateQuery, policyID, document, toVersion, now)
+	result, err := db.ExecContext(q.ctx, updateQuery, policyID, document, toVersion, now, organizationID)
 	if err != nil {
 		return fmt.Errorf("failed to rollback policy: %w", err)
 	}
@@ -674,9 +680,15 @@ func (q *policyQueries) EvaluatePolicy(policyDocument string, context *PolicyEva
 	return result, nil
 }
 
-func (q *policyQueries) CheckPermission(request *PermissionCheckRequest) (*PermissionCheckResult, error) {
+func (q *policyQueries) CheckPermission(organizationID string, request *PermissionCheckRequest) (*PermissionCheckResult, error) {
+	// Use organizationID from parameter if provided, otherwise from request
+	orgID := organizationID
+	if orgID == "" {
+		orgID = request.OrganizationID
+	}
+
 	// Get all policies that apply to this principal
-	policies, err := q.getPrincipalPolicies(request.PrincipalID, request.PrincipalType)
+	policies, err := q.getPrincipalPolicies(request.PrincipalID, request.PrincipalType, orgID)
 	if err != nil {
 		return nil, err
 	}
@@ -720,11 +732,11 @@ func (q *policyQueries) CheckPermission(request *PermissionCheckRequest) (*Permi
 	return result, nil
 }
 
-func (q *policyQueries) BulkCheckPermissions(requests []*PermissionCheckRequest) ([]*PermissionCheckResult, error) {
+func (q *policyQueries) BulkCheckPermissions(organizationID string, requests []*PermissionCheckRequest) ([]*PermissionCheckResult, error) {
 	results := make([]*PermissionCheckResult, len(requests))
 
 	for i, request := range requests {
-		result, err := q.CheckPermission(request)
+		result, err := q.CheckPermission(organizationID, request)
 		if err != nil {
 			results[i] = &PermissionCheckResult{
 				Allowed:  false,
@@ -746,7 +758,7 @@ func (q *policyQueries) BulkCheckPermissions(requests []*PermissionCheckRequest)
 
 func (q *policyQueries) GetEffectivePermissions(principalID, principalType, organizationID string) (*EffectivePermissions, error) {
 	// Get all policies for the principal
-	policies, err := q.getPrincipalPolicies(principalID, principalType)
+	policies, err := q.getPrincipalPolicies(principalID, principalType, organizationID)
 	if err != nil {
 		return nil, err
 	}
@@ -919,14 +931,33 @@ func (q *policyQueries) matchesPattern(patterns []string, value string) bool {
 	return false
 }
 
-func (q *policyQueries) getPrincipalPolicies(principalID, principalType string) ([]*models.Policy, error) {
-	// This is a simplified implementation
-	// In reality, you'd need to:
+func (q *policyQueries) GetPrincipalPolicies(principalID, principalType, organizationID string) ([]*models.Policy, error) {
+	return q.getPrincipalPolicies(principalID, principalType, organizationID)
+}
+
+func (q *policyQueries) getPrincipalPolicies(principalID, principalType, organizationID string) ([]*models.Policy, error) {
 	// 1. Get direct policy attachments
-	// 2. Get policies through role assignments
-	// 3. Get policies through group memberships
+	// 2. Get policies through role assignments (Direct + via Groups)
 
 	query := `
+		WITH principal_roles AS (
+			-- Roles assigned directly to the principal
+			SELECT ra.role_id 
+			FROM role_assignments ra
+			WHERE ra.principal_id = $1 AND ra.principal_type = $2
+			  AND (ra.expires_at IS NULL OR ra.expires_at > NOW())
+			
+			UNION
+			
+			-- Roles assigned to groups the principal belongs to
+			SELECT ra.role_id
+			FROM role_assignments ra
+			JOIN group_memberships gm ON ra.principal_id = gm.group_id
+			WHERE gm.principal_id = $1 AND gm.principal_type = $2
+			  AND ra.principal_type = 'group'
+			  AND (ra.expires_at IS NULL OR ra.expires_at > NOW())
+			  AND (gm.expires_at IS NULL OR gm.expires_at > NOW())
+		)
 		SELECT DISTINCT p.id, p.name, p.description, p.version, p.organization_id, 
 		       p.document, p.policy_type, p.effect, p.is_system_policy, 
 		       COALESCE(p.created_by::text, ''), COALESCE(p.approved_by::text, ''), 
@@ -935,15 +966,15 @@ func (q *policyQueries) getPrincipalPolicies(principalID, principalType string) 
 		       COALESCE(p.deleted_at, '0001-01-01'::timestamp)
 		FROM policies p
 		JOIN role_policies rp ON p.id = rp.policy_id
-		JOIN role_assignments ra ON rp.role_id = ra.role_id
-		WHERE ra.principal_id = $1 AND ra.principal_type = $2 AND p.status = 'active'`
+		JOIN principal_roles pr ON rp.role_id = pr.role_id
+		WHERE p.status = 'active' AND p.organization_id = $3`
 
 	var db DBTX = q.db
 	if q.tx != nil {
 		db = q.tx
 	}
 
-	rows, err := db.QueryContext(q.ctx, query, principalID, principalType)
+	rows, err := db.QueryContext(q.ctx, query, principalID, principalType, organizationID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get principal policies: %w", err)
 	}

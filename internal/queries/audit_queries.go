@@ -19,10 +19,10 @@ type AuditQueries interface {
 
 	// Audit Event Operations
 	LogAuditEvent(event models.AuditEvent) error
-	GetAuditEvent(eventID string) (*models.AuditEvent, error)
+	GetAuditEvent(eventID, organizationID string) (*models.AuditEvent, error)
 	ListAuditEvents(params ListAuditEventsParams) ([]models.AuditEvent, int, error)
-	GetAuditEventsByUser(userID string, limit int) ([]models.AuditEvent, error)
-	DeleteOldAuditEvents(olderThan time.Duration) (int64, error)
+	GetAuditEventsByUser(userID, organizationID string, limit int) ([]models.AuditEvent, error)
+	DeleteOldAuditEvents(olderThan time.Duration, organizationID string) (int64, error)
 
 	// Report Generation
 	GenerateAccessReport(params AccessReportParams) (*AccessReportData, error)
@@ -32,10 +32,10 @@ type AuditQueries interface {
 	// Access Review Operations
 	ListAccessReviews(params ListAccessReviewsParams) ([]models.AccessReview, int, error)
 	CreateAccessReview(review models.AccessReview) (*models.AccessReview, error)
-	GetAccessReview(reviewID string) (*models.AccessReview, error)
-	UpdateAccessReview(reviewID string, review models.AccessReview) (*models.AccessReview, error)
-	CompleteAccessReview(reviewID string, findings string, recommendations string) error
-	DeleteAccessReview(reviewID string) error
+	GetAccessReview(reviewID, organizationID string) (*models.AccessReview, error)
+	UpdateAccessReview(reviewID, organizationID string, review models.AccessReview) (*models.AccessReview, error)
+	CompleteAccessReview(reviewID, organizationID string, findings string, recommendations string) error
+	DeleteAccessReview(reviewID, organizationID string) error
 }
 
 type auditQueries struct {
@@ -112,18 +112,18 @@ func (q *auditQueries) LogAuditEvent(event models.AuditEvent) error {
 }
 
 // GetAuditEvent retrieves a specific audit event by ID
-func (q *auditQueries) GetAuditEvent(eventID string) (*models.AuditEvent, error) {
+func (q *auditQueries) GetAuditEvent(eventID, organizationID string) (*models.AuditEvent, error) {
 	query := `
 		SELECT id, event_id, timestamp, organization_id, principal_id, principal_type,
 			   session_id, action, resource_type, resource_id, resource_arn,
 			   result, error_message, ip_address, user_agent, request_id,
 			   additional_context, severity
 		FROM audit_events
-		WHERE id = $1`
+		WHERE id = $1 AND organization_id = $2`
 
 	var event models.AuditEvent
 	db := q.getDB()
-	err := db.QueryRow(query, eventID).Scan(
+	err := db.QueryRow(query, eventID, organizationID).Scan(
 		&event.ID,
 		&event.EventID,
 		&event.Timestamp,
@@ -899,8 +899,8 @@ func (q *auditQueries) GeneratePolicyUsageReport(params PolicyUsageReportParams)
 	return report, nil
 }
 
-// GetAuditEventsByUser retrieves audit events for a specific user
-func (q *auditQueries) GetAuditEventsByUser(userID string, limit int) ([]models.AuditEvent, error) {
+// GetAuditEventsByUser retrieves audit events for a specific user within an organization
+func (q *auditQueries) GetAuditEventsByUser(userID, organizationID string, limit int) ([]models.AuditEvent, error) {
 	if limit <= 0 {
 		limit = 50
 	}
@@ -911,12 +911,12 @@ func (q *auditQueries) GetAuditEventsByUser(userID string, limit int) ([]models.
 			   result, error_message, ip_address, user_agent, request_id,
 			   additional_context, severity
 		FROM audit_events
-		WHERE principal_id = $1
+		WHERE principal_id = $1 AND organization_id = $2
 		ORDER BY timestamp DESC
-		LIMIT $2`
+		LIMIT $3`
 
 	db := q.getDB()
-	rows, err := db.Query(query, userID, limit)
+	rows, err := db.Query(query, userID, organizationID, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -954,13 +954,13 @@ func (q *auditQueries) GetAuditEventsByUser(userID string, limit int) ([]models.
 	return events, rows.Err()
 }
 
-// DeleteOldAuditEvents removes audit events older than the specified duration
-func (q *auditQueries) DeleteOldAuditEvents(olderThan time.Duration) (int64, error) {
+// DeleteOldAuditEvents removes audit events older than the specified duration for an organization
+func (q *auditQueries) DeleteOldAuditEvents(olderThan time.Duration, organizationID string) (int64, error) {
 	cutoffTime := time.Now().Add(-olderThan)
 
-	query := "DELETE FROM audit_events WHERE timestamp < $1"
+	query := "DELETE FROM audit_events WHERE timestamp < $1 AND organization_id = $2"
 	db := q.getDB()
-	result, err := db.Exec(query, cutoffTime)
+	result, err := db.Exec(query, cutoffTime, organizationID)
 	if err != nil {
 		return 0, err
 	}
@@ -1138,18 +1138,18 @@ func (q *auditQueries) CreateAccessReview(review models.AccessReview) (*models.A
 	return &createdReview, nil
 }
 
-// GetAccessReview retrieves a specific access review by ID
-func (q *auditQueries) GetAccessReview(reviewID string) (*models.AccessReview, error) {
+// GetAccessReview retrieves a specific access review by ID within an organization
+func (q *auditQueries) GetAccessReview(reviewID, organizationID string) (*models.AccessReview, error) {
 	query := `
 		SELECT id, name, description, organization_id, reviewer_id, scope,
 			   status, due_date, completed_at, findings, recommendations,
 			   created_at, updated_at
 		FROM access_reviews
-		WHERE id = $1`
+		WHERE id = $1 AND organization_id = $2`
 
 	var review models.AccessReview
 	db := q.getDB()
-	err := db.QueryRow(query, reviewID).Scan(
+	err := db.QueryRow(query, reviewID, organizationID).Scan(
 		&review.ID,
 		&review.Name,
 		&review.Description,
@@ -1175,8 +1175,8 @@ func (q *auditQueries) GetAccessReview(reviewID string) (*models.AccessReview, e
 	return &review, nil
 }
 
-// UpdateAccessReview updates an existing access review
-func (q *auditQueries) UpdateAccessReview(reviewID string, review models.AccessReview) (*models.AccessReview, error) {
+// UpdateAccessReview updates an existing access review within an organization
+func (q *auditQueries) UpdateAccessReview(reviewID, organizationID string, review models.AccessReview) (*models.AccessReview, error) {
 	query := `
 		UPDATE access_reviews SET
 			name = $2,
@@ -1188,7 +1188,7 @@ func (q *auditQueries) UpdateAccessReview(reviewID string, review models.AccessR
 			findings = $8,
 			recommendations = $9,
 			updated_at = $10
-		WHERE id = $1
+		WHERE id = $1 AND organization_id = $11
 		RETURNING id, name, description, organization_id, reviewer_id, scope,
 		  status, due_date, completed_at, findings, recommendations, created_at, updated_at`
 
@@ -1207,6 +1207,7 @@ func (q *auditQueries) UpdateAccessReview(reviewID string, review models.AccessR
 		review.Findings,
 		review.Recommendations,
 		review.UpdatedAt,
+		organizationID,
 	).Scan(
 		&updatedReview.ID,
 		&updatedReview.Name,
@@ -1233,8 +1234,8 @@ func (q *auditQueries) UpdateAccessReview(reviewID string, review models.AccessR
 	return &updatedReview, nil
 }
 
-// CompleteAccessReview marks an access review as completed
-func (q *auditQueries) CompleteAccessReview(reviewID string, findings string, recommendations string) error {
+// CompleteAccessReview marks an access review as completed within an organization
+func (q *auditQueries) CompleteAccessReview(reviewID, organizationID string, findings string, recommendations string) error {
 	query := `
 		UPDATE access_reviews SET
 			status = 'completed',
@@ -1242,11 +1243,11 @@ func (q *auditQueries) CompleteAccessReview(reviewID string, findings string, re
 			findings = $3,
 			recommendations = $4,
 			updated_at = $5
-		WHERE id = $1 AND status != 'completed'`
+		WHERE id = $1 AND organization_id = $6 AND status != 'completed'`
 
 	now := time.Now()
 	db := q.getDB()
-	result, err := db.Exec(query, reviewID, now, findings, recommendations, now)
+	result, err := db.Exec(query, reviewID, now, findings, recommendations, now, organizationID)
 	if err != nil {
 		return err
 	}
@@ -1263,11 +1264,11 @@ func (q *auditQueries) CompleteAccessReview(reviewID string, findings string, re
 	return nil
 }
 
-// DeleteAccessReview removes an access review
-func (q *auditQueries) DeleteAccessReview(reviewID string) error {
-	query := "DELETE FROM access_reviews WHERE id = $1"
+// DeleteAccessReview removes an access review within an organization
+func (q *auditQueries) DeleteAccessReview(reviewID, organizationID string) error {
+	query := "DELETE FROM access_reviews WHERE id = $1 AND organization_id = $2"
 	db := q.getDB()
-	result, err := db.Exec(query, reviewID)
+	result, err := db.Exec(query, reviewID, organizationID)
 	if err != nil {
 		return err
 	}

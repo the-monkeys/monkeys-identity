@@ -18,32 +18,32 @@ type SessionQueries interface {
 
 	// Session CRUD operations
 	CreateSession(session *models.Session) error
-	GetSession(sessionID string) (*models.Session, error)
-	GetSessionByToken(token string) (*models.Session, error)
-	UpdateSession(session *models.Session) error
-	DeleteSession(sessionID string) error
+	GetSession(sessionID, organizationID string) (*models.Session, error)
+	GetSessionByToken(token, organizationID string) (*models.Session, error)
+	UpdateSession(session *models.Session, organizationID string) error
+	DeleteSession(sessionID, organizationID string) error
 
 	// Session listing and filtering
-	ListSessions(params ListParams, principalID, principalType string) (*ListResult[*models.Session], error)
-	ListUserSessions(userID string) ([]*models.Session, error)
+	ListSessions(params ListParams, organizationID, principalID, principalType string) (*ListResult[*models.Session], error)
+	ListUserSessions(userID, organizationID string) ([]*models.Session, error)
 	ListActiveSessions(organizationID string) ([]*models.Session, error)
 
 	// Session management operations
-	ExtendSession(sessionID string, newExpiresAt time.Time) error
-	RevokeSession(sessionID string) error
-	RevokeAllUserSessions(userID string) error
+	ExtendSession(sessionID, organizationID string, newExpiresAt time.Time) error
+	RevokeSession(sessionID, organizationID string) error
+	RevokeAllUserSessions(userID, organizationID string) error
 	RevokeExpiredSessions() (int, error)
-	UpdateLastUsed(sessionID string) error
+	UpdateLastUsed(sessionID, organizationID string) error
 
 	// Session security and monitoring
-	GetSessionsByIP(ipAddress string) ([]*models.Session, error)
-	GetSessionsByDeviceFingerprint(fingerprint string) ([]*models.Session, error)
-	CountActiveSessions(principalID, principalType string) (int, error)
-	GetConcurrentSessions(principalID, principalType string) ([]*models.Session, error)
+	GetSessionsByIP(ipAddress, organizationID string) ([]*models.Session, error)
+	GetSessionsByDeviceFingerprint(fingerprint, organizationID string) ([]*models.Session, error)
+	CountActiveSessions(organizationID, principalID, principalType string) (int, error)
+	GetConcurrentSessions(organizationID, principalID, principalType string) ([]*models.Session, error)
 
 	// Session analytics
 	GetSessionStats(organizationID string) (*SessionStats, error)
-	GetSessionActivity(sessionID string, limit int) ([]*SessionActivity, error)
+	GetSessionActivity(sessionID, organizationID string, limit int) ([]*SessionActivity, error)
 }
 
 // Session analytics and monitoring types
@@ -126,11 +126,14 @@ func (q *sessionQueries) CreateSession(session *models.Session) error {
 	return nil
 }
 
-func (q *sessionQueries) GetSession(sessionID string) (*models.Session, error) {
+func (q *sessionQueries) GetSession(sessionID, organizationID string) (*models.Session, error) {
 	// Try Redis cache first
 	if q.redis != nil {
 		if session, err := q.getCachedSession(sessionID); err == nil && session != nil {
-			return session, nil
+			// Verify organization match for cached session
+			if session.OrganizationID == organizationID {
+				return session, nil
+			}
 		}
 	}
 
@@ -140,7 +143,7 @@ func (q *sessionQueries) GetSession(sessionID string) (*models.Session, error) {
 		       ip_address, user_agent, device_fingerprint, location,
 		       issued_at, expires_at, last_used_at, status
 		FROM sessions 
-		WHERE id = $1 AND status = 'active'`
+		WHERE id = $1 AND organization_id = $2 AND status = 'active'`
 
 	var db DBTX = q.db
 	if q.tx != nil {
@@ -148,7 +151,7 @@ func (q *sessionQueries) GetSession(sessionID string) (*models.Session, error) {
 	}
 
 	var s models.Session
-	err := db.QueryRowContext(q.ctx, query, sessionID).Scan(
+	err := db.QueryRowContext(q.ctx, query, sessionID, organizationID).Scan(
 		&s.ID, &s.SessionToken, &s.PrincipalID, &s.PrincipalType, &s.OrganizationID,
 		&s.AssumedRoleID, &s.Permissions, &s.Context, &s.MFAVerified, &s.MFAMethodsUsed,
 		&s.IPAddress, &s.UserAgent, &s.DeviceFingerprint, &s.Location,
@@ -164,7 +167,7 @@ func (q *sessionQueries) GetSession(sessionID string) (*models.Session, error) {
 	// Check if session is expired
 	if time.Now().After(s.ExpiresAt) {
 		// Mark as expired
-		q.RevokeSession(sessionID)
+		q.RevokeSession(sessionID, organizationID)
 		return nil, fmt.Errorf("session expired")
 	}
 
@@ -176,14 +179,14 @@ func (q *sessionQueries) GetSession(sessionID string) (*models.Session, error) {
 	return &s, nil
 }
 
-func (q *sessionQueries) GetSessionByToken(token string) (*models.Session, error) {
+func (q *sessionQueries) GetSessionByToken(token, organizationID string) (*models.Session, error) {
 	query := `
 		SELECT id, session_token, principal_id, principal_type, organization_id,
 		       assumed_role_id, permissions, context, mfa_verified, mfa_methods_used,
 		       ip_address, user_agent, device_fingerprint, location,
 		       issued_at, expires_at, last_used_at, status
 		FROM sessions 
-		WHERE session_token = $1 AND status = 'active'`
+		WHERE session_token = $1 AND organization_id = $2 AND status = 'active'`
 
 	var db DBTX = q.db
 	if q.tx != nil {
@@ -191,7 +194,7 @@ func (q *sessionQueries) GetSessionByToken(token string) (*models.Session, error
 	}
 
 	var s models.Session
-	err := db.QueryRowContext(q.ctx, query, token).Scan(
+	err := db.QueryRowContext(q.ctx, query, token, organizationID).Scan(
 		&s.ID, &s.SessionToken, &s.PrincipalID, &s.PrincipalType, &s.OrganizationID,
 		&s.AssumedRoleID, &s.Permissions, &s.Context, &s.MFAVerified, &s.MFAMethodsUsed,
 		&s.IPAddress, &s.UserAgent, &s.DeviceFingerprint, &s.Location,
@@ -206,20 +209,20 @@ func (q *sessionQueries) GetSessionByToken(token string) (*models.Session, error
 
 	// Check if session is expired
 	if time.Now().After(s.ExpiresAt) {
-		q.RevokeSession(s.ID)
+		q.RevokeSession(s.ID, organizationID)
 		return nil, fmt.Errorf("session expired")
 	}
 
 	return &s, nil
 }
 
-func (q *sessionQueries) UpdateSession(session *models.Session) error {
+func (q *sessionQueries) UpdateSession(session *models.Session, organizationID string) error {
 	query := `
 		UPDATE sessions SET
 			permissions = $2, context = $3, mfa_verified = $4, mfa_methods_used = $5,
 			ip_address = $6, user_agent = $7, device_fingerprint = $8, location = $9,
 			expires_at = $10, last_used_at = $11, status = $12
-		WHERE id = $1`
+		WHERE id = $1 AND organization_id = $13`
 
 	var db DBTX = q.db
 	if q.tx != nil {
@@ -229,7 +232,7 @@ func (q *sessionQueries) UpdateSession(session *models.Session) error {
 	result, err := db.ExecContext(q.ctx, query,
 		session.ID, session.Permissions, session.Context, session.MFAVerified,
 		session.MFAMethodsUsed, session.IPAddress, session.UserAgent, session.DeviceFingerprint,
-		session.Location, session.ExpiresAt, session.LastUsedAt, session.Status)
+		session.Location, session.ExpiresAt, session.LastUsedAt, session.Status, organizationID)
 
 	if err != nil {
 		return fmt.Errorf("failed to update session: %w", err)
@@ -252,15 +255,15 @@ func (q *sessionQueries) UpdateSession(session *models.Session) error {
 	return nil
 }
 
-func (q *sessionQueries) DeleteSession(sessionID string) error {
-	query := `DELETE FROM sessions WHERE id = $1`
+func (q *sessionQueries) DeleteSession(sessionID, organizationID string) error {
+	query := `DELETE FROM sessions WHERE id = $1 AND organization_id = $2`
 
 	var db DBTX = q.db
 	if q.tx != nil {
 		db = q.tx
 	}
 
-	result, err := db.ExecContext(q.ctx, query, sessionID)
+	result, err := db.ExecContext(q.ctx, query, sessionID, organizationID)
 	if err != nil {
 		return fmt.Errorf("failed to delete session: %w", err)
 	}
@@ -282,17 +285,17 @@ func (q *sessionQueries) DeleteSession(sessionID string) error {
 	return nil
 }
 
-func (q *sessionQueries) ListSessions(params ListParams, principalID, principalType string) (*ListResult[*models.Session], error) {
+func (q *sessionQueries) ListSessions(params ListParams, organizationID, principalID, principalType string) (*ListResult[*models.Session], error) {
 	query := `
 		SELECT id, session_token, principal_id, principal_type, organization_id,
 		       assumed_role_id, permissions, context, mfa_verified, mfa_methods_used,
 		       ip_address, user_agent, device_fingerprint, location,
 		       issued_at, expires_at, last_used_at, status
 		FROM sessions 
-		WHERE 1=1`
+		WHERE organization_id = $1`
 
-	args := []interface{}{}
-	argCount := 0
+	args := []interface{}{organizationID}
+	argCount := 1
 
 	if principalID != "" {
 		argCount++
@@ -349,9 +352,9 @@ func (q *sessionQueries) ListSessions(params ListParams, principalID, principalT
 	}
 
 	// Get total count
-	countQuery := `SELECT COUNT(*) FROM sessions WHERE 1=1`
-	countArgs := []interface{}{}
-	countArgCount := 0
+	countQuery := `SELECT COUNT(*) FROM sessions WHERE organization_id = $1`
+	countArgs := []interface{}{organizationID}
+	countArgCount := 1
 
 	if principalID != "" {
 		countArgCount++
@@ -383,8 +386,8 @@ func (q *sessionQueries) ListSessions(params ListParams, principalID, principalT
 	}, nil
 }
 
-func (q *sessionQueries) ListUserSessions(userID string) ([]*models.Session, error) {
-	result, err := q.ListSessions(ListParams{Limit: 100, Offset: 0}, userID, "user")
+func (q *sessionQueries) ListUserSessions(userID, organizationID string) ([]*models.Session, error) {
+	result, err := q.ListSessions(ListParams{Limit: 100, Offset: 0}, organizationID, userID, "user")
 	if err != nil {
 		return nil, err
 	}
@@ -429,15 +432,15 @@ func (q *sessionQueries) ListActiveSessions(organizationID string) ([]*models.Se
 	return sessions, nil
 }
 
-func (q *sessionQueries) ExtendSession(sessionID string, newExpiresAt time.Time) error {
-	query := `UPDATE sessions SET expires_at = $2, last_used_at = NOW() WHERE id = $1 AND status = 'active'`
+func (q *sessionQueries) ExtendSession(sessionID, organizationID string, newExpiresAt time.Time) error {
+	query := `UPDATE sessions SET expires_at = $2, last_used_at = NOW() WHERE id = $1 AND organization_id = $3 AND status = 'active'`
 
 	var db DBTX = q.db
 	if q.tx != nil {
 		db = q.tx
 	}
 
-	result, err := db.ExecContext(q.ctx, query, sessionID, newExpiresAt)
+	result, err := db.ExecContext(q.ctx, query, sessionID, newExpiresAt, organizationID)
 	if err != nil {
 		return fmt.Errorf("failed to extend session: %w", err)
 	}
@@ -453,7 +456,7 @@ func (q *sessionQueries) ExtendSession(sessionID string, newExpiresAt time.Time)
 
 	// Update cache
 	if q.redis != nil {
-		if session, err := q.GetSession(sessionID); err == nil {
+		if session, err := q.GetSession(sessionID, organizationID); err == nil {
 			session.ExpiresAt = newExpiresAt
 			session.LastUsedAt = time.Now()
 			q.cacheSession(session)
@@ -463,15 +466,15 @@ func (q *sessionQueries) ExtendSession(sessionID string, newExpiresAt time.Time)
 	return nil
 }
 
-func (q *sessionQueries) RevokeSession(sessionID string) error {
-	query := `UPDATE sessions SET status = 'revoked', last_used_at = NOW() WHERE id = $1`
+func (q *sessionQueries) RevokeSession(sessionID, organizationID string) error {
+	query := `UPDATE sessions SET status = 'revoked', last_used_at = NOW() WHERE id = $1 AND organization_id = $2`
 
 	var db DBTX = q.db
 	if q.tx != nil {
 		db = q.tx
 	}
 
-	result, err := db.ExecContext(q.ctx, query, sessionID)
+	result, err := db.ExecContext(q.ctx, query, sessionID, organizationID)
 	if err != nil {
 		return fmt.Errorf("failed to revoke session: %w", err)
 	}
@@ -493,15 +496,15 @@ func (q *sessionQueries) RevokeSession(sessionID string) error {
 	return nil
 }
 
-func (q *sessionQueries) RevokeAllUserSessions(userID string) error {
-	query := `UPDATE sessions SET status = 'revoked', last_used_at = NOW() WHERE principal_id = $1 AND principal_type = 'user' AND status = 'active'`
+func (q *sessionQueries) RevokeAllUserSessions(userID, organizationID string) error {
+	query := `UPDATE sessions SET status = 'revoked', last_used_at = NOW() WHERE principal_id = $1 AND principal_type = 'user' AND organization_id = $2 AND status = 'active'`
 
 	var db DBTX = q.db
 	if q.tx != nil {
 		db = q.tx
 	}
 
-	result, err := db.ExecContext(q.ctx, query, userID)
+	result, err := db.ExecContext(q.ctx, query, userID, organizationID)
 	if err != nil {
 		return fmt.Errorf("failed to revoke user sessions: %w", err)
 	}
@@ -513,7 +516,7 @@ func (q *sessionQueries) RevokeAllUserSessions(userID string) error {
 
 	// Remove from cache - get all user sessions first
 	if q.redis != nil && rows > 0 {
-		sessions, _ := q.ListUserSessions(userID)
+		sessions, _ := q.ListUserSessions(userID, organizationID)
 		for _, session := range sessions {
 			q.removeCachedSession(session.ID)
 		}
@@ -543,15 +546,15 @@ func (q *sessionQueries) RevokeExpiredSessions() (int, error) {
 	return int(rows), nil
 }
 
-func (q *sessionQueries) UpdateLastUsed(sessionID string) error {
-	query := `UPDATE sessions SET last_used_at = NOW() WHERE id = $1 AND status = 'active'`
+func (q *sessionQueries) UpdateLastUsed(sessionID, organizationID string) error {
+	query := `UPDATE sessions SET last_used_at = NOW() WHERE id = $1 AND organization_id = $2 AND status = 'active'`
 
 	var db DBTX = q.db
 	if q.tx != nil {
 		db = q.tx
 	}
 
-	_, err := db.ExecContext(q.ctx, query, sessionID)
+	_, err := db.ExecContext(q.ctx, query, sessionID, organizationID)
 	if err != nil {
 		return fmt.Errorf("failed to update last used: %w", err)
 	}
@@ -559,14 +562,14 @@ func (q *sessionQueries) UpdateLastUsed(sessionID string) error {
 	return nil
 }
 
-func (q *sessionQueries) GetSessionsByIP(ipAddress string) ([]*models.Session, error) {
+func (q *sessionQueries) GetSessionsByIP(ipAddress, organizationID string) ([]*models.Session, error) {
 	query := `
 		SELECT id, session_token, principal_id, principal_type, organization_id,
 		       assumed_role_id, permissions, context, mfa_verified, mfa_methods_used,
 		       ip_address, user_agent, device_fingerprint, location,
 		       issued_at, expires_at, last_used_at, status
 		FROM sessions 
-		WHERE ip_address = $1 AND status = 'active'
+		WHERE ip_address = $1 AND organization_id = $2 AND status = 'active'
 		ORDER BY last_used_at DESC`
 
 	var db DBTX = q.db
@@ -574,7 +577,7 @@ func (q *sessionQueries) GetSessionsByIP(ipAddress string) ([]*models.Session, e
 		db = q.tx
 	}
 
-	rows, err := db.QueryContext(q.ctx, query, ipAddress)
+	rows, err := db.QueryContext(q.ctx, query, ipAddress, organizationID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get sessions by IP: %w", err)
 	}
@@ -597,14 +600,14 @@ func (q *sessionQueries) GetSessionsByIP(ipAddress string) ([]*models.Session, e
 	return sessions, nil
 }
 
-func (q *sessionQueries) GetSessionsByDeviceFingerprint(fingerprint string) ([]*models.Session, error) {
+func (q *sessionQueries) GetSessionsByDeviceFingerprint(fingerprint, organizationID string) ([]*models.Session, error) {
 	query := `
 		SELECT id, session_token, principal_id, principal_type, organization_id,
 		       assumed_role_id, permissions, context, mfa_verified, mfa_methods_used,
 		       ip_address, user_agent, device_fingerprint, location,
 		       issued_at, expires_at, last_used_at, status
 		FROM sessions 
-		WHERE device_fingerprint = $1 AND status = 'active'
+		WHERE device_fingerprint = $1 AND organization_id = $2 AND status = 'active'
 		ORDER BY last_used_at DESC`
 
 	var db DBTX = q.db
@@ -612,7 +615,7 @@ func (q *sessionQueries) GetSessionsByDeviceFingerprint(fingerprint string) ([]*
 		db = q.tx
 	}
 
-	rows, err := db.QueryContext(q.ctx, query, fingerprint)
+	rows, err := db.QueryContext(q.ctx, query, fingerprint, organizationID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get sessions by device fingerprint: %w", err)
 	}
@@ -635,8 +638,8 @@ func (q *sessionQueries) GetSessionsByDeviceFingerprint(fingerprint string) ([]*
 	return sessions, nil
 }
 
-func (q *sessionQueries) CountActiveSessions(principalID, principalType string) (int, error) {
-	query := `SELECT COUNT(*) FROM sessions WHERE principal_id = $1 AND principal_type = $2 AND status = 'active' AND expires_at > NOW()`
+func (q *sessionQueries) CountActiveSessions(organizationID, principalID, principalType string) (int, error) {
+	query := `SELECT COUNT(*) FROM sessions WHERE principal_id = $1 AND principal_type = $2 AND organization_id = $3 AND status = 'active' AND expires_at > NOW()`
 
 	var db DBTX = q.db
 	if q.tx != nil {
@@ -644,7 +647,7 @@ func (q *sessionQueries) CountActiveSessions(principalID, principalType string) 
 	}
 
 	var count int
-	err := db.QueryRowContext(q.ctx, query, principalID, principalType).Scan(&count)
+	err := db.QueryRowContext(q.ctx, query, principalID, principalType, organizationID).Scan(&count)
 	if err != nil {
 		return 0, fmt.Errorf("failed to count active sessions: %w", err)
 	}
@@ -652,8 +655,8 @@ func (q *sessionQueries) CountActiveSessions(principalID, principalType string) 
 	return count, nil
 }
 
-func (q *sessionQueries) GetConcurrentSessions(principalID, principalType string) ([]*models.Session, error) {
-	return q.ListUserSessions(principalID)
+func (q *sessionQueries) GetConcurrentSessions(organizationID, principalID, principalType string) ([]*models.Session, error) {
+	return q.ListUserSessions(principalID, organizationID)
 }
 
 func (q *sessionQueries) GetSessionStats(organizationID string) (*SessionStats, error) {
@@ -695,7 +698,7 @@ func (q *sessionQueries) GetSessionStats(organizationID string) (*SessionStats, 
 	return &stats, nil
 }
 
-func (q *sessionQueries) GetSessionActivity(sessionID string, limit int) ([]*SessionActivity, error) {
+func (q *sessionQueries) GetSessionActivity(sessionID, organizationID string, limit int) ([]*SessionActivity, error) {
 	// This would typically query an audit_events table
 	// For now, return empty slice as placeholder
 	return []*SessionActivity{}, nil
