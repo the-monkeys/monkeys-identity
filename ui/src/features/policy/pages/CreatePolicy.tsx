@@ -18,39 +18,156 @@ const CreatePolicy = () => {
     const [loading, setLoading] = useState<boolean>(false);
     const [formError, setFormError] = useState<string | null>(null);
     const [isSystemPolicy, setIsSystemPolicy] = useState<boolean>(false);
+    const [policyDocument, setPolicyDocument] = useState<string>('');
+
+    // Form fields state
+    const [name, setName] = useState<string>('');
+    const [description, setDescription] = useState<string>('');
+    const [policyType, setPolicyType] = useState<string>('access');
+    const [status, setStatus] = useState<string>('active');
+    const [effect, setEffect] = useState<string>('allow');
+    const [version, setVersion] = useState<string>('1.0.0');
+
+    // To prevent infinite loops during sync
+    const [isInternalChange, setIsInternalChange] = useState<boolean>(false);
 
     useEffect(() => {
         if (existingPolicy) {
+            setIsInternalChange(true);
+            setName(existingPolicy.name || '');
+            setDescription(existingPolicy.description || '');
+            setPolicyType(existingPolicy.policy_type || 'access');
+            setStatus(existingPolicy.status || 'active');
+            setEffect(existingPolicy.effect || 'allow');
+            setVersion(existingPolicy.version || '1.0.0');
             setIsSystemPolicy(existingPolicy.is_system_policy);
+
+            let doc = existingPolicy.document;
+            if (typeof doc === 'string') {
+                try {
+                    doc = JSON.parse(doc);
+                } catch (e) {
+                    console.error('Failed to parse document string', e);
+                }
+            }
+
+            // Ensure fields are in document for sync
+            const mergedDoc = {
+                ...doc,
+                Name: existingPolicy.name,
+                Description: existingPolicy.description,
+                Type: existingPolicy.policy_type,
+                Status: existingPolicy.status,
+                Effect: existingPolicy.effect
+            };
+
+            setPolicyDocument(JSON.stringify(mergedDoc, null, 2));
+            setTimeout(() => setIsInternalChange(false), 0);
+        } else {
+            const initialDoc = {
+                "Name": "",
+                "Description": "",
+                "Type": "access",
+                "Status": "active",
+                "Version": "1.0.0",
+                "Statement": [
+                    {
+                        "Effect": "Allow",
+                        "Action": [
+                            "resource:Read",
+                            "resource:List",
+                            "resource:Write"
+                        ],
+                        "Resource": [
+                            "arn:monkeys:service:region:account:resource/*"
+                        ]
+                    }
+                ]
+            };
+            setPolicyDocument(JSON.stringify(initialDoc, null, 2));
         }
     }, [existingPolicy]);
 
+    // Sync from fields to document
+    useEffect(() => {
+        if (isInternalChange) return;
+
+        try {
+            const parsedDoc = JSON.parse(policyDocument);
+            const updatedDoc = {
+                ...parsedDoc,
+                Name: name,
+                Description: description,
+                Type: policyType,
+                Status: status,
+                Version: version,
+                Effect: effect
+            };
+
+            const newDocString = JSON.stringify(updatedDoc, null, 2);
+            if (newDocString !== policyDocument) {
+                setIsInternalChange(true);
+                setPolicyDocument(newDocString);
+                setTimeout(() => setIsInternalChange(false), 0);
+            }
+        } catch (e) {
+            // Document is not valid JSON, don't sync
+        }
+    }, [name, description, policyType, status, effect, version]);
+
+    // Sync from document to fields
+    const handleDocumentChange = (value: string) => {
+        setPolicyDocument(value);
+        if (isInternalChange) return;
+
+        try {
+            const parsed = JSON.parse(value);
+            setIsInternalChange(true);
+            if (parsed.Name !== undefined && parsed.Name !== name) setName(parsed.Name);
+            if (parsed.Description !== undefined && parsed.Description !== description) setDescription(parsed.Description);
+            if (parsed.Type !== undefined && parsed.Type !== policyType) setPolicyType(parsed.Type.toLowerCase());
+            if (parsed.Status !== undefined && parsed.Status !== status) setStatus(parsed.Status.toLowerCase());
+            if (parsed.Version !== undefined && parsed.Version !== version) setVersion(parsed.Version);
+            if (parsed.Effect !== undefined && parsed.Effect !== effect) setEffect(parsed.Effect.toLowerCase());
+            setTimeout(() => setIsInternalChange(false), 0);
+        } catch (e) {
+            // Invalid JSON, don't sync
+        }
+    };
+
     const isEditMode = !!policyId;
+
+    const handleFormatDocument = () => {
+        try {
+            const parsed = JSON.parse(policyDocument);
+            setPolicyDocument(JSON.stringify(parsed, null, 2));
+            setFormError(null);
+        } catch (e) {
+            setFormError('Cannot format: Invalid JSON document');
+        }
+    };
 
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
         setFormError(null);
 
-        const formData = new FormData(e.currentTarget);
-
         let documentJson: object;
         try {
-            const documentStr = formData.get('document') as string;
-            documentJson = JSON.parse(documentStr);
+            documentJson = JSON.parse(policyDocument);
         } catch (e) {
             setFormError('Invalid JSON document');
             return;
         }
 
         const policyData = {
-            name: formData.get('name') as string,
-            description: formData.get('description') as string,
-            version: formData.get('version') as string,
+            name: name,
+            description: description,
+            version: version,
             organization_id: currentUser?.organization_id,
-            policy_type: (formData.get('policy_type') as string).toLowerCase(),
-            effect: (formData.get('effect') as string).toLowerCase(),
+            policy_type: policyType.toLowerCase(),
+            effect: effect.toLowerCase(),
             is_system_policy: isSystemPolicy,
-            status: (formData.get('status') as string).toLowerCase(),
+            status: status.toLowerCase(),
             document: documentJson,
         };
 
@@ -62,9 +179,10 @@ const CreatePolicy = () => {
                 await client.post('/policies', policyData);
             }
             navigate('/policies');
-        } catch (e) {
+        } catch (e: any) {
             console.error(e);
-            setFormError('Failed to create policy');
+            const message = e.response?.data?.error || e.message || (isEditMode ? 'Failed to update policy' : 'Failed to create policy');
+            setFormError(message);
         } finally {
             setLoading(false);
         }
@@ -75,7 +193,7 @@ const CreatePolicy = () => {
             <form onSubmit={handleSubmit} key={existingPolicy ? existingPolicy.id : 'new'}>
                 <div className="flex flex-row items-center justify-between gap-4 mb-6">
                     <div>
-                        <nav className="flex items-center text-xs text-gray-500 mb-2 space-x-2">
+                        <nav className="flex items-center text-base text-gray-500 mb-2 space-x-2">
                             <Link to="/policies" className="hover:text-primary transition-colors">Policies</Link>
                             <ChevronRight size={12} />
                             <span className="text-gray-300 font-medium">{isEditMode ? 'Edit Policy' : 'Create Policy'}</span>
@@ -112,30 +230,32 @@ const CreatePolicy = () => {
                         <div className="bg-bg-card-dark border border-border-color-dark rounded-xl shadow-sm p-6 space-y-4">
                             <h3 className="text-sm font-bold text-text-main-dark uppercase tracking-wider mb-4 border-b border-border-color-dark pb-2">General Settings</h3>
 
-                            <>
+                            <div>
                                 <label htmlFor="name" className="block text-xs font-bold text-gray-400 uppercase mb-1">Policy Name</label>
                                 <input
                                     type="text"
                                     name="name"
                                     id="name"
                                     required
-                                    defaultValue={existingPolicy?.name}
+                                    value={name}
+                                    onChange={(e) => setName(e.target.value)}
                                     placeholder="e.g. Read Access"
                                     className="w-full px-3 py-2 bg-slate-900 border border-border-color-dark rounded text-sm text-text-main-dark focus:border-primary focus:outline-none transition-colors placeholder:text-gray-600"
                                 />
-                            </>
+                            </div>
 
-                            <>
+                            <div>
                                 <label htmlFor="description" className="block text-xs font-bold text-gray-400 uppercase mb-1">Description</label>
                                 <textarea
                                     name="description"
                                     id="description"
                                     rows={2}
-                                    defaultValue={existingPolicy?.description}
+                                    value={description}
+                                    onChange={(e) => setDescription(e.target.value)}
                                     className="w-full px-3 py-2 bg-slate-900 border border-border-color-dark rounded text-sm text-text-main-dark focus:border-primary focus:outline-none transition-colors placeholder:text-gray-600 resize-none"
                                     placeholder="What does this policy allow?"
                                 />
-                            </>
+                            </div>
 
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
@@ -144,7 +264,8 @@ const CreatePolicy = () => {
                                         name="policy_type"
                                         id="policy_type"
                                         className="w-full px-3 py-2 bg-slate-900 border border-border-color-dark rounded text-sm text-text-main-dark focus:border-primary focus:outline-none"
-                                        defaultValue={existingPolicy?.policy_type || "access"}
+                                        value={policyType}
+                                        onChange={(e) => setPolicyType(e.target.value)}
                                     >
                                         <option value="access">Access</option>
                                         <option value="resource">Resource</option>
@@ -158,7 +279,8 @@ const CreatePolicy = () => {
                                         name="status"
                                         id="status"
                                         className="w-full px-3 py-2 bg-slate-900 border border-border-color-dark rounded text-sm text-text-main-dark focus:border-primary focus:outline-none"
-                                        defaultValue={existingPolicy?.status || "active"}
+                                        value={status}
+                                        onChange={(e) => setStatus(e.target.value)}
                                     >
                                         <option value="active">Active</option>
                                         <option value="suspended">Suspended</option>
@@ -173,7 +295,8 @@ const CreatePolicy = () => {
                                         name="effect"
                                         id="effect"
                                         className="w-full px-3 py-2 bg-slate-900 border border-border-color-dark rounded text-sm text-text-main-dark focus:border-primary focus:outline-none"
-                                        defaultValue={existingPolicy?.effect || "allow"}
+                                        value={effect}
+                                        onChange={(e) => setEffect(e.target.value)}
                                     >
                                         <option value="allow">Allow</option>
                                         <option value="deny">Deny</option>
@@ -185,7 +308,8 @@ const CreatePolicy = () => {
                                         type="text"
                                         name="version"
                                         id="version"
-                                        defaultValue={existingPolicy?.version || "1.0.0"}
+                                        value={version}
+                                        onChange={(e) => setVersion(e.target.value)}
                                         className="w-full px-3 py-2 bg-slate-900 border border-border-color-dark rounded text-sm text-text-main-dark focus:border-primary focus:outline-none transition-colors placeholder:text-gray-600"
                                     />
                                 </div>
@@ -222,28 +346,15 @@ const CreatePolicy = () => {
                                     name="document"
                                     className="w-full h-full p-6 font-mono text-xs bg-transparent text-green-400 outline-none resize-none leading-relaxed"
                                     spellCheck={false}
-                                    defaultValue={existingPolicy ? (typeof existingPolicy.document === 'string' ? existingPolicy.document : JSON.stringify(existingPolicy.document, null, 2)) : JSON.stringify({
-                                        "Version": "1.0.0",
-                                        "Statement": [
-                                            {
-                                                "Effect": "Allow",
-                                                "Action": [
-                                                    "resource:Read",
-                                                    "resource:List",
-                                                    "resource:Write"
-                                                ],
-                                                "Resource": [
-                                                    "arn:monkeys:service:region:account:resource/*"
-                                                ]
-                                            }
-                                        ]
-                                    }, null, 2)}
+                                    value={policyDocument}
+                                    onChange={(e) => handleDocumentChange(e.target.value)}
                                 />
                             </div>
                             <div className="p-3 bg-slate-900 border-t border-border-color-dark flex items-center justify-between">
                                 <p className="text-[10px] text-gray-500 font-mono">Organization id: {currentUser?.organization_id}</p>
                                 <button
                                     type="button"
+                                    onClick={handleFormatDocument}
                                     className="text-[10px] text-primary font-bold hover:text-primary/80 uppercase tracking-widest flex items-center gap-1 cursor-pointer"
                                 >
                                     Format Document

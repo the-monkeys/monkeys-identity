@@ -16,7 +16,7 @@ export interface SignupFormErrors {
   confirmPassword?: string;
 }
 
-export type LoginType = 'admin' | 'user';
+export type LoginType = 'admin' | 'user' | 'root';
 
 export interface AuthContextType {
   user: User | null;

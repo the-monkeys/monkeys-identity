@@ -70,15 +70,17 @@ const PolicyList: React.FC<PolicyListProps> = ({ policies, selectedPolicy, onSel
                                     </div>
                                 </td>
                                 <td className="px-6 py-4 hidden md:table-cell">
-                                    <span className={`px-2 py-0.5 text-[10px] rounded border uppercase font-bold ${p.policy_type === 'Managed'
-                                        ? 'bg-blue-100/10 border-blue-500/30 text-blue-500'
-                                        : 'bg-purple-100/10 border-purple-500/30 text-purple-500'
+                                    <span className={`px-2 py-0.5 text-[10px] rounded border uppercase font-bold ${p.policy_type?.toLowerCase() === 'access' ? 'bg-blue-100/10 border-blue-500/30 text-blue-500' :
+                                            p.policy_type?.toLowerCase() === 'resource' ? 'bg-orange-100/10 border-orange-500/30 text-orange-500' :
+                                                p.policy_type?.toLowerCase() === 'identity' ? 'bg-indigo-100/10 border-indigo-500/30 text-indigo-500' :
+                                                    p.policy_type?.toLowerCase() === 'permission' ? 'bg-teal-100/10 border-teal-500/30 text-teal-500' :
+                                                        'bg-purple-100/10 border-purple-500/30 text-purple-500'
                                         }`}>
                                         {p.policy_type}
                                     </span>
                                 </td>
                                 <td className="px-6 py-4 hidden md:table-cell">
-                                    <span className={`px-2 py-0.5 text-[10px] rounded border uppercase font-bold ${p.effect === 'allow'
+                                    <span className={`px-2 py-0.5 text-[10px] rounded border uppercase font-bold ${p.effect?.toLowerCase() === 'allow'
                                         ? 'bg-green-100/10 border-green-500/30 text-green-500'
                                         : 'bg-red-100/10 border-red-500/30 text-red-500'
                                         }`}>

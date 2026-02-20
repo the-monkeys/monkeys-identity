@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"errors"
+	"strings"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -83,6 +84,9 @@ func (h *AuthHandler) Login(c *fiber.Ctx) error {
 			"success": false,
 		})
 	}
+
+	// Trim spaces and normalize email
+	req.Email = strings.TrimSpace(strings.ToLower(req.Email))
 
 	// Validate input
 	if req.Email == "" || req.Password == "" {
@@ -174,6 +178,9 @@ func (h *AuthHandler) Register(c *fiber.Ctx) error {
 			"success": false,
 		})
 	}
+
+	// Email normalization
+	req.Email = strings.TrimSpace(strings.ToLower(req.Email))
 
 	// Check if user already exists
 	existingUser, _ := h.queries.Auth.GetUserByEmail(req.Email)
@@ -392,6 +399,9 @@ func (h *AuthHandler) CreateAdminUser(c *fiber.Ctx) error {
 			"success": false,
 		})
 	}
+
+	// Email normalization
+	req.Email = strings.TrimSpace(strings.ToLower(req.Email))
 
 	// Check if any admin user already exists to prevent multiple admin creation
 	adminExists, err := h.queries.Auth.CheckAdminExists()

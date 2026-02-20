@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -111,6 +112,7 @@ func (q *authQueries) query(query string, args ...interface{}) (*sql.Rows, error
 
 // GetUserByEmail retrieves a user by email address
 func (q *authQueries) GetUserByEmail(email string) (*models.User, error) {
+	email = strings.TrimSpace(strings.ToLower(email))
 	query := `
 		SELECT id, username, email, display_name, organization_id, password_hash, 
 		       status, email_verified, created_at, updated_at, last_login
@@ -350,7 +352,7 @@ func (q *authQueries) ensureAdminPolicy(tx *sql.Tx, organizationID string, now t
 	policyQuery := `
 		INSERT INTO policies (id, name, description, organization_id, document, policy_type, effect, is_system_policy, status, created_at, updated_at)
 		VALUES ($1, $2, $3, $4, $5::jsonb, 'access', 'allow', TRUE, 'active', $6, $6)
-		ON CONFLICT (organization_id, name) DO UPDATE
+		ON CONFLICT (organization_id, name) WHERE (deleted_at IS NULL AND status != 'deleted') DO UPDATE
 			SET description = EXCLUDED.description,
 			    document = EXCLUDED.document,
 			    updated_at = EXCLUDED.updated_at

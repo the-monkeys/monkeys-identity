@@ -1021,6 +1021,13 @@ func (h *PolicyHandler) CreatePolicy(c *fiber.Ctx) error {
 				Message: err.Error(),
 			})
 		}
+		// Handle duplicate key error for policy name
+		if strings.Contains(err.Error(), "duplicate key value violates unique constraint") {
+			return c.Status(fiber.StatusConflict).JSON(ErrorResponse{
+				Error:   "policy_already_exists",
+				Message: fmt.Sprintf("A policy with the name '%s' already exists in this organization", policy.Name),
+			})
+		}
 		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{
 			Error:   "internal_server_error",
 			Message: "Failed to create policy",
@@ -1174,6 +1181,13 @@ func (h *PolicyHandler) UpdatePolicy(c *fiber.Ctx) error {
 			return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
 				Error:   "invalid_policy_document",
 				Message: err.Error(),
+			})
+		}
+		// Handle duplicate key error for policy name
+		if strings.Contains(err.Error(), "duplicate key value violates unique constraint") {
+			return c.Status(fiber.StatusConflict).JSON(ErrorResponse{
+				Error:   "policy_already_exists",
+				Message: fmt.Sprintf("A policy with the name '%s' already exists in this organization", policy.Name),
 			})
 		}
 		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{
