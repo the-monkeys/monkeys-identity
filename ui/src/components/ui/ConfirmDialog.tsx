@@ -1,4 +1,3 @@
-import React from 'react';
 import { Modal } from './Modal';
 import { AlertTriangle, Info } from 'lucide-react';
 import { cn } from './utils';
@@ -54,7 +53,7 @@ export function ConfirmDialog({
                     <button
                         onClick={onClose}
                         disabled={isLoading}
-                        className="px-4 py-2 text-sm font-medium text-gray-300 hover:text-white hover:bg-slate-800 rounded-lg transition-colors"
+                        className="px-4 py-2 text-sm font-medium text-gray-300 hover:text-white hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
                     >
                         {cancelText}
                     </button>
@@ -62,7 +61,7 @@ export function ConfirmDialog({
                         onClick={onConfirm}
                         disabled={isLoading}
                         className={cn(
-                            "px-4 py-2 text-sm font-medium text-white rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-900 transition-all flex items-center",
+                            "px-4 py-2 text-sm font-medium text-white rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-900 transition-all flex items-center cursor-pointer",
                             buttonColors[variant],
                             isLoading && "opacity-50 cursor-not-allowed"
                         )}

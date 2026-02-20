@@ -1,5 +1,4 @@
 import { Menu, ChevronLeft, Search, Command, Bell, HelpCircle } from 'lucide-react';
-
 import { useAuth } from '@/context/AuthContext';
 
 interface AuthenticatedHeaderProps {
@@ -9,7 +8,6 @@ interface AuthenticatedHeaderProps {
 
 const AuthenticatedNavbar = ({ collapsed, setCollapsed }: AuthenticatedHeaderProps) => {
     const { user } = useAuth();
-    console.log(user);
 
     return (
         <header className="h-14 border-b border-border-color-dark flex items-center justify-between px-6 bg-bg-main-dark/50 backdrop-blur-md sticky top-0 z-40">

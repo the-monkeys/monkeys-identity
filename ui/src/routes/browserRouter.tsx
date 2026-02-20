@@ -13,10 +13,13 @@ const OrganizationsManagement = lazy(() => import('../features/organizations/pag
 const AuditLogsPage = lazy(() => import('../features/audit/pages/AuditLogsPage'));
 const AccountSettingsPage = lazy(() => import('../features/settings/pages/AccountSettingsPage'));
 const HomePage = lazy(() => import('../features/landing/pages/HomePage'));
+const PolicyManagement = lazy(() => import('@/features/policy/pages/PolicyManagement'));
+const CreatePolicy = lazy(() => import('@/features/policy/pages/CreatePolicy'));
+const PolicyDetail = lazy(() => import('@/features/policy/pages/PolicyDetail'));
 
 const Loading = () => (
     <div className="h-screen w-screen bg-bg-main-dark flex items-center justify-center text-primary font-mono">
-        Loading monkeys...
+        Loading...
     </div>
 );
 
@@ -66,6 +69,20 @@ export const router = createBrowserRouter([
                 element: <OrganizationsManagement />,
             },
             {
+                path: '/policies',
+                element: <PolicyManagement />,
+            },
+            {
+                path: '/policies/create',
+                element: <CreatePolicy />,
+            },
+            {
+                path: '/policies/:policyId/edit',
+                element: <CreatePolicy />,
+            },
+            {
+                path: '/policies/:policyId',
+                element: <PolicyDetail />,
                 path: '/audit-logs',
                 element: <AuditLogsPage />,
             },
