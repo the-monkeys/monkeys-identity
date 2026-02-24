@@ -1,26 +1,33 @@
 package handlers
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
 	"github.com/the-monkeys/monkeys-identity/internal/models"
 	"github.com/the-monkeys/monkeys-identity/internal/queries"
+	"github.com/the-monkeys/monkeys-identity/internal/services"
 	"github.com/the-monkeys/monkeys-identity/pkg/logger"
+	"github.com/the-monkeys/monkeys-identity/pkg/utils"
 	"golang.org/x/crypto/bcrypt"
 )
 
 type UserHandler struct {
 	queries *queries.Queries
 	logger  *logger.Logger
+	audit   services.AuditService
 }
 
-func NewUserHandler(queries *queries.Queries, logger *logger.Logger) *UserHandler {
+func NewUserHandler(queries *queries.Queries, logger *logger.Logger, audit services.AuditService) *UserHandler {
 	return &UserHandler{
 		queries: queries,
 		logger:  logger,
+		audit:   audit,
 	}
 }
 
@@ -71,7 +78,8 @@ func (h *UserHandler) ListUsers(c *fiber.Ctx) error {
 		Order:  order,
 	}
 
-	result, err := h.queries.User.ListUsers(params)
+	organizationID := c.Locals("organization_id").(string)
+	result, err := h.queries.User.ListUsers(params, organizationID)
 	if err != nil {
 		h.logger.Error("Failed to list users: %v", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
@@ -121,7 +129,8 @@ func (h *UserHandler) CreateUser(c *fiber.Ctx) error {
 	}
 
 	// Check if user already exists
-	existingUser, err := h.queries.Auth.GetUserByEmail(req.Email)
+	organizationID := c.Locals("organization_id").(string)
+	existingUser, err := h.queries.Auth.GetUserByEmail(req.Email, organizationID)
 	if err == nil && existingUser != nil {
 		return c.Status(fiber.StatusConflict).JSON(fiber.Map{
 			"error":   "User with this email already exists",
@@ -164,7 +173,16 @@ func (h *UserHandler) CreateUser(c *fiber.Ctx) error {
 	// Don't return password hash
 	user.PasswordHash = ""
 
-	h.logger.Info("User created successfully: %s", user.Email)
+	h.audit.LogEvent(c.Context(), models.AuditEvent{
+		OrganizationID: user.OrganizationID,
+		PrincipalID:    utils.StringPtr(c.Locals("user_id").(string)),
+		PrincipalType:  utils.StringPtr("user"),
+		Action:         "create_user",
+		ResourceType:   utils.StringPtr("user"),
+		ResourceID:     utils.StringPtr(user.ID),
+		Result:         "success",
+		Severity:       "MEDIUM",
+	})
 
 	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
 		"success": true,
@@ -195,7 +213,8 @@ func (h *UserHandler) GetUser(c *fiber.Ctx) error {
 		})
 	}
 
-	user, err := h.queries.User.GetUser(userID)
+	organizationID := c.Locals("organization_id").(string)
+	user, err := h.queries.User.GetUser(userID, organizationID)
 	if err != nil {
 		h.logger.Error("Failed to get user: %v", err)
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
@@ -253,7 +272,8 @@ func (h *UserHandler) UpdateUser(c *fiber.Ctx) error {
 	}
 
 	// Get existing user
-	user, err := h.queries.User.GetUser(userID)
+	organizationID := c.Locals("organization_id").(string)
+	user, err := h.queries.User.GetUser(userID, organizationID)
 	if err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
 			"error":   "User not found",
@@ -280,7 +300,7 @@ func (h *UserHandler) UpdateUser(c *fiber.Ctx) error {
 
 	user.UpdatedAt = time.Now()
 
-	if err := h.queries.User.UpdateUser(user); err != nil {
+	if err := h.queries.User.UpdateUser(user, organizationID); err != nil {
 		h.logger.Error("Failed to update user: %v", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error":   "Failed to update user",
@@ -324,7 +344,8 @@ func (h *UserHandler) DeleteUser(c *fiber.Ctx) error {
 	}
 
 	// Check if user exists
-	_, err := h.queries.User.GetUser(userID)
+	organizationID := c.Locals("organization_id").(string)
+	_, err := h.queries.User.GetUser(userID, organizationID)
 	if err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
 			"error":   "User not found",
@@ -332,7 +353,7 @@ func (h *UserHandler) DeleteUser(c *fiber.Ctx) error {
 		})
 	}
 
-	if err := h.queries.User.DeleteUser(userID); err != nil {
+	if err := h.queries.User.DeleteUser(userID, organizationID); err != nil {
 		h.logger.Error("Failed to delete user: %v", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error":   "Failed to delete user",
@@ -370,7 +391,8 @@ func (h *UserHandler) GetUserProfile(c *fiber.Ctx) error {
 		})
 	}
 
-	user, err := h.queries.User.GetUserProfile(userID)
+	organizationID := c.Locals("organization_id").(string)
+	user, err := h.queries.User.GetUserProfile(userID, organizationID)
 	if err != nil {
 		h.logger.Error("Failed to get user profile: %v", err)
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
@@ -466,6 +488,126 @@ func (h *UserHandler) UpdateUserProfile(c *fiber.Ctx) error {
 	})
 }
 
+// ChangePassword allows a user to change their own password
+//
+//	@Summary		Change password
+//	@Description	Change the authenticated user's password
+//	@Tags			User Management
+//	@Accept			json
+//	@Produce		json
+//	@Param			id		path		string					true	"User ID"
+//	@Param			request	body		ChangePasswordRequest	true	"Password change details"
+//	@Success		200		{object}	SuccessResponse			"Password changed successfully"
+//	@Failure		400		{object}	ErrorResponse			"Invalid request"
+//	@Failure		401		{object}	ErrorResponse			"Current password incorrect"
+//	@Failure		500		{object}	ErrorResponse			"Internal server error"
+//	@Security		BearerAuth
+//	@Router			/users/{id}/change-password [post]
+func (h *UserHandler) ChangePassword(c *fiber.Ctx) error {
+	userID := c.Params("id")
+	if userID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error":   "User ID is required",
+			"success": false,
+		})
+	}
+
+	// Ensure user can only change their own password
+	authenticatedUserID := c.Locals("user_id").(string)
+	if userID != authenticatedUserID {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+			"error":   "You can only change your own password",
+			"success": false,
+		})
+	}
+
+	var req struct {
+		CurrentPassword string `json:"current_password"`
+		NewPassword     string `json:"new_password"`
+	}
+
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error":   "Invalid request body",
+			"success": false,
+		})
+	}
+
+	if req.CurrentPassword == "" || req.NewPassword == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error":   "Both current and new password are required",
+			"success": false,
+		})
+	}
+
+	if len(req.NewPassword) < 8 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error":   "New password must be at least 8 characters",
+			"success": false,
+		})
+	}
+
+	// Get user to verify current password
+	organizationID := c.Locals("organization_id").(string)
+	user, err := h.queries.Auth.GetUserByID(userID, organizationID)
+	if err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"error":   "User not found",
+			"success": false,
+		})
+	}
+
+	// Verify current password
+	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(req.CurrentPassword)); err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error":   "Current password is incorrect",
+			"success": false,
+		})
+	}
+
+	// Hash new password
+	newHash, err := hashPassword(req.NewPassword)
+	if err != nil {
+		h.logger.Error("Failed to hash new password: %v", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error":   "Failed to process password change",
+			"success": false,
+		})
+	}
+
+	// Update password
+	user.PasswordHash = newHash
+	now := time.Now()
+	user.PasswordChangedAt = &now
+	user.UpdatedAt = time.Now()
+
+	if err := h.queries.User.UpdateUser(user, organizationID); err != nil {
+		h.logger.Error("Failed to update password: %v", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error":   "Failed to change password",
+			"success": false,
+		})
+	}
+
+	h.audit.LogEvent(c.Context(), models.AuditEvent{
+		OrganizationID: organizationID,
+		PrincipalID:    utils.StringPtr(userID),
+		PrincipalType:  utils.StringPtr("user"),
+		Action:         "change_password",
+		ResourceType:   utils.StringPtr("user"),
+		ResourceID:     utils.StringPtr(userID),
+		Result:         "success",
+		Severity:       "info",
+	})
+
+	h.logger.Info("Password changed successfully for user: %s", userID)
+
+	return c.JSON(fiber.Map{
+		"success": true,
+		"message": "Password changed successfully",
+	})
+}
+
 // SuspendUser suspends a user account
 //
 //	@Summary		Suspend user
@@ -474,6 +616,7 @@ func (h *UserHandler) UpdateUserProfile(c *fiber.Ctx) error {
 //	@Accept			json
 //	@Produce		json
 //	@Param			id		path		string				true	"User ID"
+//
 // @Param			request	body		SuspendUserRequest	true	"Suspension details"
 // @Success		200		{object}	SuccessResponse		"User suspended successfully"
 // @Failure		400		{object}	ErrorResponse		"Invalid request format or user ID"
@@ -505,7 +648,8 @@ func (h *UserHandler) SuspendUser(c *fiber.Ctx) error {
 		})
 	}
 
-	if err := h.queries.User.SuspendUser(userID, req.Reason); err != nil {
+	organizationID := c.Locals("organization_id").(string)
+	if err := h.queries.User.SuspendUser(userID, organizationID, req.Reason); err != nil {
 		h.logger.Error("Failed to suspend user: %v", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error":   "Failed to suspend user",
@@ -528,6 +672,7 @@ func (h *UserHandler) SuspendUser(c *fiber.Ctx) error {
 //	@Tags			User Management
 //	@Accept			json
 //	@Produce		json
+//
 // @Param			request	body		ActivateUserRequest	false	"Activation details"
 // @Success		200	{object}	SuccessResponse	"User activated successfully"
 // @Failure		400	{object}	ErrorResponse	"Invalid user ID"
@@ -549,7 +694,8 @@ func (h *UserHandler) ActivateUser(c *fiber.Ctx) error {
 		h.logger.Debug("invalid request format")
 	}
 
-	if err := h.queries.User.ActivateUser(userID); err != nil {
+	organizationID := c.Locals("organization_id").(string)
+	if err := h.queries.User.ActivateUser(userID, organizationID); err != nil {
 		h.logger.Error("Failed to activate user: %v", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error":   "Failed to activate user",
@@ -587,7 +733,8 @@ func (h *UserHandler) GetUserSessions(c *fiber.Ctx) error {
 		})
 	}
 
-	sessions, err := h.queries.User.GetUserSessions(userID)
+	organizationID := c.Locals("organization_id").(string)
+	sessions, err := h.queries.User.GetUserSessions(userID, organizationID)
 	if err != nil {
 		h.logger.Error("Failed to get user sessions: %v", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
@@ -624,7 +771,8 @@ func (h *UserHandler) RevokeUserSessions(c *fiber.Ctx) error {
 		})
 	}
 
-	if err := h.queries.User.RevokeUserSessions(userID); err != nil {
+	organizationID := c.Locals("organization_id").(string)
+	if err := h.queries.User.RevokeUserSessions(userID, organizationID); err != nil {
 		h.logger.Error("Failed to revoke user sessions: %v", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error":   "Failed to revoke user sessions",
@@ -681,7 +829,8 @@ func (h *UserHandler) ListServiceAccounts(c *fiber.Ctx) error {
 	}
 
 	// Call query layer
-	result, err := h.queries.User.ListServiceAccounts(params)
+	organizationID := c.Locals("organization_id").(string)
+	result, err := h.queries.User.ListServiceAccounts(params, organizationID)
 	if err != nil {
 		h.logger.Error("Failed to list service accounts: %v", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{
@@ -733,7 +882,36 @@ func (h *UserHandler) CreateServiceAccount(c *fiber.Ctx) error {
 		})
 	}
 
+	// Validate name format — must match DB constraint: alphanumeric, dots, underscores, hyphens only
+	for _, ch := range sa.Name {
+		if !((ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') || (ch >= '0' && ch <= '9') || ch == '.' || ch == '_' || ch == '-') {
+			return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
+				Status:  fiber.StatusBadRequest,
+				Error:   "validation_error",
+				Message: "Service account name may only contain letters, numbers, dots, underscores, and hyphens (no spaces)",
+			})
+		}
+	}
+	if len(sa.Name) < 3 {
+		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
+			Status:  fiber.StatusBadRequest,
+			Error:   "validation_error",
+			Message: "Service account name must be at least 3 characters",
+		})
+	}
+
 	// Set default values
+	sa.ID = uuid.NewString()
+	sa.OrganizationID = c.Locals("organization_id").(string)
+	if sa.KeyRotationPolicy == "" {
+		sa.KeyRotationPolicy = `{"enabled": true, "rotation_days": 90}`
+	}
+	if sa.Attributes == "" {
+		sa.Attributes = "{}"
+	}
+	if sa.MaxTokenLifetime == "" {
+		sa.MaxTokenLifetime = "24 hours"
+	}
 	sa.Status = "active"
 	sa.CreatedAt = time.Now()
 	sa.UpdatedAt = time.Now()
@@ -742,6 +920,13 @@ func (h *UserHandler) CreateServiceAccount(c *fiber.Ctx) error {
 	// Call query layer to create service account
 	err := h.queries.User.CreateServiceAccount(&sa)
 	if err != nil {
+		if strings.Contains(err.Error(), "unique_sa_name_per_org") {
+			return c.Status(fiber.StatusConflict).JSON(ErrorResponse{
+				Status:  fiber.StatusConflict,
+				Error:   "conflict",
+				Message: "A service account with this name already exists in your organization",
+			})
+		}
 		h.logger.Error("Failed to create service account: %v", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{
 			Status:  fiber.StatusInternalServerError,
@@ -773,8 +958,9 @@ func (h *UserHandler) CreateServiceAccount(c *fiber.Ctx) error {
 func (h *UserHandler) GetServiceAccount(c *fiber.Ctx) error {
 	saID := c.Params("id")
 
+	organizationID := c.Locals("organization_id").(string)
 	// Call query layer
-	sa, err := h.queries.User.GetServiceAccount(saID)
+	sa, err := h.queries.User.GetServiceAccount(saID, organizationID)
 	if err != nil {
 		h.logger.Error("Failed to get service account: %v", err)
 		return c.Status(fiber.StatusNotFound).JSON(ErrorResponse{
@@ -808,10 +994,10 @@ func (h *UserHandler) GetServiceAccount(c *fiber.Ctx) error {
 //	@Router			/service-accounts/{id} [put]
 func (h *UserHandler) UpdateServiceAccount(c *fiber.Ctx) error {
 	saID := c.Params("id")
-	var sa models.ServiceAccount
+	var reqSa models.ServiceAccount
 
 	// Parse request body
-	if err := c.BodyParser(&sa); err != nil {
+	if err := c.BodyParser(&reqSa); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
 			Status:  fiber.StatusBadRequest,
 			Error:   "invalid_request",
@@ -819,12 +1005,56 @@ func (h *UserHandler) UpdateServiceAccount(c *fiber.Ctx) error {
 		})
 	}
 
-	// Set the ID and update timestamp
-	sa.ID = saID
-	sa.UpdatedAt = time.Now()
+	organizationID := c.Locals("organization_id").(string)
+
+	// Fetch existing SA to preserve unchanged values (like status)
+	existingSa, err := h.queries.User.GetServiceAccount(saID, organizationID)
+	if err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(ErrorResponse{
+			Status:  fiber.StatusNotFound,
+			Error:   "not_found",
+			Message: "Service account not found",
+		})
+	}
+
+	// Apply updates
+	if reqSa.Name != "" {
+		existingSa.Name = reqSa.Name
+	}
+	if reqSa.Description != "" {
+		existingSa.Description = reqSa.Description
+	}
+	if reqSa.Status != "" {
+		existingSa.Status = reqSa.Status
+	}
+	if reqSa.KeyRotationPolicy != "" {
+		existingSa.KeyRotationPolicy = reqSa.KeyRotationPolicy
+	}
+	if reqSa.Attributes != "" {
+		existingSa.Attributes = reqSa.Attributes
+	}
+	if reqSa.MaxTokenLifetime != "" {
+		existingSa.MaxTokenLifetime = reqSa.MaxTokenLifetime
+	}
+
+	// Set defaults if still empty to prevent DB JSON/interval errors
+	if existingSa.KeyRotationPolicy == "" {
+		existingSa.KeyRotationPolicy = `{"enabled": true, "rotation_days": 90}`
+	}
+	if existingSa.Attributes == "" {
+		existingSa.Attributes = "{}"
+	}
+	if existingSa.MaxTokenLifetime == "" {
+		existingSa.MaxTokenLifetime = "24 hours"
+	}
+	if existingSa.Status == "" {
+		existingSa.Status = "active"
+	}
+
+	existingSa.UpdatedAt = time.Now()
 
 	// Call query layer
-	err := h.queries.User.UpdateServiceAccount(&sa)
+	err = h.queries.User.UpdateServiceAccount(existingSa, organizationID)
 	if err != nil {
 		h.logger.Error("Failed to update service account: %v", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{
@@ -837,7 +1067,7 @@ func (h *UserHandler) UpdateServiceAccount(c *fiber.Ctx) error {
 	return c.JSON(SuccessResponse{
 		Status:  fiber.StatusOK,
 		Message: "Service account updated successfully",
-		Data:    sa,
+		Data:    existingSa,
 	})
 }
 
@@ -857,8 +1087,9 @@ func (h *UserHandler) UpdateServiceAccount(c *fiber.Ctx) error {
 func (h *UserHandler) DeleteServiceAccount(c *fiber.Ctx) error {
 	saID := c.Params("id")
 
+	organizationID := c.Locals("organization_id").(string)
 	// Call query layer
-	err := h.queries.User.DeleteServiceAccount(saID)
+	err := h.queries.User.DeleteServiceAccount(saID, organizationID)
 	if err != nil {
 		h.logger.Error("Failed to delete service account: %v", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{
@@ -903,8 +1134,48 @@ func (h *UserHandler) GenerateAPIKey(c *fiber.Ctx) error {
 		})
 	}
 
-	// Set default values
+	organizationID := c.Locals("organization_id").(string)
+	apiKey.OrganizationID = organizationID
+
+	userID := c.Locals("user_id")
+	if userID != nil {
+		apiKey.CreatedBy = userID.(string)
+	}
+
+	// Generate a secure random API Secret (32 bytes)
+	secretBytes := make([]byte, 32)
+	if _, err := rand.Read(secretBytes); err != nil {
+		h.logger.Error("Failed to generate random secret: %v", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{
+			Status:  fiber.StatusInternalServerError,
+			Error:   "internal_server_error",
+			Message: "Failed to generate API key",
+		})
+	}
+	apiSecret := "mk_" + hex.EncodeToString(secretBytes)
+
+	// Generate a standard Key ID if not provided (public identifier)
+	if apiKey.KeyID == "" {
+		keyIDBytes := make([]byte, 16)
+		rand.Read(keyIDBytes)
+		apiKey.KeyID = "aki_" + hex.EncodeToString(keyIDBytes)
+	}
+
+	// Hash the secret
+	hashedSecret, err := hashPassword(apiSecret) // reusing existing helper
+	if err != nil {
+		h.logger.Error("Failed to hash secret: %v", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{
+			Status:  fiber.StatusInternalServerError,
+			Error:   "internal_server_error",
+			Message: "Failed to process API key generation",
+		})
+	}
+
+	// Set fields
+	apiKey.ID = uuid.NewString()
 	apiKey.ServiceAccountID = saID
+	apiKey.KeyHash = hashedSecret
 	apiKey.Status = "active"
 	apiKey.CreatedAt = time.Now()
 
@@ -914,7 +1185,7 @@ func (h *UserHandler) GenerateAPIKey(c *fiber.Ctx) error {
 	}
 
 	// Call query layer
-	err := h.queries.User.GenerateAPIKey(saID, &apiKey)
+	err = h.queries.User.GenerateAPIKey(saID, &apiKey, organizationID)
 	if err != nil {
 		h.logger.Error("Failed to generate API key: %v", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{
@@ -924,10 +1195,19 @@ func (h *UserHandler) GenerateAPIKey(c *fiber.Ctx) error {
 		})
 	}
 
+	// Helper struct to return the secret (only once!)
+	type APIKeyResponse struct {
+		models.APIKey
+		Secret string `json:"secret"`
+	}
+
 	return c.Status(fiber.StatusCreated).JSON(SuccessResponse{
 		Status:  fiber.StatusCreated,
 		Message: "API key generated successfully",
-		Data:    apiKey,
+		Data: APIKeyResponse{
+			APIKey: apiKey,
+			Secret: apiSecret,
+		},
 	})
 }
 
@@ -947,8 +1227,9 @@ func (h *UserHandler) GenerateAPIKey(c *fiber.Ctx) error {
 func (h *UserHandler) ListAPIKeys(c *fiber.Ctx) error {
 	saID := c.Params("id")
 
+	organizationID := c.Locals("organization_id").(string)
 	// Call query layer
-	keys, err := h.queries.User.ListAPIKeys(saID)
+	keys, err := h.queries.User.ListAPIKeys(saID, organizationID)
 	if err != nil {
 		h.logger.Error("Failed to list API keys: %v", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{
@@ -983,8 +1264,9 @@ func (h *UserHandler) RevokeAPIKey(c *fiber.Ctx) error {
 	saID := c.Params("id")
 	keyID := c.Params("key_id")
 
+	organizationID := c.Locals("organization_id").(string)
 	// Call query layer
-	err := h.queries.User.RevokeAPIKey(saID, keyID)
+	err := h.queries.User.RevokeAPIKey(saID, keyID, organizationID)
 	if err != nil {
 		h.logger.Error("Failed to revoke API key: %v", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{
@@ -1017,8 +1299,9 @@ func (h *UserHandler) RevokeAPIKey(c *fiber.Ctx) error {
 func (h *UserHandler) RotateServiceAccountKeys(c *fiber.Ctx) error {
 	saID := c.Params("id")
 
+	organizationID := c.Locals("organization_id").(string)
 	// Call query layer
-	err := h.queries.User.RotateServiceAccountKeys(saID)
+	err := h.queries.User.RotateServiceAccountKeys(saID, organizationID)
 	if err != nil {
 		h.logger.Error("Failed to rotate service account keys: %v", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{

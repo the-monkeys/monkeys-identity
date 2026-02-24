@@ -25,17 +25,17 @@ type GroupQueries interface {
 	// Group CRUD
 	ListGroups(params ListParams, orgID string) (*ListResult[models.Group], error)
 	CreateGroup(g *models.Group) error
-	GetGroup(id string) (*models.Group, error)
-	UpdateGroup(g *models.Group) error
-	DeleteGroup(id string) error
+	GetGroup(id, organizationID string) (*models.Group, error)
+	UpdateGroup(g *models.Group, organizationID string) error
+	DeleteGroup(id, organizationID string) error
 
 	// Membership
-	ListGroupMembers(groupID string) ([]models.GroupMembership, error)
-	AddGroupMember(m *models.GroupMembership) error
-	RemoveGroupMember(groupID, principalID, principalType string) error
+	ListGroupMembers(groupID, organizationID string) ([]models.GroupMembership, error)
+	AddGroupMember(m *models.GroupMembership, organizationID string) error
+	RemoveGroupMember(groupID, organizationID, principalID, principalType string) error
 
 	// Permissions (placeholder for future expansion)
-	GetGroupPermissions(groupID string) (string, error)
+	GetGroupPermissions(groupID, organizationID string) (string, error)
 }
 
 type groupQueries struct {
@@ -152,10 +152,10 @@ func (q *groupQueries) CreateGroup(g *models.Group) error {
 	return nil
 }
 
-func (q *groupQueries) GetGroup(id string) (*models.Group, error) {
-	stmt := `SELECT ` + groupSelectCols + ` FROM groups WHERE id=$1 AND status != 'deleted'`
+func (q *groupQueries) GetGroup(id, organizationID string) (*models.Group, error) {
+	stmt := `SELECT ` + groupSelectCols + ` FROM groups WHERE id=$1 AND organization_id=$2 AND status != 'deleted'`
 	var g models.Group
-	err := q.queryRow(stmt, id).Scan(&g.ID, &g.Name, &g.Description, &g.OrganizationID, &g.ParentGroupID, &g.GroupType, &g.Attributes, &g.MaxMembers, &g.Status, &g.CreatedAt, &g.UpdatedAt, &g.DeletedAt)
+	err := q.queryRow(stmt, id, organizationID).Scan(&g.ID, &g.Name, &g.Description, &g.OrganizationID, &g.ParentGroupID, &g.GroupType, &g.Attributes, &g.MaxMembers, &g.Status, &g.CreatedAt, &g.UpdatedAt, &g.DeletedAt)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, fmt.Errorf("group not found")
@@ -165,9 +165,9 @@ func (q *groupQueries) GetGroup(id string) (*models.Group, error) {
 	return &g, nil
 }
 
-func (q *groupQueries) UpdateGroup(g *models.Group) error {
-	stmt := `UPDATE groups SET name=$2, description=$3, parent_group_id=$4, group_type=$5, attributes=$6, max_members=$7, status=$8, updated_at=NOW() WHERE id=$1 AND status != 'deleted' RETURNING updated_at`
-	err := q.queryRow(stmt, g.ID, g.Name, g.Description, g.ParentGroupID, g.GroupType, g.Attributes, g.MaxMembers, g.Status).Scan(&g.UpdatedAt)
+func (q *groupQueries) UpdateGroup(g *models.Group, organizationID string) error {
+	stmt := `UPDATE groups SET name=$2, description=$3, parent_group_id=$4, group_type=$5, attributes=$6, max_members=$7, status=$8, updated_at=NOW() WHERE id=$1 AND organization_id=$9 AND status != 'deleted' RETURNING updated_at`
+	err := q.queryRow(stmt, g.ID, g.Name, g.Description, g.ParentGroupID, g.GroupType, g.Attributes, g.MaxMembers, g.Status, organizationID).Scan(&g.UpdatedAt)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return fmt.Errorf("group not found or deleted")
@@ -183,9 +183,9 @@ func (q *groupQueries) UpdateGroup(g *models.Group) error {
 	return nil
 }
 
-func (q *groupQueries) DeleteGroup(id string) error {
-	stmt := `UPDATE groups SET status='deleted', deleted_at=NOW(), updated_at=NOW() WHERE id=$1 AND status != 'deleted'`
-	res, err := q.exec(stmt, id)
+func (q *groupQueries) DeleteGroup(id, organizationID string) error {
+	stmt := `UPDATE groups SET status='deleted', deleted_at=NOW(), updated_at=NOW() WHERE id=$1 AND organization_id=$2 AND status != 'deleted'`
+	res, err := q.exec(stmt, id, organizationID)
 	if err != nil {
 		return err
 	}
@@ -196,17 +196,18 @@ func (q *groupQueries) DeleteGroup(id string) error {
 	return nil
 }
 
-func (q *groupQueries) ListGroupMembers(groupID string) ([]models.GroupMembership, error) {
+func (q *groupQueries) ListGroupMembers(groupID, organizationID string) ([]models.GroupMembership, error) {
 	stmt := `
 		SELECT 
 			gm.id, gm.group_id, gm.principal_id, gm.principal_type, gm.role_in_group, gm.joined_at, gm.expires_at, gm.added_by,
 			COALESCE(u.display_name, u.username, sa.name, 'Unknown') as name,
 			COALESCE(u.email, '') as email
 		FROM group_memberships gm
+		JOIN groups g ON gm.group_id = g.id
 		LEFT JOIN users u ON gm.principal_id = u.id AND gm.principal_type = 'user'
 		LEFT JOIN service_accounts sa ON gm.principal_id = sa.id AND gm.principal_type = 'service_account'
-		WHERE gm.group_id = $1`
-	rows, err := q.query(stmt, groupID)
+		WHERE gm.group_id = $1 AND g.organization_id = $2`
+	rows, err := q.query(stmt, groupID, organizationID)
 	if err != nil {
 		return nil, err
 	}
@@ -222,7 +223,18 @@ func (q *groupQueries) ListGroupMembers(groupID string) ([]models.GroupMembershi
 	return members, nil
 }
 
-func (q *groupQueries) AddGroupMember(m *models.GroupMembership) error {
+func (q *groupQueries) AddGroupMember(m *models.GroupMembership, organizationID string) error {
+	// Verify group exists in organization
+	var exists bool
+	checkQuery := `SELECT EXISTS(SELECT 1 FROM groups WHERE id = $1 AND organization_id = $2 AND status != 'deleted')`
+	err := q.queryRow(checkQuery, m.GroupID, organizationID).Scan(&exists)
+	if err != nil {
+		return fmt.Errorf("failed to verify group: %w", err)
+	}
+	if !exists {
+		return fmt.Errorf("group not found or not in organization")
+	}
+
 	stmt := `INSERT INTO group_memberships (id, group_id, principal_id, principal_type, role_in_group, expires_at, added_by)
 			 VALUES ($1,$2,$3,$4,$5,$6,$7)
 			 ON CONFLICT (group_id, principal_id, principal_type) DO UPDATE SET role_in_group=EXCLUDED.role_in_group, expires_at=EXCLUDED.expires_at
@@ -230,9 +242,10 @@ func (q *groupQueries) AddGroupMember(m *models.GroupMembership) error {
 	return q.queryRow(stmt, m.ID, m.GroupID, m.PrincipalID, m.PrincipalType, m.RoleInGroup, m.ExpiresAt, m.AddedBy).Scan(&m.JoinedAt)
 }
 
-func (q *groupQueries) RemoveGroupMember(groupID, principalID, principalType string) error {
-	stmt := `DELETE FROM group_memberships WHERE group_id=$1 AND principal_id=$2 AND principal_type=$3`
-	res, err := q.exec(stmt, groupID, principalID, principalType)
+func (q *groupQueries) RemoveGroupMember(groupID, organizationID, principalID, principalType string) error {
+	stmt := `DELETE FROM group_memberships WHERE group_id=$1 AND principal_id=$2 AND principal_type=$3
+	         AND EXISTS (SELECT 1 FROM groups WHERE id=$1 AND organization_id=$4 AND status != 'deleted')`
+	res, err := q.exec(stmt, groupID, principalID, principalType, organizationID)
 	if err != nil {
 		return err
 	}
@@ -252,9 +265,9 @@ func (q *groupQueries) RemoveGroupMember(groupID, principalID, principalType str
 // - Resource scoping
 // - Policy evaluation / conditions
 // - Conflict resolution precedence
-func (q *groupQueries) GetGroupPermissions(groupID string) (string, error) {
+func (q *groupQueries) GetGroupPermissions(groupID, organizationID string) (string, error) {
 	// Basic validation that group exists (optional but helpful)
-	if _, err := q.GetGroup(groupID); err != nil {
+	if _, err := q.GetGroup(groupID, organizationID); err != nil {
 		return "", err
 	}
 
@@ -263,13 +276,16 @@ func (q *groupQueries) GetGroupPermissions(groupID string) (string, error) {
 	stmt := `
 		WITH member_principals AS (
 			SELECT DISTINCT principal_id, principal_type
-			FROM group_memberships
-			WHERE group_id = $1
+			FROM group_memberships gm
+			JOIN groups g ON gm.group_id = g.id
+			WHERE gm.group_id = $1 AND g.organization_id = $2
 		), principal_roles AS (
 			SELECT DISTINCT ra.role_id
 			FROM role_assignments ra
 			JOIN member_principals mp ON mp.principal_id = ra.principal_id AND mp.principal_type = ra.principal_type
+			JOIN roles r ON ra.role_id = r.id
 			WHERE (ra.expires_at IS NULL OR ra.expires_at > NOW())
+			  AND r.organization_id = $2
 		), role_policies_join AS (
 			SELECT rp.policy_id
 			FROM role_policies rp
@@ -278,10 +294,10 @@ func (q *groupQueries) GetGroupPermissions(groupID string) (string, error) {
 		SELECT p.document
 		FROM policies p
 		JOIN role_policies_join rpj ON rpj.policy_id = p.id
-		WHERE p.status = 'active'
+		WHERE p.status = 'active' AND p.organization_id = $2
 	`
 
-	rows, err := q.query(stmt, groupID)
+	rows, err := q.query(stmt, groupID, organizationID)
 	if err != nil {
 		return "", err
 	}

@@ -48,11 +48,22 @@ services:
     ports:
       - "8085:8080"
     environment:
-      - DATABASE_URL=postgres://postgres:password@postgres:5432/monkeys_iam?sslmode=disable
-      - REDIS_URL=redis://redis:6379
-      - JWT_SECRET=your-super-secret-jwt-key-change-in-production
-      - ENVIRONMENT=production
-      - LOG_LEVEL=info
+      DATABASE_URL: postgres://postgres:password@postgres:5432/monkeys_iam?sslmode=disable
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: your-super-secret-jwt-key-change-in-production
+      ENVIRONMENT: production
+      LOG_LEVEL: info
+      ALLOWED_ORIGINS: http://localhost:5173,http://localhost:3000,http://localhost:5174,http://localhost:8085
+      OIDC_ISSUER: http://localhost:8085
+      JWT_PRIVATE_KEY_FILE: ./jwt_private_key.pem
+      SMTP_HOST: mailpit
+      SMTP_PORT: 1025
+      SMTP_FROM: no-reply@monkeys.com
+      SMTP_USERNAME: ""
+      SMTP_PASSWORD: ""
+
+    volumes:
+      - ./jwt_private_key.pem:/run/secrets/jwt_private_key.pem:ro
     depends_on:
       postgres:
         condition: service_healthy
@@ -79,6 +90,7 @@ services:
       - /app/node_modules
     environment:
       - VITE_API_URL=http://localhost:8085/api/v1
+      - VITE_PROXY_TARGET=http://monkeys-iam:8080
 
   # pgAdmin (Optional - for database management)
   pgadmin:
@@ -106,6 +118,16 @@ services:
       - redis
     profiles:
       - tools
+
+  # Mailpit for local email testing
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: monkeys_iam_mailpit
+    ports:
+      - "8025:8025" # Web UI
+      - "1025:1025" # SMTP
+    environment:
+      MP_MAX_MESSAGES: 500
 
 volumes:
   postgres_data:

@@ -14,4 +14,7 @@ export const profileAPI = {
 
     updateProfile: (userId: string, data: UpdateProfileRequest) =>
         client.put(`/users/${userId}/profile`, data),
+
+    changePassword: (userId: string, data: { current_password: string; new_password: string }) =>
+        client.post(`/users/${userId}/change-password`, data),
 };

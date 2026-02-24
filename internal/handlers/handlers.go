@@ -8,11 +8,14 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
+	"github.com/the-monkeys/monkeys-identity/internal/authz"
 	"github.com/the-monkeys/monkeys-identity/internal/database"
 	"github.com/the-monkeys/monkeys-identity/internal/models"
 	"github.com/the-monkeys/monkeys-identity/internal/queries"
+	"github.com/the-monkeys/monkeys-identity/internal/services"
 	"github.com/the-monkeys/monkeys-identity/pkg/logger"
 )
 
@@ -50,7 +53,7 @@ func (h *GroupHandler) ListGroups(c *fiber.Ctx) error {
 	offset := c.QueryInt("offset", 0)
 	sortBy := c.Query("sort", "created_at")
 	order := c.Query("order", "desc")
-	orgID := c.Query("organization_id")
+	organizationID := c.Locals("organization_id").(string)
 
 	if limit < 1 || limit > 200 {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Status: fiber.StatusBadRequest, Error: "invalid_limit", Message: "limit must be 1-200"})
@@ -59,7 +62,7 @@ func (h *GroupHandler) ListGroups(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Status: fiber.StatusBadRequest, Error: "invalid_offset", Message: "offset must be >=0"})
 	}
 	params := queries.ListParams{Limit: limit, Offset: offset, SortBy: sortBy, Order: order}
-	result, err := h.queries.Group.ListGroups(params, orgID)
+	result, err := h.queries.Group.ListGroups(params, organizationID)
 	if err != nil {
 		h.logger.Error("list groups failed: %v", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{Status: fiber.StatusInternalServerError, Error: "internal_server_error", Message: "Failed to list groups"})
@@ -86,9 +89,11 @@ func (h *GroupHandler) CreateGroup(c *fiber.Ctx) error {
 	if err := c.BodyParser(&g); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Status: fiber.StatusBadRequest, Error: "invalid_request_body", Message: "Failed to parse request body"})
 	}
-	if g.Name == "" || g.OrganizationID == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Status: fiber.StatusBadRequest, Error: "validation_failed", Message: "name and organization_id are required"})
+	organizationID := c.Locals("organization_id").(string)
+	if g.Name == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Status: fiber.StatusBadRequest, Error: "validation_failed", Message: "name is required"})
 	}
+	g.OrganizationID = organizationID
 	g.ID = uuid.New().String()
 	if g.GroupType == "" {
 		g.GroupType = "standard"
@@ -133,7 +138,8 @@ func (h *GroupHandler) GetGroup(c *fiber.Ctx) error {
 	if id == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Status: fiber.StatusBadRequest, Error: "invalid_group_id", Message: "Group ID is required"})
 	}
-	g, err := h.queries.Group.GetGroup(id)
+	organizationID := c.Locals("organization_id").(string)
+	g, err := h.queries.Group.GetGroup(id, organizationID)
 	if err != nil {
 		if err.Error() == "group not found" {
 			return c.Status(fiber.StatusNotFound).JSON(ErrorResponse{Status: fiber.StatusNotFound, Error: "group_not_found", Message: "Group not found"})
@@ -166,8 +172,9 @@ func (h *GroupHandler) UpdateGroup(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Status: fiber.StatusBadRequest, Error: "invalid_group_id", Message: "Group ID is required"})
 	}
 
+	organizationID := c.Locals("organization_id").(string)
 	// Get existing group
-	existingGroup, err := h.queries.Group.GetGroup(id)
+	existingGroup, err := h.queries.Group.GetGroup(id, organizationID)
 	if err != nil {
 		if err.Error() == "group not found" {
 			return c.Status(fiber.StatusNotFound).JSON(ErrorResponse{Status: fiber.StatusNotFound, Error: "group_not_found", Message: "Group not found or deleted"})
@@ -202,7 +209,7 @@ func (h *GroupHandler) UpdateGroup(c *fiber.Ctx) error {
 	}
 
 	existingGroup.ID = id
-	if err := h.queries.Group.UpdateGroup(existingGroup); err != nil {
+	if err := h.queries.Group.UpdateGroup(existingGroup, organizationID); err != nil {
 		if err.Error() == "group not found or deleted" {
 			return c.Status(fiber.StatusNotFound).JSON(ErrorResponse{Status: fiber.StatusNotFound, Error: "group_not_found", Message: "Group not found or deleted"})
 		}
@@ -239,7 +246,8 @@ func (h *GroupHandler) DeleteGroup(c *fiber.Ctx) error {
 	if id == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Status: fiber.StatusBadRequest, Error: "invalid_group_id", Message: "Group ID is required"})
 	}
-	if err := h.queries.Group.DeleteGroup(id); err != nil {
+	organizationID := c.Locals("organization_id").(string)
+	if err := h.queries.Group.DeleteGroup(id, organizationID); err != nil {
 		if err.Error() == "group not found or deleted" {
 			return c.Status(fiber.StatusNotFound).JSON(ErrorResponse{Status: fiber.StatusNotFound, Error: "group_not_found", Message: "Group not found or deleted"})
 		}
@@ -267,7 +275,8 @@ func (h *GroupHandler) GetGroupMembers(c *fiber.Ctx) error {
 	if id == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Status: fiber.StatusBadRequest, Error: "invalid_group_id", Message: "Group ID is required"})
 	}
-	members, err := h.queries.Group.ListGroupMembers(id)
+	organizationID := c.Locals("organization_id").(string)
+	members, err := h.queries.Group.ListGroupMembers(id, organizationID)
 	if err != nil {
 		h.logger.Error("list group members failed: %v", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{Status: fiber.StatusInternalServerError, Error: "internal_server_error", Message: "Failed to list group members"})
@@ -318,11 +327,9 @@ func (h *GroupHandler) AddGroupMember(c *fiber.Ctx) error {
 		expires = t
 	}
 	addedBy := ""
-	if uid, ok := c.Locals("user_id").(string); ok {
-		addedBy = uid
-	}
+	organizationID := c.Locals("organization_id").(string)
 	membership := &models.GroupMembership{ID: uuid.New().String(), GroupID: id, PrincipalID: req.PrincipalID, PrincipalType: req.PrincipalType, RoleInGroup: req.RoleInGroup, ExpiresAt: expires, AddedBy: addedBy}
-	if err := h.queries.Group.AddGroupMember(membership); err != nil {
+	if err := h.queries.Group.AddGroupMember(membership, organizationID); err != nil {
 		h.logger.Error("add group member failed: %v", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{Status: fiber.StatusInternalServerError, Error: "internal_server_error", Message: "Failed to add group member"})
 	}
@@ -352,7 +359,8 @@ func (h *GroupHandler) RemoveGroupMember(c *fiber.Ctx) error {
 	if id == "" || principalID == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Status: fiber.StatusBadRequest, Error: "invalid_parameters", Message: "Group ID and principal ID are required"})
 	}
-	if err := h.queries.Group.RemoveGroupMember(id, principalID, principalType); err != nil {
+	organizationID := c.Locals("organization_id").(string)
+	if err := h.queries.Group.RemoveGroupMember(id, organizationID, principalID, principalType); err != nil {
 		if err.Error() == "membership not found" {
 			return c.Status(fiber.StatusNotFound).JSON(ErrorResponse{Status: fiber.StatusNotFound, Error: "membership_not_found", Message: "Membership not found"})
 		}
@@ -380,7 +388,8 @@ func (h *GroupHandler) GetGroupPermissions(c *fiber.Ctx) error {
 	if id == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Status: fiber.StatusBadRequest, Error: "invalid_group_id", Message: "Group ID is required"})
 	}
-	perms, err := h.queries.Group.GetGroupPermissions(id)
+	organizationID := c.Locals("organization_id").(string)
+	perms, err := h.queries.Group.GetGroupPermissions(id, organizationID)
 	if err != nil {
 		h.logger.Error("get group permissions failed: %v", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{Status: fiber.StatusInternalServerError, Error: "internal_server_error", Message: "Failed to get group permissions"})
@@ -435,8 +444,8 @@ func (h *ResourceHandler) ListResources(c *fiber.Ctx) error {
 		}
 	}
 
-	// Get filter parameters
-	organizationID := c.Query("organization_id")
+	// Get organization ID from context
+	organizationID := c.Locals("organization_id").(string)
 	// Note: type filter not yet implemented in queries layer
 
 	result, err := h.queries.Resource.ListResources(params, organizationID)
@@ -467,10 +476,13 @@ func (h *ResourceHandler) CreateResource(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Status: fiber.StatusBadRequest, Error: "invalid_request_body", Message: "Failed to parse request body"})
 	}
 
+	organizationID := c.Locals("organization_id").(string)
+
 	// Validate required fields
-	if resource.Name == "" || resource.Type == "" || resource.OrganizationID == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Status: fiber.StatusBadRequest, Error: "validation_failed", Message: "name, type, and organization_id are required"})
+	if resource.Name == "" || resource.Type == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Status: fiber.StatusBadRequest, Error: "validation_failed", Message: "name and type are required"})
 	}
+	resource.OrganizationID = organizationID
 
 	// Set default values
 	resource.ID = uuid.New().String()
@@ -491,8 +503,9 @@ func (h *ResourceHandler) CreateResource(c *fiber.Ctx) error {
 	}
 
 	// Generate ARN if not provided
+	// Format: arn:monkey:<service>:<region>:<account>:<resource-type>/<resource-id>
 	if resource.ARN == "" {
-		resource.ARN = "arn:monkeys:resource:" + resource.OrganizationID + ":" + resource.Type + "/" + resource.ID
+		resource.ARN = "arn:monkey:resource::" + resource.OrganizationID + ":" + resource.Type + "/" + resource.ID
 	}
 
 	if err := h.queries.Resource.CreateResource(&resource); err != nil {
@@ -523,7 +536,8 @@ func (h *ResourceHandler) GetResource(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Status: fiber.StatusBadRequest, Error: "invalid_resource_id", Message: "Resource ID is required"})
 	}
 
-	resource, err := h.queries.Resource.GetResource(resourceID)
+	organizationID := c.Locals("organization_id").(string)
+	resource, err := h.queries.Resource.GetResource(resourceID, organizationID)
 	if err != nil {
 		h.logger.Error("get resource failed: %v", err)
 		if err.Error() == "resource not found" {
@@ -561,19 +575,48 @@ func (h *ResourceHandler) UpdateResource(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Status: fiber.StatusBadRequest, Error: "invalid_request_body", Message: "Failed to parse request body"})
 	}
 
-	// Set the ID from the URL parameter
-	updates.ID = resourceID
+	organizationID := c.Locals("organization_id").(string)
 
-	if err := h.queries.Resource.UpdateResource(&updates); err != nil {
-		h.logger.Error("update resource failed: %v", err)
+	// Fetch existing resource first, then merge updates
+	existing, err := h.queries.Resource.GetResource(resourceID, organizationID)
+	if err != nil {
+		h.logger.Error("get resource for update failed: %v", err)
 		if err.Error() == "resource not found" {
 			return c.Status(fiber.StatusNotFound).JSON(ErrorResponse{Status: fiber.StatusNotFound, Error: "resource_not_found", Message: "Resource not found"})
 		}
+		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{Status: fiber.StatusInternalServerError, Error: "internal_server_error", Message: "Failed to retrieve resource for update"})
+	}
+
+	// Only overwrite fields that were provided (non-empty)
+	if updates.Name != "" {
+		existing.Name = updates.Name
+	}
+	if updates.Description != nil && *updates.Description != "" {
+		existing.Description = updates.Description
+	}
+	if updates.Type != "" {
+		existing.Type = updates.Type
+	}
+	if updates.Status != "" {
+		existing.Status = updates.Status
+	}
+	if updates.Attributes != "" {
+		existing.Attributes = updates.Attributes
+	}
+	if updates.Tags != "" {
+		existing.Tags = updates.Tags
+	}
+	if updates.AccessLevel != "" {
+		existing.AccessLevel = updates.AccessLevel
+	}
+
+	if err := h.queries.Resource.UpdateResource(existing, organizationID); err != nil {
+		h.logger.Error("update resource failed: %v", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{Status: fiber.StatusInternalServerError, Error: "internal_server_error", Message: "Failed to update resource"})
 	}
 
 	// Get the updated resource to return it
-	updatedResource, err := h.queries.Resource.GetResource(resourceID)
+	updatedResource, err := h.queries.Resource.GetResource(resourceID, organizationID)
 	if err != nil {
 		h.logger.Error("get updated resource failed: %v", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{Status: fiber.StatusInternalServerError, Error: "internal_server_error", Message: "Resource updated but failed to retrieve updated data"})
@@ -602,7 +645,8 @@ func (h *ResourceHandler) DeleteResource(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Status: fiber.StatusBadRequest, Error: "invalid_resource_id", Message: "Resource ID is required"})
 	}
 
-	if err := h.queries.Resource.DeleteResource(resourceID); err != nil {
+	organizationID := c.Locals("organization_id").(string)
+	if err := h.queries.Resource.DeleteResource(resourceID, organizationID); err != nil {
 		h.logger.Error("delete resource failed: %v", err)
 		if err.Error() == "resource not found" {
 			return c.Status(fiber.StatusNotFound).JSON(ErrorResponse{Status: fiber.StatusNotFound, Error: "resource_not_found", Message: "Resource not found"})
@@ -633,7 +677,8 @@ func (h *ResourceHandler) GetResourcePermissions(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Status: fiber.StatusBadRequest, Error: "invalid_resource_id", Message: "Resource ID is required"})
 	}
 
-	permissions, err := h.queries.Resource.GetResourcePermissions(resourceID)
+	organizationID := c.Locals("organization_id").(string)
+	permissions, err := h.queries.Resource.GetResourcePermissions(resourceID, organizationID)
 	if err != nil {
 		h.logger.Error("get resource permissions failed: %v", err)
 		if err.Error() == "resource not found" {
@@ -694,7 +739,8 @@ func (h *ResourceHandler) SetResourcePermissions(c *fiber.Ctx) error {
 		permissions = append(permissions, permission)
 	}
 
-	if err := h.queries.Resource.SetResourcePermissions(resourceID, permissions); err != nil {
+	organizationID := c.Locals("organization_id").(string)
+	if err := h.queries.Resource.SetResourcePermissions(resourceID, organizationID, permissions); err != nil {
 		h.logger.Error("set resource permissions failed: %v", err)
 		if err.Error() == "resource not found" {
 			return c.Status(fiber.StatusNotFound).JSON(ErrorResponse{Status: fiber.StatusNotFound, Error: "resource_not_found", Message: "Resource not found"})
@@ -746,7 +792,8 @@ func (h *ResourceHandler) GetResourceAccessLog(c *fiber.Ctx) error {
 		}
 	}
 
-	accessLog, err := h.queries.Resource.GetResourceAccessLog(resourceID, params)
+	organizationID := c.Locals("organization_id").(string)
+	accessLog, err := h.queries.Resource.GetResourceAccessLog(resourceID, organizationID, params)
 	if err != nil {
 		h.logger.Error("get resource access log failed: %v", err)
 		if err.Error() == "resource not found" {
@@ -811,10 +858,14 @@ func (h *ResourceHandler) ShareResource(c *fiber.Ctx) error {
 		}
 	}
 
-	if err := h.queries.Resource.ShareResource(&share); err != nil {
+	organizationID := c.Locals("organization_id").(string)
+	if err := h.queries.Resource.ShareResource(&share, organizationID); err != nil {
 		h.logger.Error("share resource failed: %v", err)
-		if err.Error() == "resource not found" {
+		if err.Error() == "resource not found" || err.Error() == "resource not found or not in organization" {
 			return c.Status(fiber.StatusNotFound).JSON(ErrorResponse{Status: fiber.StatusNotFound, Error: "resource_not_found", Message: "Resource not found"})
+		}
+		if err.Error() == "resource already shared with this principal" {
+			return c.Status(fiber.StatusConflict).JSON(ErrorResponse{Status: fiber.StatusConflict, Error: "already_shared", Message: "Resource is already shared with this principal"})
 		}
 		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{Status: fiber.StatusInternalServerError, Error: "internal_server_error", Message: "Failed to share resource"})
 	}
@@ -856,7 +907,8 @@ func (h *ResourceHandler) UnshareResource(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Status: fiber.StatusBadRequest, Error: "validation_failed", Message: "principal_id and principal_type are required"})
 	}
 
-	if err := h.queries.Resource.UnshareResource(resourceID, req.PrincipalID, req.PrincipalType); err != nil {
+	organizationID := c.Locals("organization_id").(string)
+	if err := h.queries.Resource.UnshareResource(resourceID, organizationID, req.PrincipalID, req.PrincipalType); err != nil {
 		h.logger.Error("unshare resource failed: %v", err)
 		if err.Error() == "resource not found" || err.Error() == "share not found" {
 			return c.Status(fiber.StatusNotFound).JSON(ErrorResponse{Status: fiber.StatusNotFound, Error: "not_found", Message: "Resource or share not found"})
@@ -873,14 +925,18 @@ type PolicyHandler struct {
 	redis   *redis.Client
 	logger  *logger.Logger
 	queries *queries.Queries
+	audit   services.AuditService
+	authz   services.AuthzService
 }
 
-func NewPolicyHandler(db *database.DB, redis *redis.Client, logger *logger.Logger) *PolicyHandler {
+func NewPolicyHandler(db *database.DB, redis *redis.Client, logger *logger.Logger, audit services.AuditService, authz services.AuthzService) *PolicyHandler {
 	return &PolicyHandler{
 		db:      db,
 		redis:   redis,
 		logger:  logger,
 		queries: queries.New(db, redis),
+		audit:   audit,
+		authz:   authz,
 	}
 }
 
@@ -924,8 +980,7 @@ func (h *PolicyHandler) ListPolicies(c *fiber.Ctx) error {
 		params.Order = order
 	}
 
-	organizationID := c.Query("organization_id")
-
+	organizationID := c.Locals("organization_id").(string)
 	result, err := h.queries.Policy.ListPolicies(params, organizationID)
 	if err != nil {
 		h.logger.Error("Failed to list policies: %v", err)
@@ -973,6 +1028,10 @@ func (h *PolicyHandler) CreatePolicy(c *fiber.Ctx) error {
 		})
 	}
 
+	if req.ID == "" {
+		req.ID = uuid.New().String()
+	}
+
 	if len(req.Document) == 0 || !json.Valid(req.Document) {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
 			Error:   "invalid_policy_document",
@@ -980,22 +1039,33 @@ func (h *PolicyHandler) CreatePolicy(c *fiber.Ctx) error {
 		})
 	}
 
+	organizationID := c.Locals("organization_id").(string)
+	userID := ""
+	if val, ok := c.Locals("user_id").(string); ok {
+		userID = val
+	}
+
+	// Robust handling of the Document field which might be a JSON object or a JSON-quoted string
+	var documentStr string
+	if err := json.Unmarshal(req.Document, &documentStr); err == nil {
+		// It was a JSON-quoted string
+	} else {
+		// It was a JSON object, use the raw bytes
+		documentStr = string(req.Document)
+	}
+
 	policy := models.Policy{
 		ID:             req.ID,
 		Name:           req.Name,
 		Description:    req.Description,
 		Version:        req.Version,
-		OrganizationID: req.OrganizationID,
-		Document:       string(req.Document),
+		OrganizationID: organizationID, // Enforce context organization_id
+		Document:       documentStr,
 		PolicyType:     req.PolicyType,
 		Effect:         req.Effect,
 		IsSystemPolicy: req.IsSystemPolicy,
+		CreatedBy:      &userID,
 		Status:         req.Status,
-	}
-
-	// Generate ID if not provided
-	if policy.ID == "" {
-		policy.ID = uuid.New().String()
 	}
 
 	// Set defaults
@@ -1008,7 +1078,8 @@ func (h *PolicyHandler) CreatePolicy(c *fiber.Ctx) error {
 
 	if userIDVal := c.Locals("user_id"); userIDVal != nil {
 		if userID, ok := userIDVal.(string); ok && userID != "" {
-			policy.CreatedBy = userID
+			uid := userID
+			policy.CreatedBy = &uid
 		}
 	}
 
@@ -1060,7 +1131,8 @@ func (h *PolicyHandler) GetPolicy(c *fiber.Ctx) error {
 		})
 	}
 
-	policy, err := h.queries.Policy.GetPolicy(id)
+	organizationID := c.Locals("organization_id").(string)
+	policy, err := h.queries.Policy.GetPolicy(id, organizationID)
 	if err != nil {
 		h.logger.Error("Failed to get policy: %v (policy_id: %s)", err, id)
 		if strings.Contains(err.Error(), "not found") {
@@ -1138,13 +1210,24 @@ func (h *PolicyHandler) UpdatePolicy(c *fiber.Ctx) error {
 		})
 	}
 
+	organizationID := c.Locals("organization_id").(string)
+
+	// Robust handling of the Document field which might be a JSON object or a JSON-quoted string
+	var documentStr string
+	if err := json.Unmarshal(req.Document, &documentStr); err == nil {
+		// It was a JSON-quoted string
+	} else {
+		// It was a JSON object, use the raw bytes
+		documentStr = string(req.Document)
+	}
+
 	policy := models.Policy{
 		ID:             id,
 		Name:           req.Name,
 		Description:    req.Description,
 		Version:        req.Version,
-		OrganizationID: req.OrganizationID,
-		Document:       string(req.Document),
+		OrganizationID: organizationID, // Enforce context organization_id
+		Document:       documentStr,
 		PolicyType:     req.PolicyType,
 		Effect:         req.Effect,
 		IsSystemPolicy: req.IsSystemPolicy,
@@ -1157,18 +1240,20 @@ func (h *PolicyHandler) UpdatePolicy(c *fiber.Ctx) error {
 	// Capture acting user for auditing/versioning
 	if userIDVal := c.Locals("user_id"); userIDVal != nil {
 		if userID, ok := userIDVal.(string); ok && userID != "" {
-			policy.CreatedBy = userID
+			uid := userID
+			policy.CreatedBy = &uid
 		}
 	}
 
 	if req.ApprovedBy != "" {
-		policy.ApprovedBy = req.ApprovedBy
+		approvedBy := req.ApprovedBy
+		policy.ApprovedBy = &approvedBy
 	}
 	if req.ApprovedAt != nil {
-		policy.ApprovedAt = *req.ApprovedAt
+		policy.ApprovedAt = req.ApprovedAt
 	}
 
-	err := h.queries.Policy.UpdatePolicy(&policy)
+	err := h.queries.Policy.UpdatePolicy(&policy, organizationID)
 	if err != nil {
 		h.logger.Error("Failed to update policy: %v (policy_id: %s)", err, id)
 		if strings.Contains(err.Error(), "not found") {
@@ -1197,7 +1282,7 @@ func (h *PolicyHandler) UpdatePolicy(c *fiber.Ctx) error {
 	}
 
 	// Return updated policy
-	updatedPolicy, err := h.queries.Policy.GetPolicy(id)
+	updatedPolicy, err := h.queries.Policy.GetPolicy(id, organizationID)
 	if err != nil {
 		return c.JSON(policy) // fallback to input policy
 	}
@@ -1228,7 +1313,8 @@ func (h *PolicyHandler) DeletePolicy(c *fiber.Ctx) error {
 		})
 	}
 
-	err := h.queries.Policy.DeletePolicy(id)
+	organizationID := c.Locals("organization_id").(string)
+	err := h.queries.Policy.DeletePolicy(id, organizationID)
 	if err != nil {
 		h.logger.Error("Failed to delete policy: %v (policy_id: %s)", err, id)
 		if strings.Contains(err.Error(), "not found") {
@@ -1313,7 +1399,8 @@ func (h *PolicyHandler) GetPolicyVersions(c *fiber.Ctx) error {
 		})
 	}
 
-	versions, err := h.queries.Policy.GetPolicyVersions(id)
+	organizationID := c.Locals("organization_id").(string)
+	versions, err := h.queries.Policy.GetPolicyVersions(id, organizationID)
 	if err != nil {
 		h.logger.Error("Failed to get policy versions: %v (policy_id: %s)", err, id)
 		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{
@@ -1364,7 +1451,8 @@ func (h *PolicyHandler) ApprovePolicy(c *fiber.Ctx) error {
 		})
 	}
 
-	err := h.queries.Policy.ApprovePolicy(id, approvedBy)
+	organizationID := c.Locals("organization_id").(string)
+	err := h.queries.Policy.ApprovePolicy(id, organizationID, approvedBy)
 	if err != nil {
 		h.logger.Error("Failed to approve policy: %v (policy_id: %s)", err, id)
 		if strings.Contains(err.Error(), "not found") {
@@ -1432,7 +1520,8 @@ func (h *PolicyHandler) RollbackPolicy(c *fiber.Ctx) error {
 		})
 	}
 
-	err := h.queries.Policy.RollbackPolicy(id, request.Version)
+	organizationID := c.Locals("organization_id").(string)
+	err := h.queries.Policy.RollbackPolicy(id, organizationID, request.Version)
 	if err != nil {
 		h.logger.Error("Failed to rollback policy: %v (policy_id: %s, version: %s)", err, id, request.Version)
 		if strings.Contains(err.Error(), "not found") {
@@ -1482,14 +1571,39 @@ func (h *PolicyHandler) CheckPermission(c *fiber.Ctx) error {
 		})
 	}
 
-	result, err := h.queries.Policy.CheckPermission(&request)
+	orgID := c.Locals("organization_id").(string)
+
+	// Convert structured context to map for evaluator
+	evalContext := make(map[string]interface{})
+	if request.Context != nil {
+		evalContext["principal"] = request.Context.Principal
+		evalContext["resource"] = request.Context.Resource
+		evalContext["action"] = request.Context.Action
+		evalContext["source_ip"] = request.Context.SourceIP
+		evalContext["request_time"] = request.Context.RequestTime
+		for k, v := range request.Context.Environment {
+			evalContext[k] = v
+		}
+	}
+
+	decision, err := h.authz.Authorize(c.Context(), request.PrincipalID, request.PrincipalType, orgID, request.Action, request.Resource, evalContext)
 	if err != nil {
 		h.logger.Error("Failed to check permission: %v", err)
+		h.audit.LogAccessCheck(c.Context(), orgID, request.PrincipalID, request.PrincipalType, "permission", request.Resource, request.Action, false, err.Error())
 		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{
+			Status:  fiber.StatusInternalServerError,
 			Error:   "internal_server_error",
 			Message: "Failed to check permission",
 		})
 	}
+
+	result := queries.PermissionCheckResult{
+		Allowed:  decision == authz.DecisionAllow,
+		Decision: string(decision),
+		Request:  &request,
+	}
+
+	h.audit.LogAccessCheck(c.Context(), orgID, request.PrincipalID, request.PrincipalType, "permission", request.Resource, request.Action, result.Allowed, result.Decision)
 
 	return c.JSON(result)
 }
@@ -1535,7 +1649,8 @@ func (h *PolicyHandler) BulkCheckPermissions(c *fiber.Ctx) error {
 		}
 	}
 
-	results, err := h.queries.Policy.BulkCheckPermissions(request.Requests)
+	orgID := c.Locals("organization_id").(string)
+	results, err := h.queries.Policy.BulkCheckPermissions(orgID, request.Requests)
 	if err != nil {
 		h.logger.Error("Failed to bulk check permissions: %v", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{
@@ -1567,6 +1682,11 @@ func (h *PolicyHandler) GetEffectivePermissions(c *fiber.Ctx) error {
 	principalID := c.Query("principal_id", "current_user_id")
 	principalType := c.Query("principal_type", "user")
 	organizationID := c.Query("organization_id", "")
+	if organizationID == "" {
+		if orgID := c.Locals("organization_id"); orgID != nil {
+			organizationID = orgID.(string)
+		}
+	}
 
 	if principalID == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
@@ -1617,19 +1737,42 @@ func (h *PolicyHandler) SimulateAccess(c *fiber.Ctx) error {
 	}
 
 	// Simulation is essentially the same as checking permission but in a "what-if" context
-	result, err := h.queries.Policy.CheckPermission(&request)
+	orgID := c.Locals("organization_id").(string)
+
+	// Convert structured context to map for evaluator
+	evalContext := make(map[string]interface{})
+	if request.Context != nil {
+		evalContext["principal"] = request.Context.Principal
+		evalContext["resource"] = request.Context.Resource
+		evalContext["action"] = request.Context.Action
+		evalContext["source_ip"] = request.Context.SourceIP
+		evalContext["request_time"] = request.Context.RequestTime
+		for k, v := range request.Context.Environment {
+			evalContext[k] = v
+		}
+	}
+
+	decision, err := h.authz.Authorize(c.Context(), request.PrincipalID, request.PrincipalType, orgID, request.Action, request.Resource, evalContext)
 	if err != nil {
 		h.logger.Error("Failed to simulate access: %v", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{
+			Status:  fiber.StatusInternalServerError,
 			Error:   "internal_server_error",
 			Message: "Failed to simulate access",
 		})
 	}
 
-	// Add simulation context to the result
-	result.Evaluation.Metadata = map[string]string{
-		"simulation": "true",
-		"timestamp":  time.Now().Format(time.RFC3339),
+	result := queries.PermissionCheckResult{
+		Allowed:  decision == authz.DecisionAllow,
+		Decision: string(decision),
+		Request:  &request,
+		Evaluation: &queries.PolicyEvaluationResult{
+			Effect:   string(decision),
+			Decision: string(decision),
+			Metadata: map[string]string{
+				"simulation": "true",
+			},
+		},
 	}
 
 	return c.JSON(result)
@@ -1700,7 +1843,8 @@ func (h *RoleHandler) ListRoles(c *fiber.Ctx) error {
 	}
 
 	// Call query layer
-	result, err := h.queries.Role.ListRoles(params)
+	organizationID := c.Locals("organization_id").(string)
+	result, err := h.queries.Role.ListRoles(params, organizationID)
 	if err != nil {
 		h.logger.Error("Failed to list roles: %v", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{
@@ -1765,8 +1909,9 @@ func (h *RoleHandler) CreateRole(c *fiber.Ctx) error {
 	if role.RoleType == "" {
 		role.RoleType = "custom"
 	}
-	if role.MaxSessionDuration == "" {
-		role.MaxSessionDuration = "12 hours"
+	if role.MaxSessionDuration == nil {
+		defaultDuration := "12 hours"
+		role.MaxSessionDuration = &defaultDuration
 	}
 	if role.TrustPolicy == "" {
 		role.TrustPolicy = "{}"
@@ -1777,8 +1922,9 @@ func (h *RoleHandler) CreateRole(c *fiber.Ctx) error {
 	if role.Tags == "" {
 		role.Tags = "{}"
 	}
-	if role.Path == "" {
-		role.Path = "/"
+	if role.Path == nil || *role.Path == "" {
+		defaultPath := "/"
+		role.Path = &defaultPath
 	}
 	if role.Status == "" {
 		role.Status = "active"
@@ -1835,8 +1981,9 @@ func (h *RoleHandler) GetRole(c *fiber.Ctx) error {
 		})
 	}
 
-	// Call query layer
-	role, err := h.queries.Role.GetRole(roleID)
+	organizationID := c.Locals("organization_id").(string)
+	h.logger.Info("Fetching role: %s in organization: %s", roleID, organizationID)
+	role, err := h.queries.Role.GetRole(roleID, organizationID)
 	if err != nil {
 		if err.Error() == "role not found" {
 			return c.Status(fiber.StatusNotFound).JSON(ErrorResponse{
@@ -1900,7 +2047,36 @@ func (h *RoleHandler) UpdateRole(c *fiber.Ctx) error {
 	roleUpdates.ID = roleID
 
 	// Call query layer
-	err := h.queries.Role.UpdateRole(&roleUpdates)
+	organizationID := c.Locals("organization_id").(string)
+
+	// Fetch existing role to merge fields and avoid wiping out JSONB fields
+	existingRole, err := h.queries.Role.GetRole(roleID, organizationID)
+	if err != nil {
+		if err.Error() == "role not found" || err.Error() == "role not found or already deleted" {
+			return c.Status(fiber.StatusNotFound).JSON(ErrorResponse{
+				Status:  fiber.StatusNotFound,
+				Error:   "role_not_found",
+				Message: "Role not found or already deleted",
+			})
+		}
+		h.logger.Error("Failed to fetch existing role for update: %v", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{
+			Status:  fiber.StatusInternalServerError,
+			Error:   "internal_server_error",
+			Message: "Failed to update role",
+		})
+	}
+
+	// Merge updates into existing role
+	existingRole.Name = roleUpdates.Name
+	if roleUpdates.Description != nil {
+		existingRole.Description = roleUpdates.Description
+	} else {
+		// If it's a pointer and wasn't sent, keep existing Description.
+		// In this case, models.Role.Description is a pointer to string.
+	}
+
+	err = h.queries.Role.UpdateRole(existingRole, organizationID)
 	if err != nil {
 		if err.Error() == "role not found or already deleted" {
 			return c.Status(fiber.StatusNotFound).JSON(ErrorResponse{
@@ -1951,7 +2127,35 @@ func (h *RoleHandler) DeleteRole(c *fiber.Ctx) error {
 	}
 
 	// Call query layer
-	err := h.queries.Role.DeleteRole(roleID)
+	organizationID := c.Locals("organization_id").(string)
+
+	// Protect the admin role from deletion
+	existingRole, err := h.queries.Role.GetRole(roleID, organizationID)
+	if err != nil {
+		if err.Error() == "role not found" || err.Error() == "role not found or already deleted" {
+			return c.Status(fiber.StatusNotFound).JSON(ErrorResponse{
+				Status:  fiber.StatusNotFound,
+				Error:   "role_not_found",
+				Message: "Role not found or already deleted",
+			})
+		}
+		h.logger.Error("Failed to fetch role for delete check: %v", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{
+			Status:  fiber.StatusInternalServerError,
+			Error:   "internal_server_error",
+			Message: "Failed to delete role",
+		})
+	}
+
+	if existingRole.Name == "admin" {
+		return c.Status(fiber.StatusForbidden).JSON(ErrorResponse{
+			Status:  fiber.StatusForbidden,
+			Error:   "cannot_delete_admin_role",
+			Message: "The admin role cannot be deleted",
+		})
+	}
+
+	err = h.queries.Role.DeleteRole(roleID, organizationID)
 	if err != nil {
 		if err.Error() == "role not found or already deleted" {
 			return c.Status(fiber.StatusNotFound).JSON(ErrorResponse{
@@ -1987,8 +2191,11 @@ func (h *RoleHandler) GetRolePolicies(c *fiber.Ctx) error {
 		})
 	}
 
+	organizationID := c.Locals("organization_id").(string)
+	h.logger.Info("Fetching policies for role: %s in organization: %s", roleID, organizationID)
+
 	// Ensure role exists (optional but provides clearer 404)
-	if _, err := h.queries.Role.GetRole(roleID); err != nil {
+	if _, err := h.queries.Role.GetRole(roleID, organizationID); err != nil {
 		if err.Error() == "role not found" {
 			return c.Status(fiber.StatusNotFound).JSON(ErrorResponse{
 				Status:  fiber.StatusNotFound,
@@ -2004,7 +2211,7 @@ func (h *RoleHandler) GetRolePolicies(c *fiber.Ctx) error {
 		})
 	}
 
-	policies, err := h.queries.Role.GetRolePolicies(roleID)
+	policies, err := h.queries.Role.GetRolePolicies(roleID, organizationID)
 	if err != nil {
 		h.logger.Error("Failed to get role policies: %v", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{
@@ -2013,6 +2220,8 @@ func (h *RoleHandler) GetRolePolicies(c *fiber.Ctx) error {
 			Message: "Failed to retrieve role policies",
 		})
 	}
+
+	h.logger.Info("Retrieved %d policies for role: %s", len(policies), roleID)
 
 	return c.JSON(SuccessResponse{
 		Status:  fiber.StatusOK,
@@ -2062,7 +2271,8 @@ func (h *RoleHandler) AttachPolicyToRole(c *fiber.Ctx) error {
 		}
 	}
 
-	err := h.queries.Role.AttachPolicyToRole(roleID, req.PolicyID, req.AttachedBy)
+	organizationID := c.Locals("organization_id").(string)
+	err := h.queries.Role.AttachPolicyToRole(roleID, req.PolicyID, organizationID, req.AttachedBy)
 	if err != nil {
 		switch err.Error() {
 		case "role or policy not found":
@@ -2115,7 +2325,8 @@ func (h *RoleHandler) DetachPolicyFromRole(c *fiber.Ctx) error {
 		})
 	}
 
-	err := h.queries.Role.DetachPolicyFromRole(roleID, policyID)
+	organizationID := c.Locals("organization_id").(string)
+	err := h.queries.Role.DetachPolicyFromRole(roleID, policyID, organizationID)
 	if err != nil {
 		if err.Error() == "policy not attached to role" {
 			return c.Status(fiber.StatusNotFound).JSON(ErrorResponse{
@@ -2154,8 +2365,9 @@ func (h *RoleHandler) GetRoleAssignments(c *fiber.Ctx) error {
 		})
 	}
 
+	organizationID := c.Locals("organization_id").(string)
 	// Validate role exists
-	if _, err := h.queries.Role.GetRole(roleID); err != nil {
+	if _, err := h.queries.Role.GetRole(roleID, organizationID); err != nil {
 		if err.Error() == "role not found" {
 			return c.Status(fiber.StatusNotFound).JSON(ErrorResponse{
 				Status:  fiber.StatusNotFound,
@@ -2171,7 +2383,8 @@ func (h *RoleHandler) GetRoleAssignments(c *fiber.Ctx) error {
 		})
 	}
 
-	assignments, err := h.queries.Role.GetRoleAssignments(roleID)
+	// organizationID is already declared above via c.Locals
+	assignments, err := h.queries.Role.GetRoleAssignments(roleID, organizationID)
 	if err != nil {
 		h.logger.Error("Failed to get role assignments: %v", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{
@@ -2180,6 +2393,8 @@ func (h *RoleHandler) GetRoleAssignments(c *fiber.Ctx) error {
 			Message: "Failed to retrieve role assignments",
 		})
 	}
+
+	h.logger.Info("Retrieved %d assignments for role: %s", len(assignments), roleID)
 
 	return c.JSON(SuccessResponse{
 		Status:  fiber.StatusOK,
@@ -2236,7 +2451,7 @@ func (h *RoleHandler) AssignRole(c *fiber.Ctx) error {
 	}
 
 	// Parse expires_at if provided
-	var expiresAt time.Time
+	var expiresAt *time.Time
 	if req.ExpiresAt != "" {
 		t, err := time.Parse(time.RFC3339, req.ExpiresAt)
 		if err != nil {
@@ -2246,7 +2461,12 @@ func (h *RoleHandler) AssignRole(c *fiber.Ctx) error {
 				Message: "expires_at must be RFC3339 format",
 			})
 		}
-		expiresAt = t
+		expiresAt = &t
+	}
+
+	var conditions *string
+	if req.Conditions != "" {
+		conditions = &req.Conditions
 	}
 
 	// Derive assigned_by from context if possible
@@ -2262,10 +2482,11 @@ func (h *RoleHandler) AssignRole(c *fiber.Ctx) error {
 		PrincipalType: req.PrincipalType,
 		AssignedBy:    assignedBy,
 		ExpiresAt:     expiresAt,
-		Conditions:    req.Conditions,
+		Conditions:    conditions,
 	}
 
-	err := h.queries.Role.AssignRole(assignment)
+	organizationID := c.Locals("organization_id").(string)
+	err := h.queries.Role.AssignRole(assignment, organizationID)
 	if err != nil {
 		switch err.Error() {
 		case "role or principal not found":
@@ -2303,7 +2524,8 @@ func (h *RoleHandler) UnassignRole(c *fiber.Ctx) error {
 		})
 	}
 
-	err := h.queries.Role.UnassignRole(roleID, principalID)
+	organizationID := c.Locals("organization_id").(string)
+	err := h.queries.Role.UnassignRole(roleID, principalID, organizationID)
 	if err != nil {
 		if err.Error() == "role assignment not found" {
 			return c.Status(fiber.StatusNotFound).JSON(ErrorResponse{
@@ -2388,11 +2610,12 @@ func (h *SessionHandler) ListSessions(c *fiber.Ctx) error {
 		params.Order = order
 	}
 
-	// TODO: Get principal ID and type from JWT context
-	principalID := "current_user_id"
-	principalType := "user"
+	// Get principal ID and type from JWT context
+	principalID := c.Locals("user_id").(string)
+	principalType := "user" // Default to user for now
 
-	result, err := h.queries.Session.ListSessions(params, principalID, principalType)
+	orgID := c.Locals("organization_id").(string)
+	result, err := h.queries.Session.ListSessions(params, orgID, principalID, principalType)
 	if err != nil {
 		h.logger.Error("Failed to list sessions: %v", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{
@@ -2417,8 +2640,8 @@ func (h *SessionHandler) ListSessions(c *fiber.Ctx) error {
 //	@Security	BearerAuth
 //	@Router		/sessions/current [get]
 func (h *SessionHandler) GetCurrentSession(c *fiber.Ctx) error {
-	// TODO: Get session ID from JWT context/claims
-	sessionID := c.Get("X-Session-ID", "")
+	// Get session ID from JWT JTI claim (set by auth middleware)
+	sessionID, _ := c.Locals("session_id").(string)
 	if sessionID == "" {
 		return c.Status(fiber.StatusUnauthorized).JSON(ErrorResponse{
 			Error:   "no_session",
@@ -2426,7 +2649,8 @@ func (h *SessionHandler) GetCurrentSession(c *fiber.Ctx) error {
 		})
 	}
 
-	session, err := h.queries.Session.GetSession(sessionID)
+	orgID := c.Locals("organization_id").(string)
+	session, err := h.queries.Session.GetSession(sessionID, orgID)
 	if err != nil {
 		h.logger.Error("Failed to get current session: %v (session_id: %s)", err, sessionID)
 		if strings.Contains(err.Error(), "not found") || strings.Contains(err.Error(), "expired") {
@@ -2442,7 +2666,8 @@ func (h *SessionHandler) GetCurrentSession(c *fiber.Ctx) error {
 	}
 
 	// Update last used timestamp
-	h.queries.Session.UpdateLastUsed(sessionID)
+	orgID = c.Locals("organization_id").(string)
+	h.queries.Session.UpdateLastUsed(sessionID, orgID)
 
 	// Remove sensitive fields before returning
 	session.SessionToken = "" // Don't expose the token
@@ -2463,8 +2688,8 @@ func (h *SessionHandler) GetCurrentSession(c *fiber.Ctx) error {
 //	@Security	BearerAuth
 //	@Router		/sessions/current [delete]
 func (h *SessionHandler) RevokeCurrentSession(c *fiber.Ctx) error {
-	// TODO: Get session ID from JWT context/claims
-	sessionID := c.Get("X-Session-ID", "")
+	// Get session ID from JWT JTI claim (set by auth middleware)
+	sessionID, _ := c.Locals("session_id").(string)
 	if sessionID == "" {
 		return c.Status(fiber.StatusUnauthorized).JSON(ErrorResponse{
 			Error:   "no_session",
@@ -2472,7 +2697,8 @@ func (h *SessionHandler) RevokeCurrentSession(c *fiber.Ctx) error {
 		})
 	}
 
-	err := h.queries.Session.RevokeSession(sessionID)
+	orgID := c.Locals("organization_id").(string)
+	err := h.queries.Session.RevokeSession(sessionID, orgID)
 	if err != nil {
 		h.logger.Error("Failed to revoke current session: %v (session_id: %s)", err, sessionID)
 		if strings.Contains(err.Error(), "not found") {
@@ -2517,7 +2743,8 @@ func (h *SessionHandler) GetSession(c *fiber.Ctx) error {
 		})
 	}
 
-	session, err := h.queries.Session.GetSession(sessionID)
+	orgID := c.Locals("organization_id").(string)
+	session, err := h.queries.Session.GetSession(sessionID, orgID)
 	if err != nil {
 		h.logger.Error("Failed to get session: %v (session_id: %s)", err, sessionID)
 		if strings.Contains(err.Error(), "not found") || strings.Contains(err.Error(), "expired") {
@@ -2532,13 +2759,12 @@ func (h *SessionHandler) GetSession(c *fiber.Ctx) error {
 		})
 	}
 
-	// TODO: Check if current user can access this session
+	// Check if current user can access this session
 	// For now, allow access to own sessions only
-	currentUserID := "current_user_id" // TODO: Get from JWT
+	currentUserID := c.Locals("user_id").(string)
 	if session.PrincipalID != currentUserID && session.PrincipalType == "user" {
 		// Allow admin users to view any session
-		// TODO: Check if user has admin role
-		userRole := "user" // TODO: Get from JWT
+		userRole := c.Locals("role").(string)
 		if userRole != "admin" && userRole != "super_admin" {
 			return c.Status(fiber.StatusForbidden).JSON(ErrorResponse{
 				Error:   "access_denied",
@@ -2578,7 +2804,8 @@ func (h *SessionHandler) RevokeSession(c *fiber.Ctx) error {
 	}
 
 	// First check if session exists
-	session, err := h.queries.Session.GetSession(sessionID)
+	orgID := c.Locals("organization_id").(string)
+	session, err := h.queries.Session.GetSession(sessionID, orgID)
 	if err != nil {
 		h.logger.Error("Failed to find session for revocation: %v (session_id: %s)", err, sessionID)
 		if strings.Contains(err.Error(), "not found") || strings.Contains(err.Error(), "expired") {
@@ -2594,8 +2821,8 @@ func (h *SessionHandler) RevokeSession(c *fiber.Ctx) error {
 	}
 
 	// Check authorization - admin can revoke any session, users can revoke their own
-	currentUserID := "current_user_id" // TODO: Get from JWT
-	userRole := "admin"                // TODO: Get from JWT
+	currentUserID := c.Locals("user_id").(string)
+	userRole := c.Locals("role").(string)
 	if userRole != "admin" && userRole != "super_admin" && session.PrincipalID != currentUserID {
 		return c.Status(fiber.StatusForbidden).JSON(ErrorResponse{
 			Error:   "access_denied",
@@ -2603,7 +2830,35 @@ func (h *SessionHandler) RevokeSession(c *fiber.Ctx) error {
 		})
 	}
 
-	err = h.queries.Session.RevokeSession(sessionID)
+	// Blacklist the token associated with this session
+	if session.SessionToken != "" {
+		token, _, err := new(jwt.Parser).ParseUnverified(session.SessionToken, jwt.MapClaims{})
+		if err == nil {
+			if claims, ok := token.Claims.(jwt.MapClaims); ok {
+				if jti, ok := claims["jti"].(string); ok {
+					var exp int64
+					switch v := claims["exp"].(type) {
+					case float64:
+						exp = int64(v)
+					case json.Number:
+						exp, _ = v.Int64()
+					}
+
+					ttl := time.Until(time.Unix(exp, 0))
+					if ttl > 0 {
+						if err := h.redis.Set(c.Context(), "blacklist:jti:"+jti, "revoked", ttl).Err(); err != nil {
+							h.logger.Error("Failed to blacklist JTI %s: %v", jti, err)
+						} else {
+							h.logger.Info("Blacklisted JTI %s for revoked session %s", jti, sessionID)
+						}
+					}
+				}
+			}
+		}
+	}
+
+	orgID = c.Locals("organization_id").(string)
+	err = h.queries.Session.RevokeSession(sessionID, orgID)
 	if err != nil {
 		h.logger.Error("Failed to revoke session: %v (session_id: %s)", err, sessionID)
 		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{
@@ -2666,7 +2921,8 @@ func (h *SessionHandler) ExtendSession(c *fiber.Ctx) error {
 	}
 
 	// Get current session to check ownership
-	session, err := h.queries.Session.GetSession(sessionID)
+	orgID := c.Locals("organization_id").(string)
+	session, err := h.queries.Session.GetSession(sessionID, orgID)
 	if err != nil {
 		h.logger.Error("Failed to find session for extension: %v (session_id: %s)", err, sessionID)
 		if strings.Contains(err.Error(), "not found") || strings.Contains(err.Error(), "expired") {
@@ -2682,9 +2938,9 @@ func (h *SessionHandler) ExtendSession(c *fiber.Ctx) error {
 	}
 
 	// Check authorization - users can only extend their own sessions
-	currentUserID := "current_user_id" // TODO: Get from JWT
+	currentUserID := c.Locals("user_id").(string)
 	if session.PrincipalID != currentUserID && session.PrincipalType == "user" {
-		userRole := "user" // TODO: Get from JWT
+		userRole := c.Locals("role").(string)
 		if userRole != "admin" && userRole != "super_admin" {
 			return c.Status(fiber.StatusForbidden).JSON(ErrorResponse{
 				Error:   "access_denied",
@@ -2696,7 +2952,8 @@ func (h *SessionHandler) ExtendSession(c *fiber.Ctx) error {
 	// Calculate new expiration time
 	newExpiresAt := time.Now().Add(duration)
 
-	err = h.queries.Session.ExtendSession(sessionID, newExpiresAt)
+	orgID = c.Locals("organization_id").(string)
+	err = h.queries.Session.ExtendSession(sessionID, orgID, newExpiresAt)
 	if err != nil {
 		h.logger.Error("Failed to extend session: %v (session_id: %s)", err, sessionID)
 		if strings.Contains(err.Error(), "not found") || strings.Contains(err.Error(), "not active") {
@@ -2712,7 +2969,8 @@ func (h *SessionHandler) ExtendSession(c *fiber.Ctx) error {
 	}
 
 	// Return updated session
-	updatedSession, err := h.queries.Session.GetSession(sessionID)
+	orgID = c.Locals("organization_id").(string)
+	updatedSession, err := h.queries.Session.GetSession(sessionID, orgID)
 	if err != nil {
 		// Fallback response if can't retrieve updated session
 		return c.JSON(SuccessResponse{
@@ -2731,10 +2989,11 @@ func (h *SessionHandler) ExtendSession(c *fiber.Ctx) error {
 type AuditHandler struct {
 	queries *queries.Queries
 	logger  *logger.Logger
+	audit   services.AuditService
 }
 
-func NewAuditHandler(queries *queries.Queries, logger *logger.Logger) *AuditHandler {
-	return &AuditHandler{queries: queries, logger: logger}
+func NewAuditHandler(queries *queries.Queries, logger *logger.Logger, audit services.AuditService) *AuditHandler {
+	return &AuditHandler{queries: queries, logger: logger, audit: audit}
 }
 
 // ListAuditEvents lists audit events
@@ -2769,6 +3028,11 @@ func (h *AuditHandler) ListAuditEvents(c *fiber.Ctx) error {
 		ResourceType:   c.Query("resource_type"),
 		Result:         c.Query("result"),
 		Severity:       c.Query("severity"),
+	}
+
+	// Enforce OrganizationID from context
+	if params.OrganizationID == "" {
+		params.OrganizationID = c.Locals("organization_id").(string)
 	}
 
 	// Parse time parameters
@@ -2851,7 +3115,8 @@ func (h *AuditHandler) GetAuditEvent(c *fiber.Ctx) error {
 	}
 
 	// Get the audit event
-	event, err := h.queries.Audit.GetAuditEvent(eventID)
+	orgID := c.Locals("organization_id").(string)
+	event, err := h.queries.Audit.GetAuditEvent(eventID, orgID)
 	if err != nil {
 		if err.Error() == "audit event not found" {
 			return c.Status(fiber.StatusNotFound).JSON(ErrorResponse{
@@ -3103,6 +3368,11 @@ func (h *AuditHandler) ListAccessReviews(c *fiber.Ctx) error {
 		Status:         c.Query("status"),
 	}
 
+	// Enforce OrganizationID from context
+	if params.OrganizationID == "" {
+		params.OrganizationID = c.Locals("organization_id").(string)
+	}
+
 	// Parse time parameters
 	if startTimeStr := c.Query("start_time"); startTimeStr != "" {
 		if startTime, err := time.Parse(time.RFC3339, startTimeStr); err == nil {
@@ -3190,10 +3460,7 @@ func (h *AuditHandler) CreateAccessReview(c *fiber.Ctx) error {
 	}
 
 	if request.OrganizationID == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
-			Error:   "validation_error",
-			Message: "Organization ID is required",
-		})
+		request.OrganizationID = c.Locals("organization_id").(string)
 	}
 
 	if request.ReviewerID == "" {
@@ -3250,7 +3517,8 @@ func (h *AuditHandler) GetAccessReview(c *fiber.Ctx) error {
 	}
 
 	// Get the access review
-	review, err := h.queries.Audit.GetAccessReview(reviewID)
+	orgID := c.Locals("organization_id").(string)
+	review, err := h.queries.Audit.GetAccessReview(reviewID, orgID)
 	if err != nil {
 		if err.Error() == "access review not found" {
 			return c.Status(fiber.StatusNotFound).JSON(ErrorResponse{
@@ -3306,7 +3574,8 @@ func (h *AuditHandler) UpdateAccessReview(c *fiber.Ctx) error {
 	}
 
 	// Update the access review
-	updatedReview, err := h.queries.Audit.UpdateAccessReview(reviewID, request)
+	orgID := c.Locals("organization_id").(string)
+	updatedReview, err := h.queries.Audit.UpdateAccessReview(reviewID, orgID, request)
 	if err != nil {
 		if err.Error() == "access review not found" {
 			return c.Status(fiber.StatusNotFound).JSON(ErrorResponse{
@@ -3366,7 +3635,8 @@ func (h *AuditHandler) CompleteAccessReview(c *fiber.Ctx) error {
 	}
 
 	// Complete the access review
-	err := h.queries.Audit.CompleteAccessReview(reviewID, request.Findings, request.Recommendations)
+	orgID := c.Locals("organization_id").(string)
+	err := h.queries.Audit.CompleteAccessReview(reviewID, orgID, request.Findings, request.Recommendations)
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
 			return c.Status(fiber.StatusNotFound).JSON(ErrorResponse{

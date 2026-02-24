@@ -1,5 +1,8 @@
 
 import ProfileForm from '../components/ProfileForm';
+import BackupCodes from '../components/BackupCodes';
+import ChangePasswordForm from '../components/ChangePasswordForm';
+import MfaSetup from '../components/MfaSetup';
 import { Settings } from 'lucide-react';
 
 const AccountSettingsPage = () => {
@@ -11,13 +14,19 @@ const AccountSettingsPage = () => {
                     <h1 className="text-3xl font-bold text-white">Account Settings</h1>
                 </div>
                 <p className="text-gray-400">
-                    Manage your personal profile and preferences.
+                    Manage your personal profile, password, and security preferences.
                 </p>
             </div>
 
-            <ProfileForm />
+            <div className="space-y-8">
+                <ProfileForm />
+                <ChangePasswordForm />
+                <MfaSetup />
+                <BackupCodes />
+            </div>
         </div>
     );
 };
 
 export default AccountSettingsPage;
+

@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"crypto/rsa"
 	"errors"
 	"strings"
 	"time"
@@ -13,15 +14,21 @@ import (
 	"github.com/the-monkeys/monkeys-identity/internal/config"
 	"github.com/the-monkeys/monkeys-identity/internal/models"
 	"github.com/the-monkeys/monkeys-identity/internal/queries"
+	"github.com/the-monkeys/monkeys-identity/internal/services"
 	"github.com/the-monkeys/monkeys-identity/pkg/logger"
+	"github.com/the-monkeys/monkeys-identity/pkg/utils"
 	"golang.org/x/crypto/bcrypt"
 )
 
 type AuthHandler struct {
-	queries *queries.Queries
-	redis   *redis.Client
-	logger  *logger.Logger
-	config  *config.Config
+	queries    *queries.Queries
+	redis      *redis.Client
+	logger     *logger.Logger
+	config     *config.Config
+	audit      services.AuditService
+	mfa        services.MFAService
+	email      services.EmailService
+	privateKey *rsa.PrivateKey
 }
 
 type LoginRequest struct {
@@ -53,13 +60,32 @@ type CreateAdminRequest struct {
 	OrganizationID string `json:"organization_id,omitempty"`
 }
 
-func NewAuthHandler(queries *queries.Queries, redis *redis.Client, logger *logger.Logger, config *config.Config) *AuthHandler {
-	return &AuthHandler{
+func NewAuthHandler(queries *queries.Queries, redis *redis.Client, logger *logger.Logger, config *config.Config, audit services.AuditService, mfa services.MFAService, email services.EmailService) *AuthHandler {
+	h := &AuthHandler{
 		queries: queries,
 		redis:   redis,
 		logger:  logger,
 		config:  config,
+		audit:   audit,
+		mfa:     mfa,
+		email:   email,
 	}
+
+	// Load RS256 private key for asymmetric token signing
+	if config.JWTPrivateKey != "" {
+		if priv, err := utils.LoadRSAPrivateKey(config.JWTPrivateKey); err == nil {
+			h.privateKey = priv
+		} else {
+			logger.Error("Failed to load JWT private key: %v", err)
+		}
+	}
+
+	// Generate a temporary key if none provided (useful for development)
+	if h.privateKey == nil {
+		h.logger.Warn("AuthHandler: No valid OIDC private key available. Token signing will fail.")
+	}
+
+	return h
 }
 
 // Login authenticates user and returns JWT tokens
@@ -97,9 +123,10 @@ func (h *AuthHandler) Login(c *fiber.Ctx) error {
 	}
 
 	// Get user from database
-	user, err := h.queries.Auth.GetUserByEmail(req.Email)
+	user, err := h.queries.Auth.GetUserByEmail(req.Email, "")
 	if err != nil {
 		h.logger.Warn("User not found: %s", req.Email)
+		h.audit.LogLogin(c.Context(), "", "", c.IP(), c.Get("User-Agent"), false, "user_not_found")
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
 			"error":   "Invalid credentials",
 			"success": false,
@@ -109,6 +136,7 @@ func (h *AuthHandler) Login(c *fiber.Ctx) error {
 	// Check password
 	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(req.Password)); err != nil {
 		h.logger.Warn("Invalid password for user: %s", req.Email)
+		h.audit.LogLogin(c.Context(), user.OrganizationID, user.ID, c.IP(), c.Get("User-Agent"), false, "invalid_password")
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
 			"error":   "Invalid credentials",
 			"success": false,
@@ -123,8 +151,32 @@ func (h *AuthHandler) Login(c *fiber.Ctx) error {
 		})
 	}
 
+	// Check if MFA is enabled
+	if user.MFAEnabled {
+		h.logger.Info("MFA required for user: %s", user.Email)
+		// Generate a temporary token for MFA verification
+		mfaToken := uuid.New().String()
+		// Store userID and orgID in Redis with 5 min expiry
+		err = h.redis.Set(c.Context(), "mfa_login:"+mfaToken, user.ID+":"+user.OrganizationID, 5*time.Minute).Err()
+		if err != nil {
+			h.logger.Error("Failed to store MFA login token: %v", err)
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"error":   "Internal server error",
+				"success": false,
+			})
+		}
+
+		return c.JSON(fiber.Map{
+			"success":      true,
+			"mfa_required": true,
+			"mfa_token":    mfaToken,
+		})
+	}
+
 	// Generate tokens
-	accessToken, refreshToken, expiresIn, err := h.generateTokens(user)
+	accessID := uuid.New().String()
+	refreshID := uuid.New().String()
+	accessToken, refreshToken, expiresIn, err := h.generateTokens(user, accessID, refreshID)
 	if err != nil {
 		h.logger.Error("Failed to generate tokens: %v", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
@@ -134,16 +186,173 @@ func (h *AuthHandler) Login(c *fiber.Ctx) error {
 	}
 
 	// Create session
-	sessionID := uuid.New().String()
-	if err := h.queries.Auth.CreateSession(sessionID, user.ID, accessToken); err != nil {
+	ipAddr := c.IP()
+	userAgent := c.Get("User-Agent")
+	session := &models.Session{
+		ID:             accessID,
+		SessionToken:   accessToken,
+		PrincipalID:    user.ID,
+		PrincipalType:  "user",
+		OrganizationID: user.OrganizationID,
+		Permissions:    "{}",
+		Context:        "{}",
+		Location:       "{}",
+		MFAVerified:    user.MFAEnabled,
+		IPAddress:      &ipAddr,
+		UserAgent:      &userAgent,
+		IssuedAt:       time.Now(),
+		ExpiresAt:      time.Now().Add(time.Duration(expiresIn) * time.Second),
+		LastUsedAt:     time.Now(),
+		Status:         "active",
+	}
+	if err := h.queries.Session.CreateSession(session); err != nil {
 		h.logger.Error("Failed to create session: %v", err)
 	}
 
 	// Update last login
-	h.queries.Auth.UpdateLastLogin(user.ID)
+	h.queries.Auth.UpdateLastLogin(user.ID, user.OrganizationID)
 
 	// Log successful login
+	h.audit.LogLogin(c.Context(), user.OrganizationID, user.ID, c.IP(), c.Get("User-Agent"), true, "")
 	h.logger.Info("User logged in successfully: %s", user.Email)
+
+	// Set access token cookie
+	c.Cookie(&fiber.Cookie{
+		Name:     "access_token",
+		Value:    accessToken,
+		Expires:  time.Now().Add(time.Duration(expiresIn) * time.Second),
+		HTTPOnly: true,
+		Secure:   h.config.Environment == "production",
+		SameSite: "Lax",
+		Path:     "/",
+		Domain:   h.config.CookieDomain,
+	})
+
+	return c.JSON(fiber.Map{
+		"success": true,
+		"data": LoginResponse{
+			AccessToken:  accessToken,
+			RefreshToken: refreshToken,
+			ExpiresIn:    expiresIn,
+			TokenType:    "Bearer",
+			User:         *user,
+		},
+	})
+}
+
+// LoginMFAVerify verifies MFA code during login
+func (h *AuthHandler) LoginMFAVerify(c *fiber.Ctx) error {
+	var req struct {
+		MFAToken string `json:"mfa_token" validate:"required"`
+		Code     string `json:"code" validate:"required"`
+	}
+
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error":   "Invalid request format",
+			"success": false,
+		})
+	}
+
+	// Get user info from Redis
+	val, err := h.redis.Get(c.Context(), "mfa_login:"+req.MFAToken).Result()
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error":   "Invalid or expired MFA token",
+			"success": false,
+		})
+	}
+
+	// Parse userID and orgID
+	// Expecting "userID:orgID"
+	parts := strings.Split(val, ":")
+	if len(parts) != 2 {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error":   "Internal server error",
+			"success": false,
+		})
+	}
+	userID := parts[0]
+	orgID := parts[1]
+
+	user, err := h.queries.Auth.GetUserByID(userID, orgID)
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error":   "User not found",
+			"success": false,
+		})
+	}
+
+	// Verify TOTP
+	if !h.mfa.VerifyTOTP(req.Code, user.TOTPSecret) {
+		h.audit.LogEvent(c.Context(), models.AuditEvent{
+			OrganizationID: user.OrganizationID,
+			PrincipalID:    utils.StringPtr(user.ID),
+			PrincipalType:  utils.StringPtr("user"),
+			Action:         "login_mfa_failed",
+			Result:         "failure",
+			Severity:       "MEDIUM",
+		})
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error":   "Invalid MFA code",
+			"success": false,
+		})
+	}
+
+	// Generate tokens
+	accessID := uuid.New().String()
+	refreshID := uuid.New().String()
+	accessToken, refreshToken, expiresIn, err := h.generateTokens(user, accessID, refreshID)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error":   "Failed to generate tokens",
+			"success": false,
+		})
+	}
+
+	// Create session
+	ipAddr := c.IP()
+	userAgent := c.Get("User-Agent")
+	session := &models.Session{
+		ID:             accessID,
+		SessionToken:   accessToken,
+		PrincipalID:    user.ID,
+		PrincipalType:  "user",
+		OrganizationID: user.OrganizationID,
+		Permissions:    "{}",
+		Context:        "{}",
+		Location:       "{}",
+		MFAVerified:    true,
+		IPAddress:      &ipAddr,
+		UserAgent:      &userAgent,
+		IssuedAt:       time.Now(),
+		ExpiresAt:      time.Now().Add(time.Duration(expiresIn) * time.Second),
+		LastUsedAt:     time.Now(),
+		Status:         "active",
+	}
+	if err := h.queries.Session.CreateSession(session); err != nil {
+		h.logger.Error("Failed to create session: %v", err)
+	}
+
+	// Update last login
+	h.queries.Auth.UpdateLastLogin(user.ID, user.OrganizationID)
+
+	// Invalidate MFA login token
+	h.redis.Del(c.Context(), "mfa_login:"+req.MFAToken)
+
+	h.audit.LogLogin(c.Context(), user.OrganizationID, user.ID, c.IP(), c.Get("User-Agent"), true, "")
+
+	// Set access token cookie
+	c.Cookie(&fiber.Cookie{
+		Name:     "access_token",
+		Value:    accessToken,
+		Expires:  time.Now().Add(time.Duration(expiresIn) * time.Second),
+		HTTPOnly: true,
+		Secure:   h.config.Environment == "production",
+		SameSite: "Lax",
+		Path:     "/",
+		Domain:   h.config.CookieDomain,
+	})
 
 	return c.JSON(fiber.Map{
 		"success": true,
@@ -183,7 +392,7 @@ func (h *AuthHandler) Register(c *fiber.Ctx) error {
 	req.Email = strings.TrimSpace(strings.ToLower(req.Email))
 
 	// Check if user already exists
-	existingUser, _ := h.queries.Auth.GetUserByEmail(req.Email)
+	existingUser, _ := h.queries.Auth.GetUserByEmail(req.Email, req.OrganizationID)
 	if existingUser != nil {
 		return c.Status(fiber.StatusConflict).JSON(fiber.Map{
 			"error":   "User with this email already exists",
@@ -230,7 +439,12 @@ func (h *AuthHandler) Register(c *fiber.Ctx) error {
 		h.logger.Error("Failed to store verification token: %v", err)
 	}
 
-	// TODO: Send verification email with verificationToken
+	// Send verification email with verificationToken
+	err = h.email.SendVerificationEmail(user.Email, user.Username, verificationToken)
+	if err != nil {
+		h.logger.Error("Failed to send verification email: %v", err)
+		// We still return success as the user was created, but they might need to resend the verification email
+	}
 
 	h.logger.Info("User registered successfully: %s", user.Email)
 
@@ -287,7 +501,8 @@ func (h *AuthHandler) RefreshToken(c *fiber.Ctx) error {
 	}
 
 	userID := claims["user_id"].(string)
-	user, err := h.queries.Auth.GetUserByID(userID)
+	orgID := claims["organization_id"].(string)
+	user, err := h.queries.Auth.GetUserByID(userID, orgID)
 	if err != nil {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
 			"error":   "User not found",
@@ -296,13 +511,30 @@ func (h *AuthHandler) RefreshToken(c *fiber.Ctx) error {
 	}
 
 	// Generate new access token
-	accessToken, _, expiresIn, err := h.generateTokens(user)
+	accessID := uuid.New().String()
+	refreshID := uuid.New().String()
+	accessToken, _, expiresIn, err := h.generateTokens(user, accessID, refreshID)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error":   "Failed to generate new token",
 			"success": false,
 		})
 	}
+
+	// Update or Create session for the refreshed token if needed
+	// For now, just generate the token. Ideally we'd link this to an existing session.
+
+	// Set access token in cookie
+	c.Cookie(&fiber.Cookie{
+		Name:     "access_token",
+		Value:    accessToken,
+		Expires:  time.Now().Add(time.Duration(expiresIn) * time.Second),
+		HTTPOnly: true,
+		Secure:   h.config.Environment == "production",
+		SameSite: "Lax",
+		Path:     "/",
+		Domain:   h.config.CookieDomain,
+	})
 
 	return c.JSON(fiber.Map{
 		"success": true,
@@ -350,27 +582,48 @@ func (h *AuthHandler) Logout(c *fiber.Ctx) error {
 		token = authHeader[7:]
 	}
 
-	// Invalidate the specific session in Redis
-	ctx := context.Background()
-	pattern := "session:*"
+	// Find session by token and revoke it in database
+	orgID := c.Locals("organization_id").(string)
+	if session, err := h.queries.Session.GetSessionByToken(token, orgID); err == nil {
+		h.queries.Session.RevokeSession(session.ID, orgID)
+	}
 
-	// Find and delete the session with this token
-	keys, err := h.redis.Keys(ctx, pattern).Result()
-	if err != nil {
-		h.logger.Error("Failed to get session keys during logout: %v", err)
-	} else {
-		for _, key := range keys {
-			sessionToken, err := h.redis.HGet(ctx, key, "token").Result()
-			sessionUserID, err2 := h.redis.HGet(ctx, key, "user_id").Result()
+	// Invalidate legacy session in Redis if patterns match
+	h.queries.Auth.DeleteSession(token)
 
-			if err == nil && err2 == nil && sessionToken == token && sessionUserID == userID {
-				h.redis.Del(ctx, key)
-				break
+	// Blacklist the access token
+	// Parse token without validation (we just want claims) to get JTI and Exp
+	parsedToken, _, err := new(jwt.Parser).ParseUnverified(token, jwt.MapClaims{})
+	if err == nil {
+		if claims, ok := parsedToken.Claims.(jwt.MapClaims); ok {
+			if jti, ok := claims["jti"].(string); ok {
+				var exp int64
+				if expFloat, ok := claims["exp"].(float64); ok {
+					exp = int64(expFloat)
+				}
+
+				ttl := time.Duration(exp-time.Now().Unix()) * time.Second
+				if ttl > 0 {
+					// Store in Redis blacklist
+					h.redis.Set(c.Context(), "blacklist:"+jti, "revoked", ttl)
+				}
 			}
 		}
 	}
 
 	h.logger.Info("User logged out: %s", userID)
+
+	// Clear access token cookie
+	c.Cookie(&fiber.Cookie{
+		Name:     "access_token",
+		Value:    "",
+		Expires:  time.Now().Add(-time.Hour),
+		HTTPOnly: true,
+		Secure:   h.config.Environment == "production",
+		SameSite: "Lax",
+		Path:     "/",
+		Domain:   h.config.CookieDomain,
+	})
 
 	return c.JSON(fiber.Map{
 		"success": true,
@@ -421,7 +674,7 @@ func (h *AuthHandler) CreateAdminUser(c *fiber.Ctx) error {
 	}
 
 	// Check if user already exists
-	existingUser, _ := h.queries.Auth.GetUserByEmail(req.Email)
+	existingUser, _ := h.queries.Auth.GetUserByEmail(req.Email, req.OrganizationID)
 	if existingUser != nil {
 		return c.Status(fiber.StatusConflict).JSON(fiber.Map{
 			"error":   "User with this email already exists",
@@ -488,14 +741,14 @@ func (h *AuthHandler) CreateAdminUser(c *fiber.Ctx) error {
 }
 
 // generateTokens creates JWT access and refresh tokens for a user
-func (h *AuthHandler) generateTokens(user *models.User) (string, string, int64, error) {
+func (h *AuthHandler) generateTokens(user *models.User, accessID, refreshID string) (string, string, int64, error) {
 	now := time.Now()
 	accessTokenExpiry := now.Add(time.Hour * 1)       // 1 hour
 	refreshTokenExpiry := now.Add(time.Hour * 24 * 7) // 7 days
 
 	roleName := "user"
 	if h.queries != nil && h.queries.Auth != nil {
-		if fetchedRole, err := h.queries.Auth.GetPrimaryRoleForUser(user.ID); err == nil && fetchedRole != "" {
+		if fetchedRole, err := h.queries.Auth.GetPrimaryRoleForUser(user.ID, user.OrganizationID); err == nil && fetchedRole != "" {
 			roleName = fetchedRole
 		} else if err != nil {
 			h.logger.Warn("Failed to resolve primary role for user %s: %v", user.ID, err)
@@ -504,6 +757,9 @@ func (h *AuthHandler) generateTokens(user *models.User) (string, string, int64, 
 
 	// Access Token Claims
 	accessClaims := jwt.MapClaims{
+		"iss":             h.config.OIDCIssuer,
+		"sub":             user.ID,
+		"jti":             accessID,
 		"user_id":         user.ID,
 		"email":           user.Email,
 		"organization_id": user.OrganizationID,
@@ -515,22 +771,24 @@ func (h *AuthHandler) generateTokens(user *models.User) (string, string, int64, 
 
 	// Refresh Token Claims
 	refreshClaims := jwt.MapClaims{
+		"sub":     user.ID,
+		"jti":     refreshID,
 		"user_id": user.ID,
 		"exp":     refreshTokenExpiry.Unix(),
 		"iat":     now.Unix(),
 		"type":    "refresh",
 	}
 
-	// Generate Access Token
-	accessToken := jwt.NewWithClaims(jwt.SigningMethodHS256, accessClaims)
-	accessTokenString, err := accessToken.SignedString([]byte(h.config.JWTSecret))
+	// Generate Access Token using RS256
+	accessToken := jwt.NewWithClaims(jwt.SigningMethodRS256, accessClaims)
+	accessTokenString, err := accessToken.SignedString(h.privateKey)
 	if err != nil {
 		return "", "", 0, err
 	}
 
-	// Generate Refresh Token
-	refreshToken := jwt.NewWithClaims(jwt.SigningMethodHS256, refreshClaims)
-	refreshTokenString, err := refreshToken.SignedString([]byte(h.config.JWTSecret))
+	// Generate Refresh Token using RS256
+	refreshToken := jwt.NewWithClaims(jwt.SigningMethodRS256, refreshClaims)
+	refreshTokenString, err := refreshToken.SignedString(h.privateKey)
 	if err != nil {
 		return "", "", 0, err
 	}
@@ -555,7 +813,63 @@ func (h *AuthHandler) generateTokens(user *models.User) (string, string, int64, 
 //	@Failure		500		{object}	ErrorResponse
 //	@Router			/auth/mfa/setup [post]
 func (h *AuthHandler) SetupMFA(c *fiber.Ctx) error {
-	return c.JSON(fiber.Map{"message": "MFA setup endpoint"})
+	userID := c.Locals("user_id").(string)
+	orgID := c.Locals("organization_id").(string)
+
+	// Get user to check if MFA is already enabled
+	user, err := h.queries.Auth.GetUserByID(userID, orgID)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error":   "Failed to retrieve user",
+			"success": false,
+		})
+	}
+
+	if user.MFAEnabled {
+		return c.Status(fiber.StatusConflict).JSON(fiber.Map{
+			"error":   "MFA is already enabled for this account",
+			"success": false,
+		})
+	}
+
+	// Generate TOTP secret and QR code
+	secret, provisionURL, qrCodeBase64, err := h.mfa.GenerateTOTPSecret(userID, user.Email)
+	if err != nil {
+		h.logger.Error("Failed to generate TOTP secret: %v", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error":   "Failed to generate MFA secret",
+			"success": false,
+		})
+	}
+
+	// Store secret in Redis temporarily (10 min) until user verifies with a code
+	err = h.redis.Set(c.Context(), "mfa_setup:"+userID, secret, 10*time.Minute).Err()
+	if err != nil {
+		h.logger.Error("Failed to store MFA setup secret: %v", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error":   "Failed to initiate MFA setup",
+			"success": false,
+		})
+	}
+
+	h.audit.LogEvent(c.Context(), models.AuditEvent{
+		OrganizationID: orgID,
+		PrincipalID:    utils.StringPtr(userID),
+		PrincipalType:  utils.StringPtr("user"),
+		Action:         "mfa_setup_initiated",
+		Result:         "success",
+		Severity:       "MEDIUM",
+	})
+
+	return c.JSON(fiber.Map{
+		"success": true,
+		"message": "MFA setup initiated. Scan the QR code with your authenticator app, then verify with a code.",
+		"data": models.SetupMFAResponse{
+			Secret:  secret,
+			QRCode:  qrCodeBase64,
+			Message: provisionURL,
+		},
+	})
 }
 
 // VerifyMFA verifies a multi-factor authentication code
@@ -572,7 +886,56 @@ func (h *AuthHandler) SetupMFA(c *fiber.Ctx) error {
 //	@Failure		500		{object}	ErrorResponse
 //	@Router			/auth/mfa/verify [post]
 func (h *AuthHandler) VerifyMFA(c *fiber.Ctx) error {
-	return c.JSON(fiber.Map{"message": "MFA verification endpoint"})
+	var req models.VerifyMFARequest
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error":   "Invalid request format",
+			"success": false,
+		})
+	}
+
+	userID := c.Locals("user_id").(string)
+	orgID := c.Locals("organization_id").(string)
+
+	// Check if this is MFA setup verification
+	secret, err := h.redis.Get(c.Context(), "mfa_setup:"+userID).Result()
+	if err == nil {
+		if h.mfa.VerifyTOTP(req.Code, secret) {
+			backupCodes := h.mfa.GenerateBackupCodes(10)
+			err = h.queries.Auth.EnableMFA(userID, orgID, secret, backupCodes)
+			if err != nil {
+				h.logger.Error("Failed to enable MFA for user: %v", err)
+				return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+					"error":   "Failed to complete MFA setup",
+					"success": false,
+				})
+			}
+
+			h.redis.Del(c.Context(), "mfa_setup:"+userID)
+			h.audit.LogEvent(c.Context(), models.AuditEvent{
+				OrganizationID: orgID,
+				PrincipalID:    utils.StringPtr(userID),
+				PrincipalType:  utils.StringPtr("user"),
+				Action:         "mfa_setup_complete",
+				Result:         "success",
+				Severity:       "MEDIUM",
+			})
+
+			return c.JSON(fiber.Map{
+				"success": true,
+				"message": "MFA setup complete",
+				"data": models.BackupCodesResponse{
+					BackupCodes: backupCodes,
+					Message:     "Save these backup codes in a safe place",
+				},
+			})
+		}
+	}
+
+	return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+		"error":   "Invalid MFA code",
+		"success": false,
+	})
 }
 
 // GenerateBackupCodes generates backup codes for MFA
@@ -588,7 +951,54 @@ func (h *AuthHandler) VerifyMFA(c *fiber.Ctx) error {
 //	@Failure		500	{object}	ErrorResponse
 //	@Router			/auth/mfa/backup-codes [post]
 func (h *AuthHandler) GenerateBackupCodes(c *fiber.Ctx) error {
-	return c.JSON(fiber.Map{"message": "Generate backup codes endpoint"})
+	userID := c.Locals("user_id").(string)
+	orgID := c.Locals("organization_id").(string)
+
+	// Verify MFA is enabled before regenerating backup codes
+	user, err := h.queries.Auth.GetUserByID(userID, orgID)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error":   "Failed to retrieve user",
+			"success": false,
+		})
+	}
+
+	if !user.MFAEnabled {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error":   "MFA is not enabled. Please set up MFA first.",
+			"success": false,
+		})
+	}
+
+	// Generate new backup codes
+	backupCodes := h.mfa.GenerateBackupCodes(10)
+
+	// Update user's backup codes in database
+	err = h.queries.Auth.UpdateBackupCodes(userID, orgID, backupCodes)
+	if err != nil {
+		h.logger.Error("Failed to update backup codes: %v", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error":   "Failed to generate backup codes",
+			"success": false,
+		})
+	}
+
+	h.audit.LogEvent(c.Context(), models.AuditEvent{
+		OrganizationID: orgID,
+		PrincipalID:    utils.StringPtr(userID),
+		PrincipalType:  utils.StringPtr("user"),
+		Action:         "mfa_backup_codes_regenerated",
+		Result:         "success",
+		Severity:       "MEDIUM",
+	})
+
+	return c.JSON(fiber.Map{
+		"success": true,
+		"data": models.BackupCodesResponse{
+			BackupCodes: backupCodes,
+			Message:     "New backup codes generated. Save these in a safe place. Previous codes are now invalid.",
+		},
+	})
 }
 
 // DisableMFA disables multi-factor authentication for a user
@@ -606,7 +1016,72 @@ func (h *AuthHandler) GenerateBackupCodes(c *fiber.Ctx) error {
 //	@Failure		500		{object}	ErrorResponse
 //	@Router			/auth/mfa/disable [delete]
 func (h *AuthHandler) DisableMFA(c *fiber.Ctx) error {
-	return c.JSON(fiber.Map{"message": "Disable MFA endpoint"})
+	userID := c.Locals("user_id").(string)
+	orgID := c.Locals("organization_id").(string)
+
+	var req models.DisableMFARequest
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error":   "Invalid request format",
+			"success": false,
+		})
+	}
+
+	// Verify user identity with password before disabling MFA
+	user, err := h.queries.Auth.GetUserByID(userID, orgID)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error":   "Failed to retrieve user",
+			"success": false,
+		})
+	}
+
+	if !user.MFAEnabled {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error":   "MFA is not currently enabled",
+			"success": false,
+		})
+	}
+
+	// Verify password
+	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(req.Password)); err != nil {
+		h.audit.LogEvent(c.Context(), models.AuditEvent{
+			OrganizationID: orgID,
+			PrincipalID:    utils.StringPtr(userID),
+			PrincipalType:  utils.StringPtr("user"),
+			Action:         "mfa_disable_failed",
+			Result:         "failure",
+			Severity:       "HIGH",
+		})
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error":   "Invalid password",
+			"success": false,
+		})
+	}
+
+	// Disable MFA
+	err = h.queries.Auth.DisableMFA(userID, orgID)
+	if err != nil {
+		h.logger.Error("Failed to disable MFA: %v", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error":   "Failed to disable MFA",
+			"success": false,
+		})
+	}
+
+	h.audit.LogEvent(c.Context(), models.AuditEvent{
+		OrganizationID: orgID,
+		PrincipalID:    utils.StringPtr(userID),
+		PrincipalType:  utils.StringPtr("user"),
+		Action:         "mfa_disabled",
+		Result:         "success",
+		Severity:       "HIGH",
+	})
+
+	return c.JSON(fiber.Map{
+		"success": true,
+		"message": "Multi-factor authentication has been disabled",
+	})
 }
 
 // ForgotPassword sends password reset email to user
@@ -632,7 +1107,7 @@ func (h *AuthHandler) ForgotPassword(c *fiber.Ctx) error {
 	}
 
 	// Check if user exists
-	user, err := h.queries.Auth.GetUserByEmail(req.Email)
+	user, err := h.queries.Auth.GetUserByEmail(req.Email, "") // Global fallback for forgot password? Or maybe we should take org here too.
 	if err != nil {
 		// Return success even if user doesn't exist (security best practice)
 		return c.JSON(fiber.Map{
@@ -654,7 +1129,12 @@ func (h *AuthHandler) ForgotPassword(c *fiber.Ctx) error {
 		})
 	}
 
-	// TODO: Send email with reset link containing the resetToken
+	// Send email with reset link containing the resetToken
+	err = h.email.SendPasswordResetEmail(user.Email, user.Username, resetToken)
+	if err != nil {
+		h.logger.Error("Failed to send password reset email: %v", err)
+		// We should probably still return success to prevent user enumeration
+	}
 	h.logger.Info("Password reset requested for user: %s", user.Email)
 
 	return c.JSON(fiber.Map{
@@ -687,7 +1167,7 @@ func (h *AuthHandler) ResetPassword(c *fiber.Ctx) error {
 
 	// Verify reset token
 	userID, err := h.queries.Auth.GetPasswordResetToken(req.Token)
-	if err != nil {
+	if err != nil || userID == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error":   "Invalid or expired reset token",
 			"success": false,
@@ -705,7 +1185,9 @@ func (h *AuthHandler) ResetPassword(c *fiber.Ctx) error {
 	}
 
 	// Update password in database
-	err = h.queries.Auth.UpdatePassword(userID, string(hashedPassword))
+	err = h.queries.Auth.UpdatePassword(userID, string(hashedPassword), "") // Need user org here, but we only have ID from Redis.
+	// In a real system, SetPasswordResetToken should store OrgID too.
+	// For now, passing "" to allow global lookup if ID is unique.
 	if err != nil {
 		h.logger.Error("Failed to update password: %v", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
@@ -760,7 +1242,7 @@ func (h *AuthHandler) VerifyEmail(c *fiber.Ctx) error {
 	}
 
 	// Update email verification status
-	err = h.queries.Auth.UpdateEmailVerification(userID, true)
+	err = h.queries.Auth.UpdateEmailVerification(userID, true, "") // Same as above, Redis token only has userID.
 	if err != nil {
 		h.logger.Error("Failed to verify email: %v", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
@@ -803,7 +1285,7 @@ func (h *AuthHandler) ResendVerification(c *fiber.Ctx) error {
 	}
 
 	// Check if user exists
-	user, err := h.queries.Auth.GetUserByEmail(req.Email)
+	user, err := h.queries.Auth.GetUserByEmail(req.Email, "")
 	if err != nil {
 		// Return success even if user doesn't exist (security best practice)
 		return c.JSON(fiber.Map{
@@ -833,7 +1315,11 @@ func (h *AuthHandler) ResendVerification(c *fiber.Ctx) error {
 		})
 	}
 
-	// TODO: Send verification email with verificationToken
+	// Send verification email with verificationToken
+	err = h.email.SendVerificationEmail(user.Email, user.Username, verificationToken)
+	if err != nil {
+		h.logger.Error("Failed to resend verification email: %v", err)
+	}
 	h.logger.Info("Email verification resent for user: %s", user.Email)
 
 	return c.JSON(fiber.Map{

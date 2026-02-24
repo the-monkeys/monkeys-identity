@@ -13,8 +13,9 @@ These instructions guide AI pair-programming assistants (like GitHub Copilot / C
   4. **Middleware** (`internal/middleware/*`): Auth (JWT), role gating, error normalization.
   5. **Database** (`internal/database/database.go` + `schema.sql`): PostgreSQL schema + Redis client builder.
   6. **Config & Logging** (`internal/config`, `pkg/logger`): Environment-driven configuration + leveled logging.
-- Auth: JWT (access + refresh); claims stored as context locals (`user_id`, `organization_id`, `role`, etc.).
-- RBAC + Policy Model: Roles ↔ Policies (attach/detach), Roles ↔ Principals (assign/unassign). Principals include users (future: groups, service accounts). Policy evaluation groundwork exists in SQL (functions & views), but not fully surfaced yet.
+- Auth: JWT (access + refresh) signed with **RS256** (RSA private key). Access tokens are short-lived (1h), refresh tokens long-lived (7d).
+- OIDC Provider: Fully strictly implemented. Supports `authorization_code` flow, Discovery, JWKS, and UserInfo.
+- RBAC + Policy Model: Roles ↔ Policies (attach/detach), Roles ↔ Principals (assign/unassign). Principals include users (future: groups, service accounts). Policy evaluation groundwork exists in SQL (functions & views).
 
 ## 1.1 Repository File & Directory Structure
 ```
@@ -158,15 +159,31 @@ Use them to reduce duplication. Keep envelope consistent across middleware and h
 
 ---
 ## 9. Security Considerations / TODOs
-- Enforce auth on mutating endpoints (currently some may rely on OptionalAuth).
+- **Critical**: Ensure `JWTPrivateKey` is set in production. In dev, a temporary key is auto-generated (see `routes.go`).
+- Enforce auth on mutating endpoints.
 - Add organization boundary checks: verify `organization_id` in token matches target resource/org where applicable.
 - Implement token revocation (store refresh tokens / jti in Redis; revoke on logout/password change).
 - Add rate limiting middleware (API doc mentions, code does not yet implement).
 - Validate policy documents against a JSON Schema before insertion.
-- MFA endpoints are placeholders – integrate TOTP (e.g., using `github.com/pquerna/otp`) and recovery codes.
+- MFA endpoints for SETUP are implemented, but critical actions do not yet enforce MFA verification.
 
 ---
-## 10. Testing Strategy (to be built)
+## 10. API Audit Status (As of Feb 2026)
+| Feature | Backend (`routes.go`) | Frontend (`ui/src/features`) | Status |
+| :--- | :--- | :--- | :--- |
+| **Auth** | ✅ Implemented | ✅ Integrated | Working |
+| **OIDC** | ✅ Implemented | ✅ Integrated | Working |
+| **Users** | ✅ Implemented | ✅ Integrated | Working |
+| **Groups** | ✅ Implemented | ✅ Integrated | Working |
+| **Orgs** | ✅ Implemented | ✅ Integrated | Working |
+| **Roles** | ✅ Implemented | ✅ Integrated | Working |
+| **Policies** | ✅ Implemented | ✅ Integrated | Working |
+| **Sessions** | ✅ Implemented | ✅ Integrated | Working |
+| **Audit** | ✅ Implemented | ✅ Integrated | Working |
+| **Resources** | ⚠️ Route exists | ❌ No UI | **Missing Frontend** |
+
+---
+## 11. Testing Strategy (Planned)
 Planned layers:
 - Unit tests for query methods (use ephemeral test DB + migrations).
 - Handler tests via Fiber’s `app.Test()` with in-memory dependencies or a dedicated test Postgres schema.
@@ -212,12 +229,12 @@ Adding "List Role Assignments for Principal":
 
 ---
 ## 15. Open TODO Backlog (from analysis)
-- Implement remaining placeholder domains: sessions, groups advanced membership mgmt, resources sharing logic, audit log querying, access reviews.
+- **Priority**: Implement integration/E2E tests (currently zero coverage).
+- **Priority**: Add Migration Tooling (`golang-migrate`).
+- Implement remaining placeholder domains: resources sharing logic, access reviews.
 - Introduce permission evaluation service layer.
-- Normalize error envelope (global vs per-handler).
-- Add tests + CI pipeline.
-- Introduce migrations (`golang-migrate` or `goose`).
-- MFA & API key lifecycle management.
+- Generic Resource Management UI (for ReBAC).
+- Service Account Management UI.
 
 ---
 ## 16. Assistant Behavior Expectations

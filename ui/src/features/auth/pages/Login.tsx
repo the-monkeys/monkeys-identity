@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { AlertCircle } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { LoginType } from '../types/auth';
@@ -8,6 +8,7 @@ const LoginPage = () => {
     const [loginType, setLoginType] = useState<LoginType>('admin');
     const [isLoading, setIsLoading] = useState<boolean>(false);
     const [error, setError] = useState<string>('');
+    const [manualOrgId, setManualOrgId] = useState<string>("");
 
     const { login } = useAuth();
     const navigate = useNavigate();
@@ -31,14 +32,22 @@ const LoginPage = () => {
             identifier = formData.get('email') as string;
         } else {
             const accountId = formData.get('accountId') as string;
-            identifier = accountId;
+            const orgUsername = formData.get('orgUsername') as string;
+            // For now, we use a combined identifier or assume the backend handles it
+            identifier = orgUsername || accountId;
         }
 
         try {
-            const result = await login(identifier, password);
+            const result = await login(identifier, password, manualOrgId);
 
             if (result.success) {
-                navigate('/home');
+                const queryParams = new URLSearchParams(window.location.search);
+                const returnTo = queryParams.get('return_to');
+                if (returnTo) {
+                    window.location.href = returnTo;
+                } else {
+                    navigate('/home');
+                }
             } else {
                 throw new Error(result.error);
             }
@@ -51,9 +60,9 @@ const LoginPage = () => {
     };
 
     return (
-        <div className="min-h-screen relative flex flex-col items-center justify-center p-4 font-sans text-white bg-[#0B1222]">
-            <div className="w-full max-w-[800px] mx-auto bg-[#17212F] p-10 rounded-lg shadow-2xl border border-white/5">
-                <h1 className="text-3xl font-bold mb-8 text-white">Sign In</h1>
+        <div className="min-h-screen relative flex flex-col items-center justify-center p-4 font-sans text-white">
+            <div className="max-w-3xl mx-auto bg-bg-card-dark border border-border-color-dark p-8 rounded shadow-sm w-full md:w-[450px]">
+                <h1 className="text-2xl font-semibold mb-6 text-white text-center">Sign In</h1>
 
                 {error && (
                     <div className="mb-6 p-4 rounded-md bg-red-900/20 border border-red-800 flex items-start space-x-3">
@@ -122,6 +131,20 @@ const LoginPage = () => {
                         </label>
                     </div>
 
+                    {/* Manual Organization Entry */}
+                    <div className="space-y-1">
+                        <label htmlFor="org_id" className="block text-sm font-bold text-gray-200">Organization ID (Optional)</label>
+                        <p className="text-[10px] text-gray-500 mb-1">Leave empty for global lookup or enter UUID for specific org.</p>
+                        <input
+                            id="org_id"
+                            type="text"
+                            value={manualOrgId}
+                            onChange={(e) => setManualOrgId(e.target.value)}
+                            className="w-full px-3 py-2 text-white border border-border-color-dark bg-slate-900 rounded focus:border-primary focus:border-2 focus:outline-none transition-all placeholder:text-gray-600"
+                            placeholder="00000000-0000-0000-0000-000000000000"
+                        />
+                    </div>
+
                     {/* Dynamic Inputs */}
                     <div className="space-y-6">
                         {loginType === 'user' ? (
@@ -172,7 +195,7 @@ const LoginPage = () => {
                         <div className="space-y-2">
                             <div className="flex justify-between items-center">
                                 <label htmlFor="password" className="block text-sm font-bold text-gray-200">Password</label>
-                                <a href="#" className="text-sm text-white font-bold hover:underline">Forgot password?</a>
+                                <Link to="/forgot-password" className="text-xs text-white font-bold hover:underline">Forgot password?</Link>
                             </div>
                             <input
                                 id="password"

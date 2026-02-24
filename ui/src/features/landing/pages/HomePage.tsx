@@ -25,7 +25,10 @@ const LandingPage = () => {
                             <span>Explore Dashboard</span>
                             <ArrowRight className="w-5 h-5" />
                         </button>
-                        <button className="w-full sm:w-auto bg-slate-800 border border-border-color-dark hover:border-primary px-8 py-4 rounded-lg text-lg font-bold transition-all text-white flex items-center justify-center">
+                        <button
+                            onClick={() => navigate('/docs')}
+                            className="w-full sm:w-auto bg-slate-800 border border-border-color-dark hover:border-primary px-8 py-4 rounded-lg text-lg font-bold transition-all text-white flex items-center justify-center"
+                        >
                             View Documentation
                         </button>
                     </div>
@@ -52,26 +55,9 @@ const LandingPage = () => {
                             <span className="text-sm font-bold opacity-60 text-white">Active User Sessions</span>
                         </div>
                         <div className="divide-y divide-border-color-dark">
-                            {[
-                                { name: 'sarah.dev', status: 'Online', ip: '192.168.1.1' },
-                                { name: 'john.smith', status: 'Idle', ip: '45.12.33.10' },
-                                { name: 'admin_sys', status: 'Online', ip: '10.0.4.55' },
-                            ].map((user, i) => (
-                                <div key={i} className="p-4 flex items-center justify-between">
-                                    <div className="flex items-center space-x-3">
-                                        <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold text-xs uppercase">
-                                            {user.name[0]}
-                                        </div>
-                                        <span className="text-sm font-medium text-white">{user.name}</span>
-                                    </div>
-                                    <div className="flex items-center space-x-4">
-                                        <span className="text-[10px] font-mono text-gray-500">{user.ip}</span>
-                                        <span className={`px - 2 py - 0.5 rounded - full text - [10px] font - bold ${user.status === 'Online' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'} `}>
-                                            {user.status}
-                                        </span>
-                                    </div>
-                                </div>
-                            ))}
+                            <div className="flex items-center justify-center py-12 text-gray-500 italic text-sm">
+                                No active sessions found.
+                            </div>
                         </div>
                     </div>
                 </div>

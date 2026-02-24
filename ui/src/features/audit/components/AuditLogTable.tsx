@@ -6,6 +6,7 @@ import { fetchAuditLogs } from '../api/audit';
 import { AuditLogFilters } from '../types/audit';
 import { DataTable } from '@/components/ui/DataTable';
 import { Loader2, Search, Filter } from 'lucide-react';
+import { cn } from '@/components/ui/utils';
 
 const AuditLogTable = () => {
     const [searchParams, setSearchParams] = useSearchParams();
@@ -46,95 +47,127 @@ const AuditLogTable = () => {
         updateFilters('principal_id', principalDetails);
     };
 
-    // Columns configuration for DataTable
     const columns = [
-        { header: 'Time', accessor: 'timestamp', render: (val: unknown) => new Date(val as string).toLocaleString() },
-        { header: 'Action', accessor: 'action', className: 'font-medium text-white' },
-        { header: 'Actor', accessor: 'principal_id', render: (val: unknown, row: any) => row.principal_type === 'user' ? `User (${val})` : `System` },
-        { header: 'Resource', accessor: 'resource_type', render: (val: unknown, row: any) => `${val} (${row.resource_id})` },
         {
-            header: 'Result', accessor: 'result', render: (val: unknown) => (
-                <span className={`px-2 py-1 rounded text-xs font-semibold ${val === 'success' ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'
-                    }`}>
-                    {(val as string).toUpperCase()}
-                </span>
-            )
+            header: 'Time',
+            cell: (row: any) => <span className="text-xs text-gray-500">{new Date(row.timestamp).toLocaleString()}</span>,
+            className: 'w-48'
         },
-        { header: 'IP Address', accessor: 'ip_address' },
         {
-            header: 'Severity', accessor: 'severity', render: (val: unknown) => (
-                <span className={`px-2 py-1 rounded text-xs ${val === 'CRITICAL' ? 'bg-red-600/30 text-red-200' :
-                    val === 'HIGH' ? 'bg-orange-500/20 text-orange-300' : 'text-gray-400'
-                    }`}>
-                    {val as string}
-                </span>
+            header: 'Action',
+            cell: (row: any) => (
+                <div className="flex flex-col">
+                    <span className="font-semibold text-gray-200">{row.action}</span>
+                    <span className="text-[10px] text-gray-500 font-mono italic">{row.id.substring(0, 8)}</span>
+                </div>
             )
         },
         {
-            header: 'Actions',
-            className: 'w-[100px]',
-            render: (val: unknown, row: any) => (
-                <button className="text-xs text-primary hover:underline">View Details</button>
+            header: 'Actor',
+            cell: (row: any) => (
+                <div className="flex flex-col">
+                    <span className="text-sm text-gray-300">{row.principal_type}</span>
+                    <span className="text-[11px] text-gray-500 font-mono truncate max-w-[120px]" title={row.principal_id || ''}>
+                        {row.principal_id ? row.principal_id.substring(0, 8) + '...' : 'System'}
+                    </span>
+                </div>
+            )
+        },
+        {
+            header: 'Resource',
+            cell: (row: any) => (
+                <div className="flex flex-col">
+                    <span className="text-sm text-gray-300">{row.resource_type}</span>
+                    <span className="text-[11px] text-gray-500 font-mono truncate max-w-[120px]" title={row.resource_id || ''}>
+                        {row.resource_id ? row.resource_id.substring(0, 8) + '...' : 'N/A'}
+                    </span>
+                </div>
+            )
+        },
+        {
+            header: 'Result',
+            cell: (row: any) => (
+                <span className={cn(
+                    "px-2 py-0.5 rounded-md text-[10px] font-bold uppercase border",
+                    row.result === 'success' ? 'bg-green-100/10 border-green-500/30 text-green-500' : 'bg-red-100/10 border-red-500/30 text-red-500'
+                )}>
+                    {row.result}
+                </span>
+            )
+        },
+        {
+            header: 'Severity',
+            cell: (row: any) => (
+                <span className={cn(
+                    "px-2 py-0.5 rounded-md text-[10px] font-bold uppercase",
+                    row.severity === 'CRITICAL' ? 'bg-red-600/20 text-red-400' :
+                        row.severity === 'HIGH' ? 'bg-orange-500/20 text-orange-400' :
+                            row.severity === 'MEDIUM' ? 'bg-yellow-500/10 text-yellow-400' :
+                                'bg-gray-100/10 text-gray-400'
+                )}>
+                    {row.severity}
+                </span>
             )
         }
     ];
 
     if (isError) {
-        return <div className="text-red-400 p-4">Failed to load audit logs. Please try again later.</div>;
+        return (
+            <div className="flex items-center justify-center h-64">
+                <div className="text-red-400 flex items-center space-x-2 bg-red-500/10 p-4 rounded-lg border border-red-500/20">
+                    <Loader2 size={20} className="animate-spin" />
+                    <span>Failed to load audit logs</span>
+                </div>
+            </div>
+        );
     }
 
     return (
-        <div className="space-y-4">
-            {/* Filters */}
-            <div className="flex flex-wrap gap-4 bg-bg-card-dark p-4 rounded-lg border border-border-color-dark">
-                <div className="flex-1 min-w-[200px]">
-                    <label className="text-sm text-gray-400 mb-1 block">Action</label>
-                    <div className="relative">
-                        <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-500" />
+        <div className="space-y-6">
+            {/* Search & Filter Section */}
+            <div className="flex flex-wrap items-center gap-4">
+                <div className="flex items-center gap-2 bg-bg-card-dark p-1 rounded-lg border border-border-color-dark flex-1 md:flex-none">
+                    <div className="relative flex-1 md:w-64">
+                        <Search className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
                         <input
                             type="text"
-                            placeholder="Filter by action..."
+                            placeholder="Search by action..."
                             value={actionFilter}
                             onChange={(e) => setActionFilter(e.target.value)}
                             onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-                            className="w-full bg-bg-main-dark border border-border-color-dark rounded-md py-2 pl-9 pr-4 text-sm text-gray-200 focus:outline-none focus:ring-1 focus:ring-primary"
+                            className="pl-9 pr-4 py-2 bg-transparent text-sm focus:outline-none text-gray-200 placeholder-gray-500 w-full"
                         />
                     </div>
+                    <div className="h-4 w-[1px] bg-border-color-dark mx-1"></div>
+                    <button
+                        onClick={handleSearch}
+                        className="p-2 hover:bg-slate-800 rounded-md text-gray-400 transition-colors"
+                        title="Apply Filter"
+                    >
+                        <Filter size={16} />
+                    </button>
                 </div>
-                <div className="flex-1 min-w-[200px]">
-                    <label className="text-sm text-gray-400 mb-1 block">Principal ID</label>
+
+                <div className="flex items-center gap-2 bg-bg-card-dark p-1 rounded-lg border border-border-color-dark flex-1 md:flex-none">
                     <input
                         type="text"
-                        placeholder="Filter by user/actor ID..."
+                        placeholder="Actor ID..."
                         value={principalDetails}
                         onChange={(e) => setPrincipalDetails(e.target.value)}
                         onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-                        className="w-full bg-bg-main-dark border border-border-color-dark rounded-md py-2 px-4 text-sm text-gray-200 focus:outline-none focus:ring-1 focus:ring-primary"
+                        className="px-4 py-2 bg-transparent text-sm focus:outline-none text-gray-200 placeholder-gray-500 w-full md:w-48"
                     />
-                </div>
-                <div className="flex items-end">
-                    <button
-                        onClick={handleSearch}
-                        className="bg-primary text-bg-main-dark px-4 py-2 rounded-md font-medium hover:bg-primary/90 transition-colors flex items-center gap-2"
-                    >
-                        <Filter className="h-4 w-4" />
-                        Filter
-                    </button>
                 </div>
             </div>
 
             {/* Table */}
-            {isLoading ? (
-                <div className="flex justify-center py-12">
-                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                </div>
-            ) : (
-                <DataTable
-                    data={data?.data.events || []}
-                    columns={columns}
-                    keyExtractor={(item) => item.id}
-                />
-            )}
+            <DataTable
+                columns={columns as any}
+                data={data?.data.events || []}
+                keyExtractor={(item) => item.id}
+                isLoading={isLoading}
+                emptyMessage="No audit logs found."
+            />
 
             {/* Pagination Controls - Simplified for MVP */}
             <div className="flex justify-between items-center text-sm text-gray-400">

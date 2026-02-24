@@ -17,21 +17,21 @@ type RoleQueries interface {
 	WithContext(ctx context.Context) RoleQueries
 
 	// Role CRUD operations
-	ListRoles(params ListParams) (*ListResult[models.Role], error)
+	ListRoles(params ListParams, organizationID string) (*ListResult[models.Role], error)
 	CreateRole(role *models.Role) error
-	GetRole(id string) (*models.Role, error)
-	UpdateRole(role *models.Role) error
-	DeleteRole(id string) error
+	GetRole(id, organizationID string) (*models.Role, error)
+	UpdateRole(role *models.Role, organizationID string) error
+	DeleteRole(id, organizationID string) error
 
 	// Role-Policy operations
-	GetRolePolicies(roleID string) ([]models.Policy, error)
-	AttachPolicyToRole(roleID, policyID, attachedBy string) error
-	DetachPolicyFromRole(roleID, policyID string) error
+	GetRolePolicies(roleID, organizationID string) ([]models.Policy, error)
+	AttachPolicyToRole(roleID, policyID, organizationID, attachedBy string) error
+	DetachPolicyFromRole(roleID, policyID, organizationID string) error
 
 	// Role assignment operations
-	GetRoleAssignments(roleID string) ([]models.RoleAssignment, error)
-	AssignRole(assignment *models.RoleAssignment) error
-	UnassignRole(roleID, principalID string) error
+	GetRoleAssignments(roleID, organizationID string) ([]models.RoleAssignment, error)
+	AssignRole(assignment *models.RoleAssignment, organizationID string) error
+	UnassignRole(roleID, principalID, organizationID string) error
 }
 
 type roleQueries struct {
@@ -56,18 +56,18 @@ func (q *roleQueries) WithContext(ctx context.Context) RoleQueries {
 // Role-specific query methods
 
 // ListRoles retrieves all roles with pagination and filtering
-func (q *roleQueries) ListRoles(params ListParams) (*ListResult[models.Role], error) {
+func (q *roleQueries) ListRoles(params ListParams, organizationID string) (*ListResult[models.Role], error) {
 	query := `
 		SELECT id, name, description, organization_id, role_type, max_session_duration,
 		       trust_policy, assume_role_policy, tags, is_system_role, path,
 		       permissions_boundary, status, created_at, updated_at, deleted_at,
 		       COUNT(*) OVER() as total_count
 		FROM roles 
-		WHERE status != 'deleted'
+		WHERE status != 'deleted' AND (organization_id = $1 OR organization_id = '00000000-0000-0000-0000-000000000000')
 	`
 
-	args := []interface{}{}
-	argIndex := 1
+	args := []interface{}{organizationID}
+	argIndex := 2
 
 	// Add sorting
 	orderBy := "created_at"
@@ -204,20 +204,20 @@ func (q *roleQueries) CreateRole(role *models.Role) error {
 }
 
 // GetRole retrieves a role by ID
-func (q *roleQueries) GetRole(id string) (*models.Role, error) {
+func (q *roleQueries) GetRole(id, organizationID string) (*models.Role, error) {
 	query := `
 		SELECT id, name, description, organization_id, role_type, max_session_duration,
 		       trust_policy, assume_role_policy, tags, is_system_role, path,
 		       permissions_boundary, status, created_at, updated_at, deleted_at
 		FROM roles 
-		WHERE id = $1 AND status != 'deleted'
+		WHERE id = $1 AND (organization_id = $2 OR organization_id = '00000000-0000-0000-0000-000000000000') AND status != 'deleted'
 	`
 
 	var role models.Role
 	var err error
 
 	if q.tx != nil {
-		err = q.tx.QueryRowContext(q.ctx, query, id).Scan(
+		err = q.tx.QueryRowContext(q.ctx, query, id, organizationID).Scan(
 			&role.ID, &role.Name, &role.Description, &role.OrganizationID,
 			&role.RoleType, &role.MaxSessionDuration, &role.TrustPolicy,
 			&role.AssumeRolePolicy, &role.Tags, &role.IsSystemRole,
@@ -225,7 +225,7 @@ func (q *roleQueries) GetRole(id string) (*models.Role, error) {
 			&role.CreatedAt, &role.UpdatedAt, &role.DeletedAt,
 		)
 	} else {
-		err = q.db.QueryRowContext(q.ctx, query, id).Scan(
+		err = q.db.QueryRowContext(q.ctx, query, id, organizationID).Scan(
 			&role.ID, &role.Name, &role.Description, &role.OrganizationID,
 			&role.RoleType, &role.MaxSessionDuration, &role.TrustPolicy,
 			&role.AssumeRolePolicy, &role.Tags, &role.IsSystemRole,
@@ -245,13 +245,13 @@ func (q *roleQueries) GetRole(id string) (*models.Role, error) {
 }
 
 // UpdateRole updates an existing role
-func (q *roleQueries) UpdateRole(role *models.Role) error {
+func (q *roleQueries) UpdateRole(role *models.Role, organizationID string) error {
 	query := `
 		UPDATE roles 
 		SET name = $2, description = $3, role_type = $4, max_session_duration = $5,
 		    trust_policy = $6, assume_role_policy = $7, tags = $8, path = $9,
 		    permissions_boundary = $10, status = $11, updated_at = NOW()
-		WHERE id = $1 AND status != 'deleted'
+		WHERE id = $1 AND organization_id = $12 AND status != 'deleted'
 		RETURNING updated_at
 	`
 
@@ -261,12 +261,14 @@ func (q *roleQueries) UpdateRole(role *models.Role) error {
 			role.ID, role.Name, role.Description, role.RoleType,
 			role.MaxSessionDuration, role.TrustPolicy, role.AssumeRolePolicy,
 			role.Tags, role.Path, role.PermissionsBoundary, role.Status,
+			organizationID, // Added param
 		).Scan(&role.UpdatedAt)
 	} else {
 		err = q.db.QueryRowContext(q.ctx, query,
 			role.ID, role.Name, role.Description, role.RoleType,
 			role.MaxSessionDuration, role.TrustPolicy, role.AssumeRolePolicy,
 			role.Tags, role.Path, role.PermissionsBoundary, role.Status,
+			organizationID,
 		).Scan(&role.UpdatedAt)
 	}
 
@@ -281,20 +283,20 @@ func (q *roleQueries) UpdateRole(role *models.Role) error {
 }
 
 // DeleteRole soft deletes a role
-func (q *roleQueries) DeleteRole(id string) error {
+func (q *roleQueries) DeleteRole(id, organizationID string) error {
 	query := `
 		UPDATE roles 
 		SET status = 'deleted', deleted_at = NOW(), updated_at = NOW()
-		WHERE id = $1 AND status != 'deleted'
+		WHERE id = $1 AND organization_id = $2 AND status != 'deleted'
 	`
 
 	var result sql.Result
 	var err error
 
 	if q.tx != nil {
-		result, err = q.tx.ExecContext(q.ctx, query, id)
+		result, err = q.tx.ExecContext(q.ctx, query, id, organizationID)
 	} else {
-		result, err = q.db.ExecContext(q.ctx, query, id)
+		result, err = q.db.ExecContext(q.ctx, query, id, organizationID)
 	}
 
 	if err != nil {
@@ -314,13 +316,14 @@ func (q *roleQueries) DeleteRole(id string) error {
 }
 
 // GetRolePolicies retrieves all policies attached to a role
-func (q *roleQueries) GetRolePolicies(roleID string) ([]models.Policy, error) {
+func (q *roleQueries) GetRolePolicies(roleID, organizationID string) ([]models.Policy, error) {
 	query := `
 		SELECT p.id, p.name, p.description, p.organization_id, p.document,
 		       p.is_system_policy, p.status, p.created_at, p.updated_at, p.deleted_at
 		FROM policies p
 		JOIN role_policies rp ON p.id = rp.policy_id
-		WHERE rp.role_id = $1 AND p.status = 'active'
+		JOIN roles r ON rp.role_id = r.id
+		WHERE rp.role_id = $1 AND (r.organization_id = $2 OR r.organization_id = '00000000-0000-0000-0000-000000000000') AND p.status = 'active'
 		ORDER BY rp.attached_at DESC
 	`
 
@@ -328,9 +331,9 @@ func (q *roleQueries) GetRolePolicies(roleID string) ([]models.Policy, error) {
 	var err error
 
 	if q.tx != nil {
-		rows, err = q.tx.QueryContext(q.ctx, query, roleID)
+		rows, err = q.tx.QueryContext(q.ctx, query, roleID, organizationID)
 	} else {
-		rows, err = q.db.QueryContext(q.ctx, query, roleID)
+		rows, err = q.db.QueryContext(q.ctx, query, roleID, organizationID)
 	}
 
 	if err != nil {
@@ -356,10 +359,13 @@ func (q *roleQueries) GetRolePolicies(roleID string) ([]models.Policy, error) {
 }
 
 // AttachPolicyToRole attaches a policy to a role
-func (q *roleQueries) AttachPolicyToRole(roleID, policyID, attachedBy string) error {
+func (q *roleQueries) AttachPolicyToRole(roleID, policyID, organizationID, attachedBy string) error {
 	query := `
 		INSERT INTO role_policies (role_id, policy_id, attached_by)
-		VALUES ($1, $2, $3)
+		SELECT $1, $2, $3
+		FROM roles r, policies p
+		WHERE r.id = $1 AND r.organization_id = $4
+		  AND p.id = $2 AND p.organization_id = $4
 		ON CONFLICT (role_id, policy_id) DO NOTHING
 	`
 
@@ -367,9 +373,9 @@ func (q *roleQueries) AttachPolicyToRole(roleID, policyID, attachedBy string) er
 	var err error
 
 	if q.tx != nil {
-		result, err = q.tx.ExecContext(q.ctx, query, roleID, policyID, attachedBy)
+		result, err = q.tx.ExecContext(q.ctx, query, roleID, policyID, attachedBy, organizationID)
 	} else {
-		result, err = q.db.ExecContext(q.ctx, query, roleID, policyID, attachedBy)
+		result, err = q.db.ExecContext(q.ctx, query, roleID, policyID, attachedBy, organizationID)
 	}
 
 	if err != nil {
@@ -392,19 +398,20 @@ func (q *roleQueries) AttachPolicyToRole(roleID, policyID, attachedBy string) er
 }
 
 // DetachPolicyFromRole detaches a policy from a role
-func (q *roleQueries) DetachPolicyFromRole(roleID, policyID string) error {
+func (q *roleQueries) DetachPolicyFromRole(roleID, policyID, organizationID string) error {
 	query := `
 		DELETE FROM role_policies
 		WHERE role_id = $1 AND policy_id = $2
+		AND EXISTS (SELECT 1 FROM roles WHERE id = $1 AND organization_id = $3)
 	`
 
 	var result sql.Result
 	var err error
 
 	if q.tx != nil {
-		result, err = q.tx.ExecContext(q.ctx, query, roleID, policyID)
+		result, err = q.tx.ExecContext(q.ctx, query, roleID, policyID, organizationID)
 	} else {
-		result, err = q.db.ExecContext(q.ctx, query, roleID, policyID)
+		result, err = q.db.ExecContext(q.ctx, query, roleID, policyID, organizationID)
 	}
 
 	if err != nil {
@@ -424,22 +431,23 @@ func (q *roleQueries) DetachPolicyFromRole(roleID, policyID string) error {
 }
 
 // GetRoleAssignments retrieves all assignments for a role
-func (q *roleQueries) GetRoleAssignments(roleID string) ([]models.RoleAssignment, error) {
+func (q *roleQueries) GetRoleAssignments(roleID, organizationID string) ([]models.RoleAssignment, error) {
 	query := `
-		SELECT id, role_id, principal_id, principal_type, assigned_by,
-		       assigned_at, expires_at, conditions
-		FROM role_assignments
-		WHERE role_id = $1
-		ORDER BY assigned_at DESC
+		SELECT ra.id, ra.role_id, ra.principal_id, ra.principal_type, ra.assigned_by,
+		       ra.assigned_at, ra.expires_at, ra.conditions
+		FROM role_assignments ra
+		JOIN roles r ON ra.role_id = r.id
+		WHERE ra.role_id = $1 AND r.organization_id = $2
+		ORDER BY ra.assigned_at DESC
 	`
 
 	var rows *sql.Rows
 	var err error
 
 	if q.tx != nil {
-		rows, err = q.tx.QueryContext(q.ctx, query, roleID)
+		rows, err = q.tx.QueryContext(q.ctx, query, roleID, organizationID)
 	} else {
-		rows, err = q.db.QueryContext(q.ctx, query, roleID)
+		rows, err = q.db.QueryContext(q.ctx, query, roleID, organizationID)
 	}
 
 	if err != nil {
@@ -465,11 +473,13 @@ func (q *roleQueries) GetRoleAssignments(roleID string) ([]models.RoleAssignment
 }
 
 // AssignRole assigns a role to a principal (user or service account)
-func (q *roleQueries) AssignRole(assignment *models.RoleAssignment) error {
+func (q *roleQueries) AssignRole(assignment *models.RoleAssignment, organizationID string) error {
 	query := `
 		INSERT INTO role_assignments (id, role_id, principal_id, principal_type,
 		                             assigned_by, expires_at, conditions)
-		VALUES ($1, $2, $3, $4, $5, $6, $7)
+		SELECT $1, $2, $3, $4, NULLIF($5, '')::uuid, $6, COALESCE($7, '{}'::jsonb)
+		FROM roles r
+		WHERE r.id = $2 AND r.organization_id = $8
 		ON CONFLICT (role_id, principal_id, principal_type) 
 		DO UPDATE SET
 			assigned_by = EXCLUDED.assigned_by,
@@ -485,13 +495,13 @@ func (q *roleQueries) AssignRole(assignment *models.RoleAssignment) error {
 		err = q.tx.QueryRowContext(q.ctx, query,
 			assignment.ID, assignment.RoleID, assignment.PrincipalID,
 			assignment.PrincipalType, assignment.AssignedBy,
-			assignment.ExpiresAt, assignment.Conditions,
+			assignment.ExpiresAt, assignment.Conditions, organizationID,
 		).Scan(&assignment.AssignedAt)
 	} else {
 		err = q.db.QueryRowContext(q.ctx, query,
 			assignment.ID, assignment.RoleID, assignment.PrincipalID,
 			assignment.PrincipalType, assignment.AssignedBy,
-			assignment.ExpiresAt, assignment.Conditions,
+			assignment.ExpiresAt, assignment.Conditions, organizationID,
 		).Scan(&assignment.AssignedAt)
 	}
 
@@ -506,19 +516,20 @@ func (q *roleQueries) AssignRole(assignment *models.RoleAssignment) error {
 }
 
 // UnassignRole removes a role assignment from a principal
-func (q *roleQueries) UnassignRole(roleID, principalID string) error {
+func (q *roleQueries) UnassignRole(roleID, principalID, organizationID string) error {
 	query := `
 		DELETE FROM role_assignments
 		WHERE role_id = $1 AND principal_id = $2
+		AND EXISTS (SELECT 1 FROM roles WHERE id = $1 AND organization_id = $3)
 	`
 
 	var result sql.Result
 	var err error
 
 	if q.tx != nil {
-		result, err = q.tx.ExecContext(q.ctx, query, roleID, principalID)
+		result, err = q.tx.ExecContext(q.ctx, query, roleID, principalID, organizationID)
 	} else {
-		result, err = q.db.ExecContext(q.ctx, query, roleID, principalID)
+		result, err = q.db.ExecContext(q.ctx, query, roleID, principalID, organizationID)
 	}
 
 	if err != nil {

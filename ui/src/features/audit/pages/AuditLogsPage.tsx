@@ -1,18 +1,14 @@
-
 import AuditLogTable from '../components/AuditLogTable';
-import { History } from 'lucide-react';
 
 const AuditLogsPage = () => {
     return (
-        <div className="container mx-auto px-6 py-8">
-            <div className="mb-8">
-                <div className="flex items-center gap-3 mb-2">
-                    <History className="h-8 w-8 text-primary" />
-                    <h1 className="text-3xl font-bold text-white">Audit Logs</h1>
+        <div className="w-full mx-auto space-y-6">
+            {/* Header Section */}
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                <div>
+                    <h1 className="text-2xl font-bold text-text-main-dark">Audit Logs</h1>
+                    <p className="text-sm text-gray-400">Track system events, user activities, and security actions across your organization</p>
                 </div>
-                <p className="text-gray-400">
-                    Track system events, user activities, and security actions across your organization.
-                </p>
             </div>
 
             <AuditLogTable />
