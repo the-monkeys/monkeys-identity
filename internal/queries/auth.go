@@ -194,11 +194,8 @@ func (q *authQueries) CreateUser(user *models.User) error {
 func (q *authQueries) CreateAdminUser(user *models.User) error {
 	now := time.Now()
 
-	// Ensure the default organization exists before starting the transactional workflow
-	_, err := q.ensureDefaultOrganizationGlobal(now)
-	if err != nil {
-		return err
-	}
+	// Default and System orgs are seeded by migrations 000001 and 000002.
+	// No need to upsert them on every admin creation.
 
 	// Start transaction for the user creation flow
 	tx, err := q.db.Begin()

@@ -34,6 +34,7 @@ client.interceptors.response.use(
                 window.location.href = '/login';
             }
         }
+        // Always reject so callers / React Query can handle the error
         return Promise.reject(error);
     }
 );

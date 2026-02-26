@@ -32,6 +32,9 @@ type RoleQueries interface {
 	GetRoleAssignments(roleID, organizationID string) ([]models.RoleAssignment, error)
 	AssignRole(assignment *models.RoleAssignment, organizationID string) error
 	UnassignRole(roleID, principalID, organizationID string) error
+
+	// Role helpers
+	EnsureRoleByName(name, description, organizationID string, outRoleID *string) error
 }
 
 type roleQueries struct {
@@ -470,6 +473,32 @@ func (q *roleQueries) GetRoleAssignments(roleID, organizationID string) ([]model
 	}
 
 	return assignments, nil
+}
+
+// EnsureRoleByName creates a role with the given name in the org if it doesn't exist,
+// or retrieves its ID if it does. The role ID is written to outRoleID.
+func (q *roleQueries) EnsureRoleByName(name, description, organizationID string, outRoleID *string) error {
+	query := `
+		INSERT INTO roles (id, name, description, organization_id, is_system_role, status, created_at, updated_at)
+		VALUES (gen_random_uuid(), $1, $2, $3, TRUE, 'active', NOW(), NOW())
+		ON CONFLICT (name, organization_id) DO UPDATE
+			SET status = 'active', deleted_at = NULL, updated_at = NOW()
+		RETURNING id
+	`
+
+	var id string
+	var err error
+	if q.tx != nil {
+		err = q.tx.QueryRowContext(q.ctx, query, name, description, organizationID).Scan(&id)
+	} else {
+		err = q.db.QueryRowContext(q.ctx, query, name, description, organizationID).Scan(&id)
+	}
+	if err != nil {
+		return fmt.Errorf("failed to ensure role %q: %w", name, err)
+	}
+
+	*outRoleID = id
+	return nil
 }
 
 // AssignRole assigns a role to a principal (user or service account)

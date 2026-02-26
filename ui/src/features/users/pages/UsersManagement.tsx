@@ -11,9 +11,12 @@ import { DataTable, Column } from '@/components/ui/DataTable';
 import { useQueryClient } from '@tanstack/react-query';
 import { userKeys } from '../api/useUsers';
 import { cn } from '@/components/ui/utils';
+import { useAuth } from '@/context/AuthContext';
+import { extractErrorMessage } from '@/pkg/api/errorUtils';
 
 const UsersManagement = () => {
     const navigate = useNavigate();
+    const { isAdmin } = useAuth();
     // State
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedUser, setSelectedUser] = useState<User | null>(null);
@@ -144,7 +147,7 @@ const UsersManagement = () => {
         {
             header: 'Actions',
             className: 'text-right',
-            cell: (user) => (
+            cell: (user) => isAdmin() ? (
                 <div className="flex items-center justify-end space-x-1">
                     <button
                         onClick={(e) => { e.stopPropagation(); handleEdit(user); }}
@@ -157,7 +160,7 @@ const UsersManagement = () => {
                         onClick={(e) => { e.stopPropagation(); handleSuspendClick(user); }}
                         className="p-1.5 hover:bg-slate-700 rounded transition-colors text-gray-400 hover:text-yellow-400"
                         title={user.status === 'suspended' ? "Activate User" : "Suspend User"}
-                        disabled={false} // We want to allow toggling maybe? Or just keep it for now.
+                        disabled={false}
                     >
                         {user.status === 'suspended' ? <Plus size={16} className="text-green-500" /> : <Pause size={16} />}
                     </button>
@@ -169,7 +172,7 @@ const UsersManagement = () => {
                         <Trash2 size={16} />
                     </button>
                 </div>
-            )
+            ) : null
         }
     ];
 
@@ -178,7 +181,7 @@ const UsersManagement = () => {
             <div className="flex items-center justify-center h-64">
                 <div className="text-red-400 flex items-center space-x-2 bg-red-500/10 p-4 rounded-lg border border-red-500/20">
                     <AlertCircle size={20} />
-                    <span>{(error as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Failed to load users'}</span>
+                    <span>{extractErrorMessage(error, 'Failed to load users')}</span>
                 </div>
             </div>
         );
@@ -192,12 +195,14 @@ const UsersManagement = () => {
                     <h1 className="text-2xl font-bold text-text-main-dark">User Management</h1>
                     <p className="text-sm text-gray-400">Manage user accounts, roles, and permissions</p>
                 </div>
-                <button
-                    onClick={() => setShowAddModal(true)}
-                    className="px-4 py-2 bg-primary/80 text-white rounded-lg text-sm font-semibold flex items-center space-x-2 hover:bg-primary/90 transition-all shadow-lg shadow-primary/20"
-                >
-                    <Plus size={16} /> <span>Add new user</span>
-                </button>
+                {isAdmin() && (
+                    <button
+                        onClick={() => setShowAddModal(true)}
+                        className="px-4 py-2 bg-primary/80 text-white rounded-lg text-sm font-semibold flex items-center space-x-2 hover:bg-primary/90 transition-all shadow-lg shadow-primary/20"
+                    >
+                        <Plus size={16} /> <span>Add new user</span>
+                    </button>
+                )}
             </div>
 
             {/* Search & Filter Section */}

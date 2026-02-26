@@ -29,26 +29,25 @@ const Dashboard = () => {
 
     useEffect(() => {
         const fetchDashboardData = async () => {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+
             try {
                 setLoading(true);
                 const [usersRes, rolesRes, groupsRes, policiesRes] = await Promise.allSettled([
-                    client.get('/users'),
-                    client.get('/roles'),
-                    client.get('/groups'),
-                    client.get('/policies'),
+                    client.get('/users', { signal: controller.signal }),
+                    client.get('/roles', { signal: controller.signal }),
+                    client.get('/groups', { signal: controller.signal }),
+                    client.get('/policies', { signal: controller.signal }),
                 ]);
+                clearTimeout(timeoutId);
 
                 const getCount = (res: PromiseSettledResult<any>) => {
                     if (res.status === 'fulfilled') {
                         const data = res.value.data;
-                        // Handle our standard ListResult structure
                         if (data && typeof data.total === 'number') return data.total;
-
-                        // Fallback to data.data checking
                         const nestedData = data?.data;
                         if (nestedData && typeof nestedData.total === 'number') return nestedData.total;
-
-                        // Fallback to array length
                         const items = data?.items || nestedData?.items || data?.data || data || [];
                         return Array.isArray(items) ? items.length : 0;
                     }
@@ -75,8 +74,9 @@ const Dashboard = () => {
                         }))
                     );
                 }
-            } catch {
-                // Errors handled per-request via allSettled
+            } catch (err: any) {
+                console.error("Dashboard fetch error:", err);
+                clearTimeout(timeoutId);
             } finally {
                 setLoading(false);
             }

@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
 	"github.com/the-monkeys/monkeys-identity/internal/database"
+	"github.com/the-monkeys/monkeys-identity/internal/middleware"
 	"github.com/the-monkeys/monkeys-identity/internal/models"
 	"github.com/the-monkeys/monkeys-identity/internal/queries"
 	"github.com/the-monkeys/monkeys-identity/pkg/logger"
@@ -53,7 +54,13 @@ func (h *OrganizationHandler) ListOrganizations(c *fiber.Ctx) error {
 	if offset < 0 {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Status: fiber.StatusBadRequest, Error: "invalid_offset", Message: "Offset must be non-negative"})
 	}
-	res, err := h.queries.Organization.ListOrganizations(queries.ListParams{Limit: limit, Offset: offset})
+
+	// Scope listing via tenant context — root sees all, org admin sees their org.
+	tc := middleware.GetTenantContext(c)
+	if tc == nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(ErrorResponse{Status: fiber.StatusUnauthorized, Error: "tenant_context_missing", Message: "Tenant context not resolved"})
+	}
+	res, err := h.queries.Organization.ListOrganizations(queries.ListParams{Limit: limit, Offset: offset}, tc.OrgFilter())
 	if err != nil {
 		h.logger.Error("List organizations failed: %v", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{Status: fiber.StatusInternalServerError, Error: "internal_server_error", Message: "Failed to list organizations"})
@@ -75,7 +82,7 @@ func (h *OrganizationHandler) ListOrganizations(c *fiber.Ctx) error {
 func (h *OrganizationHandler) ListPublicOrganizations(c *fiber.Ctx) error {
 	// Fetch a reasonable number of organizations for the dropdown
 	// In a real generic SaaS, this might not be desirable (listing all tenants), but for this specific IAM usage it's requested.
-	res, err := h.queries.Organization.ListOrganizations(queries.ListParams{Limit: 1000, Offset: 0})
+	res, err := h.queries.Organization.ListOrganizations(queries.ListParams{Limit: 1000, Offset: 0}, "")
 	if err != nil {
 		h.logger.Error("List public organizations failed: %v", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{Status: fiber.StatusInternalServerError, Error: "internal_server_error", Message: "Failed to list organizations"})
@@ -83,6 +90,10 @@ func (h *OrganizationHandler) ListPublicOrganizations(c *fiber.Ctx) error {
 
 	publicOrgs := make([]PublicOrganization, 0, len(res.Items))
 	for _, org := range res.Items {
+		// Hide system-internal orgs from public listing
+		if middleware.IsInternalOrg(org.Slug) {
+			continue
+		}
 		publicOrgs = append(publicOrgs, PublicOrganization{
 			ID:   org.ID,
 			Name: org.Name,

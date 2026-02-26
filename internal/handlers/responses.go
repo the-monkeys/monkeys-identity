@@ -1,5 +1,7 @@
 package handlers
 
+import "github.com/gofiber/fiber/v2"
+
 // Common response structures for API documentation
 
 // ErrorResponse represents an error response
@@ -15,6 +17,33 @@ type SuccessResponse struct {
 	Message string      `json:"message" example:"Operation completed successfully"`
 	Data    interface{} `json:"data,omitempty"`
 } //@name SuccessResponse
+
+// ── Standardized response helpers ──────────────────────────────────────
+
+// apiError sends a uniform JSON error response.
+//
+//	{ "success": false, "error": "<code>", "message": "<human-readable>" }
+func apiError(c *fiber.Ctx, httpStatus int, code string, message string) error {
+	return c.Status(httpStatus).JSON(fiber.Map{
+		"success": false,
+		"error":   code,
+		"message": message,
+	})
+}
+
+// apiSuccess sends a uniform JSON success response.
+//
+//	{ "success": true, "message": "<msg>", "data": <payload> }
+func apiSuccess(c *fiber.Ctx, httpStatus int, message string, data interface{}) error {
+	resp := fiber.Map{
+		"success": true,
+		"message": message,
+	}
+	if data != nil {
+		resp["data"] = data
+	}
+	return c.Status(httpStatus).JSON(resp)
+}
 
 // RefreshTokenRequest represents a refresh token request
 type RefreshTokenRequest struct {

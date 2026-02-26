@@ -6,6 +6,8 @@ import { Resource, CreateResourceRequest, UpdateResourceRequest } from '../types
 import { DataTable, Column } from '@/components/ui/DataTable';
 import { cn } from '@/components/ui/utils';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { useAuth } from '@/context/AuthContext';
+import { extractErrorMessage } from '@/pkg/api/errorUtils';
 
 const ResourcesManagement = () => {
     const [searchQuery, setSearchQuery] = useState('');
@@ -24,6 +26,7 @@ const ResourcesManagement = () => {
     });
 
     const navigate = useNavigate();
+    const { isAdmin } = useAuth();
 
     const { data: resourcesResponse, isLoading, error } = useResources();
     const resources = resourcesResponse || [];
@@ -136,26 +139,30 @@ const ResourcesManagement = () => {
             cell: (resource) => (
                 <div className="flex items-center justify-end space-x-1">
                     <button
-                        onClick={(e) => { e.stopPropagation(); handleEditClick(resource); }}
-                        className="p-1.5 hover:bg-slate-700 rounded transition-colors text-gray-400 hover:text-blue-400"
-                        title="Edit Resource"
-                    >
-                        <Edit3 size={16} />
-                    </button>
-                    <button
                         onClick={(e) => { e.stopPropagation(); navigate(`/resources/${resource.id}`); }}
                         className="p-1.5 hover:bg-slate-700 rounded transition-colors text-gray-400 hover:text-blue-400"
                         title="View Details"
                     >
                         <ExternalLink size={16} />
                     </button>
-                    <button
-                        onClick={(e) => { e.stopPropagation(); handleDeleteClick(resource); }}
-                        className="p-1.5 hover:bg-slate-700 rounded transition-colors text-gray-400 hover:text-red-400"
-                        title="Delete Resource"
-                    >
-                        <Trash2 size={16} />
-                    </button>
+                    {isAdmin() && (
+                        <>
+                            <button
+                                onClick={(e) => { e.stopPropagation(); handleEditClick(resource); }}
+                                className="p-1.5 hover:bg-slate-700 rounded transition-colors text-gray-400 hover:text-blue-400"
+                                title="Edit Resource"
+                            >
+                                <Edit3 size={16} />
+                            </button>
+                            <button
+                                onClick={(e) => { e.stopPropagation(); handleDeleteClick(resource); }}
+                                className="p-1.5 hover:bg-slate-700 rounded transition-colors text-gray-400 hover:text-red-400"
+                                title="Delete Resource"
+                            >
+                                <Trash2 size={16} />
+                            </button>
+                        </>
+                    )}
                 </div>
             )
         }
@@ -166,7 +173,7 @@ const ResourcesManagement = () => {
             <div className="flex items-center justify-center h-64">
                 <div className="text-red-400 flex items-center space-x-2 bg-red-500/10 p-4 rounded-lg border border-red-500/20">
                     <AlertCircle size={20} />
-                    <span>Failed to load resources</span>
+                    <span>{extractErrorMessage(error, 'Failed to load resources')}</span>
                 </div>
             </div>
         );
@@ -182,12 +189,14 @@ const ResourcesManagement = () => {
                     </h1>
                     <p className="text-sm text-gray-400">Manage protected system resources</p>
                 </div>
-                <button
-                    onClick={() => setShowCreateModal(true)}
-                    className="px-4 py-2 bg-primary/80 text-white rounded-lg text-sm font-semibold flex items-center space-x-2 hover:bg-primary/90 transition-all shadow-lg shadow-primary/20"
-                >
-                    <Plus size={16} /> <span>Add Resource</span>
-                </button>
+                {isAdmin() && (
+                    <button
+                        onClick={() => setShowCreateModal(true)}
+                        className="px-4 py-2 bg-primary/80 text-white rounded-lg text-sm font-semibold flex items-center space-x-2 hover:bg-primary/90 transition-all shadow-lg shadow-primary/20"
+                    >
+                        <Plus size={16} /> <span>Add Resource</span>
+                    </button>
+                )}
             </div>
 
             <div className="flex items-center gap-2 bg-bg-card-dark p-1 rounded-lg border border-border-color-dark w-full md:w-auto self-start">

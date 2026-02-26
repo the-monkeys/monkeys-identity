@@ -1,0 +1,10 @@
+DROP INDEX IF EXISTS idx_content_collabs_item;
+DROP INDEX IF EXISTS idx_content_collabs_user;
+DROP INDEX IF EXISTS idx_content_deleted;
+DROP INDEX IF EXISTS idx_content_parent;
+DROP INDEX IF EXISTS idx_content_status;
+DROP INDEX IF EXISTS idx_content_type;
+DROP INDEX IF EXISTS idx_content_org;
+DROP INDEX IF EXISTS idx_content_owner;
+DROP TABLE IF EXISTS content_collaborators;
+DROP TABLE IF EXISTS content_items;

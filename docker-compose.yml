@@ -91,6 +91,7 @@ services:
     environment:
       - VITE_API_URL=http://localhost:8085/api/v1
       - VITE_PROXY_TARGET=http://monkeys-iam:8080
+    restart: unless-stopped
 
   # pgAdmin (Optional - for database management)
   pgadmin:

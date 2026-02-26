@@ -17,8 +17,6 @@ export interface SignupFormErrors {
   organization_id?: string;
 }
 
-export type LoginType = 'admin' | 'user' | 'root';
-
 export interface AuthContextType {
   user: User | null;
   login: (email: string, password: string, organizationID?: string) => Promise<{ success: boolean; error?: string }>;
