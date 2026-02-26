@@ -40,6 +40,8 @@ const statusColors: Record<string, string> = {
     draft: 'bg-gray-100/10 border-gray-500/30 text-gray-400',
     published: 'bg-green-100/10 border-green-500/30 text-green-400',
     archived: 'bg-amber-100/10 border-amber-500/30 text-amber-400',
+    private: 'bg-purple-100/10 border-purple-500/30 text-purple-400',
+    hidden: 'bg-rose-100/10 border-rose-500/30 text-rose-400',
 };
 
 // ── Page component ─────────────────────────────────────────────────────
@@ -199,27 +201,19 @@ const ContentManagement = () => {
             cell: (item) => (
                 <div className="flex items-center justify-end space-x-0.5">
                     {/* Status actions */}
-                    {item.status === 'draft' && (
-                        <button
-                            onClick={(e) => { e.stopPropagation(); handleStatusChange(item, 'published'); }}
-                            className="p-1.5 hover:bg-slate-700 rounded transition-colors text-gray-400 hover:text-green-400"
-                            title="Publish"
-                        ><Send size={15} /></button>
-                    )}
-                    {item.status === 'published' && (
-                        <button
-                            onClick={(e) => { e.stopPropagation(); handleStatusChange(item, 'archived'); }}
-                            className="p-1.5 hover:bg-slate-700 rounded transition-colors text-gray-400 hover:text-amber-400"
-                            title="Archive"
-                        ><Archive size={15} /></button>
-                    )}
-                    {item.status === 'archived' && (
-                        <button
-                            onClick={(e) => { e.stopPropagation(); handleStatusChange(item, 'draft'); }}
-                            className="p-1.5 hover:bg-slate-700 rounded transition-colors text-gray-400 hover:text-blue-400"
-                            title="Back to Draft"
-                        ><RotateCcw size={15} /></button>
-                    )}
+                    {/* Status dropdown */}
+                    <select
+                        value={item.status}
+                        onChange={(e) => { e.stopPropagation(); handleStatusChange(item, e.target.value); }}
+                        onClick={(e) => e.stopPropagation()}
+                        className="px-2 py-1 rounded-md text-xs bg-slate-800 border border-slate-600 text-gray-300 hover:border-slate-500 focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer"
+                    >
+                        <option value="draft">Draft</option>
+                        <option value="published">Published</option>
+                        <option value="archived">Archived</option>
+                        <option value="private">Private</option>
+                        <option value="hidden">Hidden</option>
+                    </select>
 
                     {/* Collaborators */}
                     <button

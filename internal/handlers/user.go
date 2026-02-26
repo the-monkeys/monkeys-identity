@@ -243,8 +243,11 @@ func (h *UserHandler) GetUser(c *fiber.Ctx) error {
 	organizationID := c.Locals("organization_id").(string)
 	user, err := h.queries.User.GetUser(userID, organizationID)
 	if err != nil {
+		if isNotFoundErr(err) {
+			return apiError(c, fiber.StatusNotFound, "not_found", "User not found")
+		}
 		h.logger.Error("Failed to get user: %v", err)
-		return apiError(c, fiber.StatusNotFound, "not_found", "User not found")
+		return apiError(c, fiber.StatusInternalServerError, "server_error", "Failed to retrieve user")
 	}
 
 	// Don't return password hash
@@ -290,7 +293,11 @@ func (h *UserHandler) UpdateUser(c *fiber.Ctx) error {
 	organizationID := c.Locals("organization_id").(string)
 	user, err := h.queries.User.GetUser(userID, organizationID)
 	if err != nil {
-		return apiError(c, fiber.StatusNotFound, "not_found", "User not found")
+		if isNotFoundErr(err) {
+			return apiError(c, fiber.StatusNotFound, "not_found", "User not found")
+		}
+		h.logger.Error("Failed to get user for update: %v", err)
+		return apiError(c, fiber.StatusInternalServerError, "server_error", "Failed to retrieve user")
 	}
 
 	// Update fields if provided
@@ -314,6 +321,9 @@ func (h *UserHandler) UpdateUser(c *fiber.Ctx) error {
 
 	if err := h.queries.User.UpdateUser(user, organizationID); err != nil {
 		h.logger.Error("Failed to update user: %v", err)
+		if isConflictErr(err) {
+			return apiError(c, fiber.StatusConflict, "conflict", "A user with that username or email already exists")
+		}
 		return apiError(c, fiber.StatusInternalServerError, "server_error", "Failed to update user. Please try again.")
 	}
 
@@ -349,7 +359,11 @@ func (h *UserHandler) DeleteUser(c *fiber.Ctx) error {
 	organizationID := c.Locals("organization_id").(string)
 	_, err := h.queries.User.GetUser(userID, organizationID)
 	if err != nil {
-		return apiError(c, fiber.StatusNotFound, "not_found", "User not found")
+		if isNotFoundErr(err) {
+			return apiError(c, fiber.StatusNotFound, "not_found", "User not found")
+		}
+		h.logger.Error("Failed to check user existence: %v", err)
+		return apiError(c, fiber.StatusInternalServerError, "server_error", "Failed to delete user")
 	}
 
 	if err := h.queries.User.DeleteUser(userID, organizationID); err != nil {
@@ -384,8 +398,11 @@ func (h *UserHandler) GetUserProfile(c *fiber.Ctx) error {
 	organizationID := c.Locals("organization_id").(string)
 	user, err := h.queries.User.GetUserProfile(userID, organizationID)
 	if err != nil {
+		if isNotFoundErr(err) {
+			return apiError(c, fiber.StatusNotFound, "not_found", "User profile not found")
+		}
 		h.logger.Error("Failed to get user profile: %v", err)
-		return apiError(c, fiber.StatusNotFound, "not_found", "User profile not found")
+		return apiError(c, fiber.StatusInternalServerError, "server_error", "Failed to retrieve user profile")
 	}
 
 	// Don't return sensitive information
@@ -508,7 +525,11 @@ func (h *UserHandler) ChangePassword(c *fiber.Ctx) error {
 	organizationID := c.Locals("organization_id").(string)
 	user, err := h.queries.Auth.GetUserByID(userID, organizationID)
 	if err != nil {
-		return apiError(c, fiber.StatusNotFound, "not_found", "User not found")
+		if isNotFoundErr(err) {
+			return apiError(c, fiber.StatusNotFound, "not_found", "User not found")
+		}
+		h.logger.Error("Failed to get user for password change: %v", err)
+		return apiError(c, fiber.StatusInternalServerError, "server_error", "Failed to retrieve user")
 	}
 
 	// Verify current password
@@ -583,6 +604,9 @@ func (h *UserHandler) SuspendUser(c *fiber.Ctx) error {
 
 	organizationID := c.Locals("organization_id").(string)
 	if err := h.queries.User.SuspendUser(userID, organizationID, req.Reason); err != nil {
+		if isNotFoundErr(err) {
+			return apiError(c, fiber.StatusNotFound, "not_found", "User not found")
+		}
 		h.logger.Error("Failed to suspend user: %v", err)
 		return apiError(c, fiber.StatusInternalServerError, "server_error", "Failed to suspend user")
 	}
@@ -623,6 +647,9 @@ func (h *UserHandler) ActivateUser(c *fiber.Ctx) error {
 
 	organizationID := c.Locals("organization_id").(string)
 	if err := h.queries.User.ActivateUser(userID, organizationID); err != nil {
+		if isNotFoundErr(err) {
+			return apiError(c, fiber.StatusNotFound, "not_found", "User not found")
+		}
 		h.logger.Error("Failed to activate user: %v", err)
 		return apiError(c, fiber.StatusInternalServerError, "server_error", "Failed to activate user")
 	}
@@ -865,11 +892,18 @@ func (h *UserHandler) GetServiceAccount(c *fiber.Ctx) error {
 	// Call query layer
 	sa, err := h.queries.User.GetServiceAccount(saID, organizationID)
 	if err != nil {
+		if isNotFoundErr(err) {
+			return c.Status(fiber.StatusNotFound).JSON(ErrorResponse{
+				Status:  fiber.StatusNotFound,
+				Error:   "not_found",
+				Message: "Service account not found",
+			})
+		}
 		h.logger.Error("Failed to get service account: %v", err)
-		return c.Status(fiber.StatusNotFound).JSON(ErrorResponse{
-			Status:  fiber.StatusNotFound,
-			Error:   "not_found",
-			Message: "Service account not found",
+		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{
+			Status:  fiber.StatusInternalServerError,
+			Error:   "server_error",
+			Message: "Failed to retrieve service account",
 		})
 	}
 
@@ -913,10 +947,18 @@ func (h *UserHandler) UpdateServiceAccount(c *fiber.Ctx) error {
 	// Fetch existing SA to preserve unchanged values (like status)
 	existingSa, err := h.queries.User.GetServiceAccount(saID, organizationID)
 	if err != nil {
-		return c.Status(fiber.StatusNotFound).JSON(ErrorResponse{
-			Status:  fiber.StatusNotFound,
-			Error:   "not_found",
-			Message: "Service account not found",
+		if isNotFoundErr(err) {
+			return c.Status(fiber.StatusNotFound).JSON(ErrorResponse{
+				Status:  fiber.StatusNotFound,
+				Error:   "not_found",
+				Message: "Service account not found",
+			})
+		}
+		h.logger.Error("Failed to get service account for update: %v", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{
+			Status:  fiber.StatusInternalServerError,
+			Error:   "server_error",
+			Message: "Failed to retrieve service account",
 		})
 	}
 
@@ -994,6 +1036,13 @@ func (h *UserHandler) DeleteServiceAccount(c *fiber.Ctx) error {
 	// Call query layer
 	err := h.queries.User.DeleteServiceAccount(saID, organizationID)
 	if err != nil {
+		if isNotFoundErr(err) {
+			return c.Status(fiber.StatusNotFound).JSON(ErrorResponse{
+				Status:  fiber.StatusNotFound,
+				Error:   "not_found",
+				Message: "Service account not found",
+			})
+		}
 		h.logger.Error("Failed to delete service account: %v", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{
 			Status:  fiber.StatusInternalServerError,
@@ -1090,6 +1139,13 @@ func (h *UserHandler) GenerateAPIKey(c *fiber.Ctx) error {
 	// Call query layer
 	err = h.queries.User.GenerateAPIKey(saID, &apiKey, organizationID)
 	if err != nil {
+		if isNotFoundErr(err) {
+			return c.Status(fiber.StatusNotFound).JSON(ErrorResponse{
+				Status:  fiber.StatusNotFound,
+				Error:   "not_found",
+				Message: "Service account not found",
+			})
+		}
 		h.logger.Error("Failed to generate API key: %v", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{
 			Status:  fiber.StatusInternalServerError,
@@ -1134,6 +1190,13 @@ func (h *UserHandler) ListAPIKeys(c *fiber.Ctx) error {
 	// Call query layer
 	keys, err := h.queries.User.ListAPIKeys(saID, organizationID)
 	if err != nil {
+		if isNotFoundErr(err) {
+			return c.Status(fiber.StatusNotFound).JSON(ErrorResponse{
+				Status:  fiber.StatusNotFound,
+				Error:   "not_found",
+				Message: "Service account not found",
+			})
+		}
 		h.logger.Error("Failed to list API keys: %v", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{
 			Status:  fiber.StatusInternalServerError,
@@ -1171,6 +1234,13 @@ func (h *UserHandler) RevokeAPIKey(c *fiber.Ctx) error {
 	// Call query layer
 	err := h.queries.User.RevokeAPIKey(saID, keyID, organizationID)
 	if err != nil {
+		if isNotFoundErr(err) {
+			return c.Status(fiber.StatusNotFound).JSON(ErrorResponse{
+				Status:  fiber.StatusNotFound,
+				Error:   "not_found",
+				Message: "API key not found",
+			})
+		}
 		h.logger.Error("Failed to revoke API key: %v", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{
 			Status:  fiber.StatusInternalServerError,
@@ -1206,6 +1276,13 @@ func (h *UserHandler) RotateServiceAccountKeys(c *fiber.Ctx) error {
 	// Call query layer
 	err := h.queries.User.RotateServiceAccountKeys(saID, organizationID)
 	if err != nil {
+		if isNotFoundErr(err) {
+			return c.Status(fiber.StatusNotFound).JSON(ErrorResponse{
+				Status:  fiber.StatusNotFound,
+				Error:   "not_found",
+				Message: "Service account not found",
+			})
+		}
 		h.logger.Error("Failed to rotate service account keys: %v", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{
 			Status:  fiber.StatusInternalServerError,

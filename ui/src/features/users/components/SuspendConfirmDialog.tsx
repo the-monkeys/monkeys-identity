@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { AlertTriangle, Pause } from 'lucide-react';
 import { userAPI } from '../api/user';
 import { User } from '../types/user';
+import { extractErrorMessage } from '@/pkg/api/errorUtils';
 
 interface SuspendConfirmDialogProps {
     user: User;
@@ -28,7 +29,7 @@ const SuspendConfirmDialog = ({ user, onClose, onConfirm }: SuspendConfirmDialog
             await userAPI.suspend(user.id, reason);
             onConfirm();
         } catch (err: any) {
-            setError(err.response?.data?.message || 'Failed to suspend user');
+            setError(extractErrorMessage(err, 'Failed to suspend user'));
         } finally {
             setLoading(false);
         }

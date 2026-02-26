@@ -123,9 +123,7 @@ func (h *AuthHandler) RegisterOrganization(c *fiber.Ctx) error {
 		OrganizationID: newOrgID,
 		PasswordHash:   string(hashedPassword),
 		Status:         "active",
-		EmailVerified:  true, // Admins verified by default? Or should we require verification?
-		// For a signup flow, maybe we want verification. But `CreateAdminUser` sets it to true.
-		// Let's keep it true for MVP.
+		EmailVerified:  false, // Require email verification
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),
 	}
@@ -165,7 +163,17 @@ func (h *AuthHandler) RegisterOrganization(c *fiber.Ctx) error {
 
 	h.logger.Info("Organization registered successfully: %s", user.OrganizationID)
 
-	return apiSuccess(c, fiber.StatusCreated, "Organization created successfully", fiber.Map{
+	// Send verification email
+	verificationToken := uuid.New().String()
+	if err := h.queries.Auth.SetEmailVerificationToken(user.ID, verificationToken, 24*time.Hour); err != nil {
+		h.logger.Error("Failed to store verification token: %v", err)
+	} else {
+		if err := h.email.SendVerificationEmail(user.Email, user.Username, verificationToken); err != nil {
+			h.logger.Error("Failed to send verification email: %v", err)
+		}
+	}
+
+	return apiSuccess(c, fiber.StatusCreated, "Organization created successfully. Please check your email to verify your account.", fiber.Map{
 		"user_id":         user.ID,
 		"organization_id": user.OrganizationID,
 		"username":        user.Username,

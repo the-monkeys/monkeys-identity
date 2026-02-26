@@ -487,8 +487,14 @@ func (q *authQueries) UpdatePassword(userID, passwordHash string, organizationID
 
 // UpdateEmailVerification updates a user's email verification status
 func (q *authQueries) UpdateEmailVerification(userID string, verified bool, organizationID string) error {
-	query := `UPDATE users SET email_verified = $1, updated_at = $2 WHERE id = $3 AND organization_id = $4`
-	_, err := q.exec(query, verified, time.Now(), userID, organizationID)
+	if organizationID != "" {
+		query := `UPDATE users SET email_verified = $1, updated_at = $2 WHERE id = $3 AND organization_id = $4`
+		_, err := q.exec(query, verified, time.Now(), userID, organizationID)
+		return err
+	}
+	// When org ID is unknown (e.g. email verification via token), update by PK only
+	query := `UPDATE users SET email_verified = $1, updated_at = $2 WHERE id = $3`
+	_, err := q.exec(query, verified, time.Now(), userID)
 	return err
 }
 

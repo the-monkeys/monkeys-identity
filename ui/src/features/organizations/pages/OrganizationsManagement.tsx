@@ -7,6 +7,7 @@ import AddOrganizationModal from '../components/AddOrganizationModal';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { DataTable, Column } from '@/components/ui/DataTable';
 import { cn } from '@/components/ui/utils';
+import { extractErrorMessage } from '@/pkg/api/errorUtils';
 
 const OrganizationsManagement = () => {
     // State
@@ -133,7 +134,7 @@ const OrganizationsManagement = () => {
             <div className="flex items-center justify-center h-64">
                 <div className="text-red-400 flex items-center space-x-2 bg-red-500/10 p-4 rounded-lg border border-red-500/20">
                     <AlertCircle size={20} />
-                    <span>{(error as any)?.response?.data?.message || 'Failed to load organizations'}</span>
+                    <span>{extractErrorMessage(error, 'Failed to load organizations')}</span>
                 </div>
             </div>
         );

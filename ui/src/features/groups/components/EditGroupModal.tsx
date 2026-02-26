@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { X, Edit } from 'lucide-react';
 import { useUpdateGroup } from '../api/useGroups';
 import { Group } from '../types/group';
+import { extractErrorMessage } from '@/pkg/api/errorUtils';
 
 interface EditGroupModalProps {
     group: Group;
@@ -68,7 +69,7 @@ const EditGroupModal = ({ group, onClose, onSave }: EditGroupModalProps) => {
                 <form onSubmit={handleSubmit} className="px-6 py-6 space-y-4">
                     {updateGroupMutation.isError && (
                         <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-lg text-red-400 text-sm">
-                            {(updateGroupMutation.error as any)?.response?.data?.message || 'Failed to update group'}
+                            {extractErrorMessage(updateGroupMutation.error, 'Failed to update group')}
                         </div>
                     )}
 

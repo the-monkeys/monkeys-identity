@@ -414,6 +414,12 @@ func (h *AuthHandler) Register(c *fiber.Ctx) error {
 	}
 
 	if err := h.queries.Auth.CreateUser(user); err != nil {
+		if isConflictErr(err) {
+			return c.Status(fiber.StatusConflict).JSON(fiber.Map{
+				"error":   "A user with this email or username already exists",
+				"success": false,
+			})
+		}
 		h.logger.Error("Failed to create user: %v", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error":   "Failed to create user account",
@@ -808,6 +814,12 @@ func (h *AuthHandler) SetupMFA(c *fiber.Ctx) error {
 	// Get user to check if MFA is already enabled
 	user, err := h.queries.Auth.GetUserByID(userID, orgID)
 	if err != nil {
+		if isNotFoundErr(err) {
+			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+				"error":   "User not found",
+				"success": false,
+			})
+		}
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error":   "Failed to retrieve user",
 			"success": false,
@@ -946,6 +958,12 @@ func (h *AuthHandler) GenerateBackupCodes(c *fiber.Ctx) error {
 	// Verify MFA is enabled before regenerating backup codes
 	user, err := h.queries.Auth.GetUserByID(userID, orgID)
 	if err != nil {
+		if isNotFoundErr(err) {
+			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+				"error":   "User not found",
+				"success": false,
+			})
+		}
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error":   "Failed to retrieve user",
 			"success": false,
@@ -1019,6 +1037,12 @@ func (h *AuthHandler) DisableMFA(c *fiber.Ctx) error {
 	// Verify user identity with password before disabling MFA
 	user, err := h.queries.Auth.GetUserByID(userID, orgID)
 	if err != nil {
+		if isNotFoundErr(err) {
+			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+				"error":   "User not found",
+				"success": false,
+			})
+		}
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error":   "Failed to retrieve user",
 			"success": false,

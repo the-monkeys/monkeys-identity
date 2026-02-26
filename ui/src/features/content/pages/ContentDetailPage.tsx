@@ -38,6 +38,8 @@ const statusColors: Record<string, string> = {
     draft: 'bg-gray-100/10 border-gray-500/30 text-gray-400',
     published: 'bg-green-100/10 border-green-500/30 text-green-400',
     archived: 'bg-amber-100/10 border-amber-500/30 text-amber-400',
+    private: 'bg-purple-100/10 border-purple-500/30 text-purple-400',
+    hidden: 'bg-rose-100/10 border-rose-500/30 text-rose-400',
 };
 
 const roleColors: Record<string, string> = {
@@ -205,27 +207,19 @@ const ContentDetailPage = () => {
                 {/* Action buttons */}
                 <div className="mt-6 flex items-center gap-2 flex-wrap">
                     {/* Status transitions */}
-                    {content.status === 'draft' && (
-                        <button onClick={() => handleStatusChange('published')}
-                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-green-500/10 text-green-400 border border-green-500/20 hover:bg-green-500/20 transition-colors"
-                            disabled={statusMut.isPending}>
-                            <Send size={13} /> Publish
-                        </button>
-                    )}
-                    {content.status === 'published' && (
-                        <button onClick={() => handleStatusChange('archived')}
-                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20 hover:bg-amber-500/20 transition-colors"
-                            disabled={statusMut.isPending}>
-                            <Archive size={13} /> Archive
-                        </button>
-                    )}
-                    {content.status === 'archived' && (
-                        <button onClick={() => handleStatusChange('draft')}
-                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-blue-500/10 text-blue-400 border border-blue-500/20 hover:bg-blue-500/20 transition-colors"
-                            disabled={statusMut.isPending}>
-                            <RotateCcw size={13} /> Back to Draft
-                        </button>
-                    )}
+                    {/* Status selector */}
+                    <select
+                        value={content.status}
+                        onChange={(e) => handleStatusChange(e.target.value)}
+                        disabled={statusMut.isPending}
+                        className="px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800 border border-slate-600 text-gray-300 hover:border-slate-500 focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer"
+                    >
+                        <option value="draft">Draft</option>
+                        <option value="published">Published</option>
+                        <option value="archived">Archived</option>
+                        <option value="private">Private</option>
+                        <option value="hidden">Hidden</option>
+                    </select>
 
                     {/* Edit */}
                     <button onClick={openEdit}

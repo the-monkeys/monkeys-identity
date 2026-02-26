@@ -6,6 +6,7 @@ import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { DataTable, Column } from '@/components/ui/DataTable';
 import { cn } from '@/components/ui/utils';
 import { useAuth } from '@/context/AuthContext';
+import { extractErrorMessage } from '@/pkg/api/errorUtils';
 
 const RolesManagement = () => {
     const [searchQuery, setSearchQuery] = useState('');
@@ -147,7 +148,7 @@ const RolesManagement = () => {
             <div className="flex items-center justify-center h-64">
                 <div className="text-red-400 flex items-center space-x-2 bg-red-500/10 p-4 rounded-lg border border-red-500/20">
                     <AlertCircle size={20} />
-                    <span>Failed to load roles</span>
+                    <span>{extractErrorMessage(error, 'Failed to load roles')}</span>
                 </div>
             </div>
         );

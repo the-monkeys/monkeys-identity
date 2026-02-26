@@ -9,7 +9,7 @@ export interface ContentItem {
     parent_id?: string | null;
     owner_id: string;
     organization_id: string;
-    status: string; // draft | published | archived
+    status: string; // draft | published | archived | private | hidden
     tags: string;   // JSON string
     metadata: string; // JSON string
     published_at?: string | null;

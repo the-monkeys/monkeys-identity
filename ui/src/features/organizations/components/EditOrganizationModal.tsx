@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { X, Save } from 'lucide-react';
 import { useUpdateOrganization } from '../api/useOrganizations';
 import { Organization } from '../types/organization';
+import { extractErrorMessage } from '@/pkg/api/errorUtils';
 
 interface EditOrganizationModalProps {
     organization: Organization;
@@ -59,7 +60,7 @@ const EditOrganizationModal = ({ organization, onClose, onSave }: EditOrganizati
                 <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto px-6 py-6 space-y-4">
                     {updateMutation.isError && (
                         <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-lg text-red-400 text-sm">
-                            {(updateMutation.error as any)?.response?.data?.message || 'Failed to update organization'}
+                            {extractErrorMessage(updateMutation.error, 'Failed to update organization')}
                         </div>
                     )}
 

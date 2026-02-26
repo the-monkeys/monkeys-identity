@@ -5,8 +5,9 @@ import { useQuery } from '@tanstack/react-query';
 import { fetchAuditLogs } from '../api/audit';
 import { AuditLogFilters } from '../types/audit';
 import { DataTable } from '@/components/ui/DataTable';
-import { Loader2, Search, Filter } from 'lucide-react';
+import { Loader2, Search, Filter, AlertCircle } from 'lucide-react';
 import { cn } from '@/components/ui/utils';
+import { extractErrorMessage } from '@/pkg/api/errorUtils';
 
 const AuditLogTable = () => {
     const [searchParams, setSearchParams] = useSearchParams();
@@ -24,7 +25,7 @@ const AuditLogTable = () => {
         organization_id: searchParams.get('organization_id') || undefined,
     };
 
-    const { data, isLoading, isError } = useQuery({
+    const { data, isLoading, isError, error } = useQuery({
         queryKey: ['audit-logs', page, limit, filters],
         queryFn: () => fetchAuditLogs(filters, page, limit),
     });
@@ -115,8 +116,8 @@ const AuditLogTable = () => {
         return (
             <div className="flex items-center justify-center h-64">
                 <div className="text-red-400 flex items-center space-x-2 bg-red-500/10 p-4 rounded-lg border border-red-500/20">
-                    <Loader2 size={20} className="animate-spin" />
-                    <span>Failed to load audit logs</span>
+                    <AlertCircle size={20} />
+                    <span>{extractErrorMessage(error, 'Failed to load audit logs')}</span>
                 </div>
             </div>
         );

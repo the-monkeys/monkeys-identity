@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { profileAPI } from '../api/profile';
 import { Lock, Loader2, CheckCircle } from 'lucide-react';
+import { extractErrorMessage } from '@/pkg/api/errorUtils';
 
 const ChangePasswordForm = () => {
     const { user } = useAuth();
@@ -39,8 +40,7 @@ const ChangePasswordForm = () => {
             setNewPassword('');
             setConfirmPassword('');
         } catch (error: any) {
-            const errorMsg = error?.response?.data?.error || 'Failed to change password.';
-            setMessage({ type: 'error', text: errorMsg });
+            setMessage({ type: 'error', text: extractErrorMessage(error, 'Failed to change password.') });
         } finally {
             setIsSubmitting(false);
         }

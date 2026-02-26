@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { X, UserPlus, Eye, EyeOff } from 'lucide-react';
 import { useCreateUser } from '../api/useUsers';
 import { useAuth } from '@/context/AuthContext';
+import { extractErrorMessage } from '@/pkg/api/errorUtils';
 
 interface AddUserModalProps {
     onClose: () => void;
@@ -65,7 +66,7 @@ const AddUserModal = ({ onClose, onSave }: AddUserModalProps) => {
                 <form onSubmit={handleSubmit} className="px-6 py-6 space-y-4">
                     {createUserMutation.isError && (
                         <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-lg text-red-400 text-sm">
-                            {(createUserMutation.error as any)?.response?.data?.message || 'Failed to create user'}
+                            {extractErrorMessage(createUserMutation.error, 'Failed to create user')}
                         </div>
                     )}
 

@@ -10,6 +10,7 @@ const UsersManagement = lazy(() => import('../features/users/pages/UsersManageme
 const UserDetailPage = lazy(() => import('../features/users/pages/UserDetailPage'));
 const ForgotPasswordPage = lazy(() => import('../features/auth/pages/ForgotPassword'));
 const ResetPasswordPage = lazy(() => import('../features/auth/pages/ResetPassword'));
+const VerifyEmailPage = lazy(() => import('../features/auth/pages/VerifyEmail'));
 const GroupsManagement = lazy(() => import('../features/groups/pages/GroupsManagement'));
 const OrganizationsManagement = lazy(() => import('../features/organizations/pages/OrganizationsManagement'));
 const AuditLogsPage = lazy(() => import('../features/audit/pages/AuditLogsPage'));
@@ -71,6 +72,10 @@ export const router = createBrowserRouter([
             {
                 path: '/reset-password',
                 element: <ResetPasswordPage />,
+            },
+            {
+                path: '/verify-email',
+                element: <VerifyEmailPage />,
             },
         ],
     },

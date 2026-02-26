@@ -485,8 +485,15 @@ func (h *OIDCHandler) DeleteClient(c *fiber.Ctx) error {
 
 	err := h.queries.OIDC.DeleteClient(clientID, orgID)
 	if err != nil {
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-			"error":   "Client not found",
+		if isNotFoundErr(err) {
+			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+				"error":   "Client not found",
+				"success": false,
+			})
+		}
+		h.logger.Error("Failed to delete OIDC client: %v", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error":   "Failed to delete client",
 			"success": false,
 		})
 	}

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { AlertTriangle, Trash2 } from 'lucide-react';
 import { userAPI } from '../api/user';
 import { User } from '../types/user';
+import { extractErrorMessage } from '@/pkg/api/errorUtils';
 
 interface DeleteConfirmDialogProps {
     user: User;
@@ -27,7 +28,7 @@ const DeleteConfirmDialog = ({ user, onClose, onConfirm }: DeleteConfirmDialogPr
             await userAPI.delete(user.id);
             onConfirm();
         } catch (err: any) {
-            setError(err.response?.data?.message || 'Failed to delete user');
+            setError(extractErrorMessage(err, 'Failed to delete user'));
         } finally {
             setLoading(false);
         }

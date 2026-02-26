@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { X, Save } from 'lucide-react';
 import { useUpdateUser } from '../api/useUsers';
 import { User } from '../types/user';
+import { extractErrorMessage } from '@/pkg/api/errorUtils';
 
 interface EditUserModalProps {
     user: User;
@@ -112,7 +113,7 @@ const EditUserModal = ({ user, onClose, onSave }: EditUserModalProps) => {
                 <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto px-6 py-6">
                     {updateUserMutation.isError && (
                         <div className="mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded-lg text-red-400 text-sm">
-                            {(updateUserMutation.error as any)?.response?.data?.message || 'Failed to update user'}
+                            {extractErrorMessage(updateUserMutation.error, 'Failed to update user')}
                         </div>
                     )}
 

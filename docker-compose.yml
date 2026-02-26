@@ -56,11 +56,12 @@ services:
       ALLOWED_ORIGINS: http://localhost:5173,http://localhost:3000,http://localhost:5174,http://localhost:8085
       OIDC_ISSUER: http://localhost:8085
       JWT_PRIVATE_KEY_FILE: ./jwt_private_key.pem
-      SMTP_HOST: mailpit
-      SMTP_PORT: 1025
-      SMTP_FROM: no-reply@monkeys.com
-      SMTP_USERNAME: ""
-      SMTP_PASSWORD: ""
+      SMTP_HOST: ${SMTP_HOST:-mailpit}
+      SMTP_PORT: ${SMTP_PORT:-1025}
+      SMTP_FROM: ${SMTP_FROM:-no-reply@monkeys.com}
+      SMTP_USERNAME: ${SMTP_USERNAME:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:5173}
 
     volumes:
       - ./jwt_private_key.pem:/run/secrets/jwt_private_key.pem:ro

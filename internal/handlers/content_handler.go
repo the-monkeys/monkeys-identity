@@ -332,7 +332,7 @@ func (h *ContentHandler) DeleteContent(c *fiber.Ctx) error {
 
 // ── Status transitions ─────────────────────────────────────────────────
 
-// UpdateContentStatus changes a content item's status (draft/published/archived).
+// UpdateContentStatus changes a content item's status (draft/published/archived/private/hidden).
 //
 //	@Summary	Update content status
 //	@Description	Change content status. Owner and co-authors can change status.
@@ -365,8 +365,11 @@ func (h *ContentHandler) UpdateContentStatus(c *fiber.Ctx) error {
 	}
 
 	status := strings.ToLower(req.Status)
-	if status != "draft" && status != "published" && status != "archived" {
-		return apiError(c, fiber.StatusBadRequest, "validation_error", "Status must be draft, published, or archived")
+	switch status {
+	case "draft", "published", "archived", "private", "hidden":
+		// valid
+	default:
+		return apiError(c, fiber.StatusBadRequest, "validation_error", "Status must be draft, published, archived, private, or hidden")
 	}
 
 	if err := h.queries.Content.UpdateContentStatus(contentID, orgID, status); err != nil {
@@ -454,7 +457,11 @@ func (h *ContentHandler) RemoveCollaborator(c *fiber.Ctx) error {
 		if strings.Contains(err.Error(), "owner") {
 			return apiError(c, fiber.StatusBadRequest, "validation_error", "Cannot remove the content owner")
 		}
-		return apiError(c, fiber.StatusNotFound, "not_found", "Collaborator not found")
+		if isNotFoundErr(err) {
+			return apiError(c, fiber.StatusNotFound, "not_found", "Collaborator not found")
+		}
+		h.logger.Error("Failed to remove collaborator: %v", err)
+		return apiError(c, fiber.StatusInternalServerError, "server_error", "Failed to remove collaborator")
 	}
 
 	return apiSuccess(c, fiber.StatusOK, "Collaborator removed successfully", nil)

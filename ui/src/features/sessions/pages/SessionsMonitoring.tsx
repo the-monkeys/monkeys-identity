@@ -4,6 +4,7 @@ import { useSessions, useRevokeSession, useExtendSession, useCurrentSession, use
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { DataTable, Column } from '@/components/ui/DataTable';
 import { cn } from '@/components/ui/utils';
+import { extractErrorMessage } from '@/pkg/api/errorUtils';
 
 const SessionsMonitoring = () => {
     const [searchQuery, setSearchQuery] = useState('');
@@ -189,7 +190,7 @@ const SessionsMonitoring = () => {
             <div className="flex items-center justify-center h-64">
                 <div className="text-red-400 flex items-center space-x-2 bg-red-500/10 p-4 rounded-lg border border-red-500/20">
                     <AlertCircle size={20} />
-                    <span>Failed to load sessions</span>
+                    <span>{extractErrorMessage(error, 'Failed to load sessions')}</span>
                 </div>
             </div>
         );

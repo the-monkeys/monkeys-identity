@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { X, Building, Info } from 'lucide-react';
 import { useCreateOrganization } from '../api/useOrganizations';
+import { extractErrorMessage } from '@/pkg/api/errorUtils';
 
 interface AddOrganizationModalProps {
     onClose: () => void;
@@ -57,7 +58,7 @@ const AddOrganizationModal = ({ onClose, onSave }: AddOrganizationModalProps) =>
                 <form onSubmit={handleSubmit} className="px-6 py-6 space-y-4">
                     {createMutation.isError && (
                         <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-lg text-red-400 text-sm">
-                            {(createMutation.error as any)?.response?.data?.message || 'Failed to create organization'}
+                            {extractErrorMessage(createMutation.error, 'Failed to create organization')}
                         </div>
                     )}
 

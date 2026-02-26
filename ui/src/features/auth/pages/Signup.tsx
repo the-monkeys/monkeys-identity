@@ -5,6 +5,7 @@ import { AlertCircle, AlertTriangle } from 'lucide-react';
 import { authAPI } from '../api/auth';
 import { SignupFormData, SignupFormErrors } from '../types/auth';
 import { validateSignupForm } from '@/utils/validateSignupForm';
+import { extractErrorMessage } from '@/pkg/api/errorUtils';
 
 const SignupPage = () => {
     const [formErrors, setFormErrors] = useState<SignupFormErrors>({});
@@ -68,7 +69,7 @@ const SignupPage = () => {
                 navigate('/login');
             } catch (error: any) {
                 console.error("Signup failed:", error);
-                setApiError(error.response?.data?.message || 'Failed to create account. Please try again.');
+                setApiError(extractErrorMessage(error, 'Failed to create account. Please try again.'));
             } finally {
                 setIsSubmitting(false);
             }

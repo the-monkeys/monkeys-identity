@@ -5,6 +5,7 @@ import {
     AlertTriangle, Copy, Loader2, Eye, EyeOff
 } from 'lucide-react';
 import { authAPI } from '@/features/auth/api/auth';
+import { extractErrorMessage } from '@/pkg/api/errorUtils';
 
 type Step = 'idle' | 'scan' | 'verify' | 'backup-codes' | 'disabling';
 
@@ -33,7 +34,7 @@ const MfaSetup: React.FC<MfaSetupProps> = ({ isEnabled = false }) => {
             setSecret(res.data.data.secret);
             setStep('scan');
         } catch (e: any) {
-            setError(e?.response?.data?.error || 'Failed to start MFA setup. Please try again.');
+            setError(extractErrorMessage(e, 'Failed to start MFA setup. Please try again.'));
         } finally {
             setIsLoading(false);
         }
@@ -52,7 +53,7 @@ const MfaSetup: React.FC<MfaSetupProps> = ({ isEnabled = false }) => {
             setMfaEnabled(true);
             setStep('backup-codes');
         } catch (e: any) {
-            setError(e?.response?.data?.error || 'Invalid code. Please try again.');
+            setError(extractErrorMessage(e, 'Invalid code. Please try again.'));
         } finally {
             setIsLoading(false);
         }
@@ -71,7 +72,7 @@ const MfaSetup: React.FC<MfaSetupProps> = ({ isEnabled = false }) => {
             setStep('idle');
             setCode('');
         } catch (e: any) {
-            setError(e?.response?.data?.error || 'Invalid code. Please try again.');
+            setError(extractErrorMessage(e, 'Invalid code. Please try again.'));
         } finally {
             setIsLoading(false);
         }

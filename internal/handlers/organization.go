@@ -220,6 +220,8 @@ func (h *OrganizationHandler) UpdateOrganization(c *fiber.Ctx) error {
 		if strings.Contains(err.Error(), "not found") {
 			return c.Status(fiber.StatusNotFound).JSON(ErrorResponse{Status: fiber.StatusNotFound, Error: "organization_not_found", Message: "Organization not found"})
 		}
+		h.logger.Error("Failed to fetch organization for update: %v", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{Status: fiber.StatusInternalServerError, Error: "internal_server_error", Message: "Failed to retrieve organization"})
 	}
 	var upd models.Organization
 	if err := c.BodyParser(&upd); err != nil {

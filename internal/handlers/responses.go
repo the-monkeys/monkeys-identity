@@ -1,6 +1,10 @@
 package handlers
 
-import "github.com/gofiber/fiber/v2"
+import (
+	"strings"
+
+	"github.com/gofiber/fiber/v2"
+)
 
 // Common response structures for API documentation
 
@@ -17,6 +21,30 @@ type SuccessResponse struct {
 	Message string      `json:"message" example:"Operation completed successfully"`
 	Data    interface{} `json:"data,omitempty"`
 } //@name SuccessResponse
+
+// ── Error classification helpers ───────────────────────────────────────
+
+// isNotFoundErr returns true when the error message indicates a "not found" scenario
+// from the query layer (e.g. sql.ErrNoRows, custom "not found" wrappers).
+func isNotFoundErr(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := strings.ToLower(err.Error())
+	return strings.Contains(msg, "not found")
+}
+
+// isConflictErr returns true when a unique-constraint / duplicate-key violation occurred.
+func isConflictErr(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := strings.ToLower(err.Error())
+	return strings.Contains(msg, "unique") ||
+		strings.Contains(msg, "duplicate key") ||
+		strings.Contains(msg, "already exists") ||
+		strings.Contains(msg, "conflict")
+}
 
 // ── Standardized response helpers ──────────────────────────────────────
 
