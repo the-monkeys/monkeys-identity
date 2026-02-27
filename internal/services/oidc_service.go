@@ -148,6 +148,12 @@ func (s *oidcService) ExchangeCodeForToken(code, clientID, clientSecret string) 
 		return nil, err
 	}
 
+	// Fetch user profile for ID token claims
+	user, err := s.queries.Auth.GetUserByID(authCode.UserID, authCode.OrganizationID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch user for ID token claims: %w", err)
+	}
+
 	// Generate ID Token (OIDC)
 	now := time.Now()
 	idClaims := jwt.MapClaims{
@@ -157,6 +163,14 @@ func (s *oidcService) ExchangeCodeForToken(code, clientID, clientSecret string) 
 		"exp":   now.Add(time.Hour).Unix(),
 		"iat":   now.Unix(),
 		"nonce": authCode.Nonce,
+	}
+
+	// Add profile and email claims based on requested scopes
+	if user != nil {
+		idClaims["email"] = user.Email
+		idClaims["email_verified"] = user.EmailVerified
+		idClaims["name"] = user.DisplayName
+		idClaims["preferred_username"] = user.Username
 	}
 
 	idToken := jwt.NewWithClaims(jwt.SigningMethodRS256, idClaims)
