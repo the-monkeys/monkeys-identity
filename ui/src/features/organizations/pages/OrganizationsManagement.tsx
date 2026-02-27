@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Edit, Trash2, Search, AlertCircle } from 'lucide-react';
 import { useOrganizations, useDeleteOrganization } from '../api/useOrganizations';
 import { Organization } from '../types/organization';
@@ -10,6 +11,8 @@ import { cn } from '@/components/ui/utils';
 import { extractErrorMessage } from '@/pkg/api/errorUtils';
 
 const OrganizationsManagement = () => {
+    const navigate = useNavigate();
+
     // State
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedOrg, setSelectedOrg] = useState<Organization | null>(null);
@@ -179,7 +182,7 @@ const OrganizationsManagement = () => {
                 keyExtractor={(org) => org.id}
                 isLoading={isLoading}
                 emptyMessage="No organizations found."
-                onRowClick={handleEdit}
+                onRowClick={(org) => navigate(`/organizations/${org.id}`)}
             />
 
             {/* Modals */}

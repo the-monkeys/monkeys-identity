@@ -29,6 +29,7 @@ func SetupRoutes(
 	cfg *config.Config,
 	auditService services.AuditService,
 	mfaService services.MFAService,
+	dynamicCORS *middleware.DynamicCORS,
 ) {
 	// Ensure we have a valid JWT private key for RS256 signing
 	var privKey *rsa.PrivateKey
@@ -80,8 +81,10 @@ func SetupRoutes(
 
 	// Initialize handlers
 	authHandler := handlers.NewAuthHandler(q, redis, logger, cfg, auditService, mfaService, emailSvc)
+	authHandler.SetCORS(dynamicCORS)
 	userHandler := handlers.NewUserHandler(q, logger, auditService)
 	organizationHandler := handlers.NewOrganizationHandler(db, redis, logger)
+	organizationHandler.SetCORS(dynamicCORS)
 	groupHandler := handlers.NewGroupHandler(db, redis, logger)
 	resourceHandler := handlers.NewResourceHandler(db, redis, logger)
 	policyHandler := handlers.NewPolicyHandler(db, redis, logger, auditService, authzSvc)
@@ -192,6 +195,8 @@ func SetupRoutes(
 	orgs.Get("/:id/roles", tenantMw.RequireOrgAccess(), organizationHandler.GetOrganizationRoles)
 	orgs.Get("/:id/settings", tenantMw.RequireOrgAccess(), organizationHandler.GetOrganizationSettings)
 	orgs.Put("/:id/settings", tenantMw.RequireOrgAdmin(), organizationHandler.UpdateOrganizationSettings)
+	orgs.Get("/:id/origins", tenantMw.RequireOrgAccess(), organizationHandler.GetOrganizationOrigins)
+	orgs.Put("/:id/origins", tenantMw.RequireOrgAdmin(), organizationHandler.UpdateOrganizationOrigins)
 
 	// Group management routes
 	groups := protected.Group("/groups")

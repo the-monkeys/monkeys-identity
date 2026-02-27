@@ -19,6 +19,7 @@ type OrganizationHandler struct {
 	redis   *redis.Client
 	logger  *logger.Logger
 	queries *queries.Queries
+	cors    *middleware.DynamicCORS // set via SetCORS after construction
 }
 
 type PublicOrganization struct {
@@ -28,6 +29,13 @@ type PublicOrganization struct {
 
 func NewOrganizationHandler(db *database.DB, redis *redis.Client, logger *logger.Logger) *OrganizationHandler {
 	return &OrganizationHandler{db: db, redis: redis, logger: logger, queries: queries.New(db, redis)}
+}
+
+// SetCORS injects the DynamicCORS reference so origin management endpoints
+// can invalidate the cache. Called from route setup after both the handler
+// and the middleware are constructed.
+func (h *OrganizationHandler) SetCORS(cors *middleware.DynamicCORS) {
+	h.cors = cors
 }
 
 // ListOrganizations lists tenant organizations (paginated)
@@ -539,4 +547,87 @@ func (h *OrganizationHandler) UpdateGlobalSettings(c *fiber.Ctx) error {
 		Message: "Global settings updated successfully",
 		Data:    updatedSettings,
 	})
+}
+
+// GetOrganizationOrigins returns the allowed CORS origins for an organization.
+//
+//	@Summary      Get organization CORS origins
+//	@Description  Retrieve the list of allowed CORS origins for an organization
+//	@Tags         Organization Management
+//	@Produce      json
+//	@Param        id  path  string  true  "Organization ID"
+//	@Success      200  {object}  SuccessResponse  "Origins retrieved"
+//	@Failure      400  {object}  ErrorResponse    "Invalid organization ID"
+//	@Failure      404  {object}  ErrorResponse    "Organization not found"
+//	@Failure      500  {object}  ErrorResponse    "Internal server error"
+//	@Security     BearerAuth
+//	@Router       /organizations/{id}/origins [get]
+func (h *OrganizationHandler) GetOrganizationOrigins(c *fiber.Ctx) error {
+	orgID := c.Params("id")
+	if orgID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Status: fiber.StatusBadRequest, Error: "invalid_id", Message: "Organization ID required"})
+	}
+	if h.cors == nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{Status: fiber.StatusInternalServerError, Error: "internal_server_error", Message: "CORS middleware not configured"})
+	}
+	origins, err := h.cors.GetOrganizationOrigins(c.Context(), orgID)
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			return c.Status(fiber.StatusNotFound).JSON(ErrorResponse{Status: fiber.StatusNotFound, Error: "organization_not_found", Message: "Organization not found"})
+		}
+		h.logger.Error("Get org origins failed: %v", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{Status: fiber.StatusInternalServerError, Error: "internal_server_error", Message: "Failed to get origins"})
+	}
+	return c.JSON(SuccessResponse{Status: fiber.StatusOK, Message: "Origins retrieved", Data: fiber.Map{"organization_id": orgID, "allowed_origins": origins}})
+}
+
+type updateOriginsRequest struct {
+	AllowedOrigins []string `json:"allowed_origins"`
+}
+
+// UpdateOrganizationOrigins sets the allowed CORS origins for an organization.
+//
+//	@Summary      Update organization CORS origins
+//	@Description  Set the list of allowed CORS origins for an organization. Changes take effect immediately without restarts.
+//	@Tags         Organization Management
+//	@Accept       json
+//	@Produce      json
+//	@Param        id       path    string                true  "Organization ID"
+//	@Param        request  body    updateOriginsRequest  true  "Origins payload"
+//	@Success      200  {object}  SuccessResponse  "Origins updated"
+//	@Failure      400  {object}  ErrorResponse    "Invalid request"
+//	@Failure      404  {object}  ErrorResponse    "Organization not found"
+//	@Failure      500  {object}  ErrorResponse    "Internal server error"
+//	@Security     BearerAuth
+//	@Router       /organizations/{id}/origins [put]
+func (h *OrganizationHandler) UpdateOrganizationOrigins(c *fiber.Ctx) error {
+	orgID := c.Params("id")
+	if orgID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Status: fiber.StatusBadRequest, Error: "invalid_id", Message: "Organization ID required"})
+	}
+	if h.cors == nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{Status: fiber.StatusInternalServerError, Error: "internal_server_error", Message: "CORS middleware not configured"})
+	}
+	var req updateOriginsRequest
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Status: fiber.StatusBadRequest, Error: "invalid_request_body", Message: "Failed to parse request body"})
+	}
+	// Validate origins — must be valid URLs (scheme + host).
+	for _, o := range req.AllowedOrigins {
+		o = strings.TrimSpace(o)
+		if o == "" {
+			return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Status: fiber.StatusBadRequest, Error: "validation_failed", Message: "Empty origin is not allowed"})
+		}
+		if !strings.HasPrefix(o, "http://") && !strings.HasPrefix(o, "https://") {
+			return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Status: fiber.StatusBadRequest, Error: "validation_failed", Message: "Origin must start with http:// or https://: " + o})
+		}
+	}
+	if err := h.cors.UpdateOrganizationOrigins(c.Context(), orgID, req.AllowedOrigins); err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			return c.Status(fiber.StatusNotFound).JSON(ErrorResponse{Status: fiber.StatusNotFound, Error: "organization_not_found", Message: "Organization not found"})
+		}
+		h.logger.Error("Update org origins failed: %v", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{Status: fiber.StatusInternalServerError, Error: "internal_server_error", Message: "Failed to update origins"})
+	}
+	return c.JSON(SuccessResponse{Status: fiber.StatusOK, Message: "Origins updated — changes take effect immediately", Data: fiber.Map{"organization_id": orgID, "allowed_origins": req.AllowedOrigins}})
 }

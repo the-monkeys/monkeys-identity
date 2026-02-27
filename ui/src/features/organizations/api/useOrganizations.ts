@@ -7,6 +7,7 @@ export const organizationKeys = {
     lists: () => [...organizationKeys.all, 'list'] as const,
     details: () => [...organizationKeys.all, 'detail'] as const,
     detail: (id: string) => [...organizationKeys.details(), id] as const,
+    origins: (id: string) => [...organizationKeys.detail(id), 'origins'] as const,
 };
 
 export const useOrganizations = () => {
@@ -46,7 +47,7 @@ export const useUpdateOrganization = () => {
     return useMutation({
         mutationFn: ({ id, data }: { id: string; data: Partial<Organization> }) =>
             organizationAPI.update(id, data),
-        onSuccess: (response, variables) => {
+        onSuccess: (_response, variables) => {
             queryClient.invalidateQueries({ queryKey: organizationKeys.lists() });
             queryClient.invalidateQueries({ queryKey: organizationKeys.detail(variables.id) });
         },
@@ -59,6 +60,29 @@ export const useDeleteOrganization = () => {
         mutationFn: (id: string) => organizationAPI.delete(id),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: organizationKeys.lists() });
+        },
+    });
+};
+
+export const useOrganizationOrigins = (id: string) => {
+    return useQuery({
+        queryKey: organizationKeys.origins(id),
+        queryFn: async () => {
+            const response = await organizationAPI.getOrigins(id);
+            return response.data.data.allowed_origins || [];
+        },
+        enabled: !!id,
+    });
+};
+
+export const useUpdateOrganizationOrigins = () => {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: ({ id, origins }: { id: string; origins: string[] }) =>
+            organizationAPI.updateOrigins(id, origins),
+        onSuccess: (_response, variables) => {
+            queryClient.invalidateQueries({ queryKey: organizationKeys.origins(variables.id) });
+            queryClient.invalidateQueries({ queryKey: organizationKeys.detail(variables.id) });
         },
     });
 };

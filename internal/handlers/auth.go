@@ -12,6 +12,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
 	"github.com/the-monkeys/monkeys-identity/internal/config"
+	"github.com/the-monkeys/monkeys-identity/internal/middleware"
 	"github.com/the-monkeys/monkeys-identity/internal/models"
 	"github.com/the-monkeys/monkeys-identity/internal/queries"
 	"github.com/the-monkeys/monkeys-identity/internal/services"
@@ -29,6 +30,7 @@ type AuthHandler struct {
 	mfa        services.MFAService
 	email      services.EmailService
 	privateKey *rsa.PrivateKey
+	cors       *middleware.DynamicCORS // set via SetCORS after construction
 }
 
 type LoginRequest struct {
@@ -87,6 +89,12 @@ func NewAuthHandler(queries *queries.Queries, redis *redis.Client, logger *logge
 	}
 
 	return h
+}
+
+// SetCORS injects the DynamicCORS reference so org registration can
+// auto-add the caller's origin. Called from route setup.
+func (h *AuthHandler) SetCORS(cors *middleware.DynamicCORS) {
+	h.cors = cors
 }
 
 // Login authenticates user and returns JWT tokens

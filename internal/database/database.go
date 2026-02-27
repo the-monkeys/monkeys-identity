@@ -2,6 +2,7 @@ package database
 
 import (
 	"database/sql"
+	"fmt"
 	"strings"
 	"time"
 
@@ -32,19 +33,14 @@ func Connect(databaseURL string) (*DB, error) {
 	return &DB{DB: db}, nil
 }
 
-func ConnectRedis(redisURL string) *redis.Client {
+func ConnectRedis(redisURL string) (*redis.Client, error) {
 	opt, err := redis.ParseURL(redisURL)
 	if err != nil {
-		// Fallback to default configuration
-		opt = &redis.Options{
-			Addr:     "localhost:6379",
-			Password: "",
-			DB:       0,
-		}
+		return nil, fmt.Errorf("invalid REDIS_URL %q: %w", redisURL, err)
 	}
 
 	rdb := redis.NewClient(opt)
-	return rdb
+	return rdb, nil
 }
 
 // StringArray is a helper type for handling PostgreSQL text arrays

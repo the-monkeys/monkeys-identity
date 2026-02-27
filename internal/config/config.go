@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"os"
 	"strconv"
 	"strings"
@@ -54,15 +55,15 @@ func Load() *Config {
 		AllowedOrigins: getEnv("ALLOWED_ORIGINS", "*"),
 		FrontendURL:    getEnv("FRONTEND_URL", "http://localhost:5173"),
 
-		DatabaseURL: getEnv("DATABASE_URL", "postgres://postgres:password@localhost:5432/monkeys_iam?sslmode=disable"),
-		RedisURL:    getEnv("REDIS_URL", "redis://localhost:6379"),
+		DatabaseURL: requireEnv("DATABASE_URL"),
+		RedisURL:    requireEnv("REDIS_URL"),
 
-		JWTSecret:     getEnv("JWT_SECRET", "your-super-secret-jwt-key-change-in-production"),
+		JWTSecret:     requireEnv("JWT_SECRET"),
 		JWTExpiration: getEnv("JWT_EXPIRATION", "24h"),
 
 		MFAIssuer: getEnv("MFA_ISSUER", "MonkeysIdentity"),
 
-		SMTPHost:     getEnv("SMTP_HOST", "smtp.example.com"),
+		SMTPHost:     getEnv("SMTP_HOST", "mailpit"),
 		SMTPPort:     getEnvAsInt("SMTP_PORT", 587),
 		SMTPUsername: getEnv("SMTP_USERNAME", ""),
 		SMTPPassword: getEnv("SMTP_PASSWORD", ""),
@@ -97,6 +98,14 @@ func Load() *Config {
 
 	return cfg
 }
+// requireEnv reads a mandatory environment variable and panics if unset/empty.
+func requireEnv(key string) string {
+	if value := os.Getenv(key); value != "" {
+		return value
+	}
+	panic(fmt.Sprintf("FATAL: required environment variable %s is not set", key))
+}
+
 func getEnv(key, defaultValue string) string {
 	if value := os.Getenv(key); value != "" {
 		return value

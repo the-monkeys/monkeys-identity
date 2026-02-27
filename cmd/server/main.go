@@ -31,7 +31,6 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/middleware/cors"
 	fiberLogger "github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/gofiber/fiber/v2/middleware/recover"
 	"github.com/gofiber/fiber/v2/middleware/requestid"
@@ -67,7 +66,10 @@ func main() {
 	defer db.Close()
 
 	// Initialize Redis
-	redis := database.ConnectRedis(cfg.RedisURL)
+	redis, err := database.ConnectRedis(cfg.RedisURL)
+	if err != nil {
+		appLogger.Fatal("Failed to connect to Redis: %v", err)
+	}
 	defer redis.Close()
 
 	// Create Fiber app
@@ -85,12 +87,12 @@ func main() {
 	app.Use(fiberLogger.New(fiberLogger.Config{
 		Format: "[${time}] ${status} - ${method} ${path} - ${ip} - ${latency}\n",
 	}))
-	app.Use(cors.New(cors.Config{
-		AllowOrigins:     cfg.AllowedOrigins,
-		AllowMethods:     "GET,POST,PUT,DELETE,OPTIONS,PATCH",
-		AllowHeaders:     "Origin,Content-Type,Accept,Authorization,X-Request-ID",
-		AllowCredentials: true,
-	}))
+
+	// Dynamic CORS — origins are loaded from the database per-organization
+	// and cached in Redis. Static origins from ALLOWED_ORIGINS env var are
+	// always included. No restart needed when a new tenant registers.
+	dynamicCORS := middleware.NewDynamicCORS(db.DB, redis, appLogger, cfg.AllowedOrigins)
+	app.Use(dynamicCORS.Handler())
 
 	// Health check
 	//
@@ -130,7 +132,7 @@ func main() {
 	mfaService := services.NewMFAService(appLogger)
 
 	// Initialize routes
-	routes.SetupRoutes(app, v1, db, redis, appLogger, cfg, auditService, mfaService)
+	routes.SetupRoutes(app, v1, db, redis, appLogger, cfg, auditService, mfaService, dynamicCORS)
 
 	// Function to open browser
 	openBrowser := func(url string) {

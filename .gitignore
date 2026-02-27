@@ -27,3 +27,12 @@ local/*
 
 # Private keys
 jwt_private_key.pem
+
+# Dev/test scripts and fixtures (contain credentials)
+hash_gen.go
+test_apis.go
+create_clients.ps1
+verify_oidc_e2e.ps1
+login_test.json
+login_admin_acme.json
+test.json
