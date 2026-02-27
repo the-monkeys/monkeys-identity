@@ -47,12 +47,14 @@ const ForgotPasswordPage = () => {
                                 If an account with <strong>{email}</strong> exists, a password reset link has been sent. Check your inbox — and your spam folder.
                             </div>
                         </div>
-                        <p className="text-center text-xs text-gray-500">
-                            You can view test emails at{' '}
-                            <a href="http://localhost:8025" target="_blank" rel="noreferrer" className="text-primary underline">
-                                localhost:8025
-                            </a>
-                        </p>
+                        {import.meta.env.VITE_ENVIRONMENT !== 'production' && (
+                            <p className="text-center text-xs text-gray-500">
+                                You can view test emails at{' '}
+                                <a href="http://localhost:8025" target="_blank" rel="noreferrer" className="text-primary underline">
+                                    Mailpit
+                                </a>
+                            </p>
+                        )}
                     </div>
                 ) : (
                     <form onSubmit={handleSubmit} className="space-y-4">

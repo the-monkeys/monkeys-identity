@@ -13,6 +13,7 @@ const ResetPasswordPage = lazy(() => import('../features/auth/pages/ResetPasswor
 const VerifyEmailPage = lazy(() => import('../features/auth/pages/VerifyEmail'));
 const GroupsManagement = lazy(() => import('../features/groups/pages/GroupsManagement'));
 const OrganizationsManagement = lazy(() => import('../features/organizations/pages/OrganizationsManagement'));
+const OrganizationDetailPage = lazy(() => import('../features/organizations/pages/OrganizationDetailPage'));
 const AuditLogsPage = lazy(() => import('../features/audit/pages/AuditLogsPage'));
 const AccountSettingsPage = lazy(() => import('../features/settings/pages/AccountSettingsPage'));
 const RolesManagement = lazy(() => import('../features/roles/pages/RolesManagement'));
@@ -105,6 +106,10 @@ export const router = createBrowserRouter([
             {
                 path: '/organizations',
                 element: <OrganizationsManagement />,
+            },
+            {
+                path: '/organizations/:id',
+                element: <OrganizationDetailPage />,
             },
             {
                 path: '/policies',

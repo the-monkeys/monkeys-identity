@@ -33,20 +33,21 @@ type User struct {
 
 // Organization represents a tenant entity
 type Organization struct {
-	ID           string     `json:"id" db:"id"`
-	Name         string     `json:"name" db:"name"`
-	Slug         string     `json:"slug" db:"slug"`
-	ParentID     *string    `json:"parent_id" db:"parent_id"`
-	Description  *string    `json:"description" db:"description"`
-	Metadata     string     `json:"metadata" db:"metadata"` // JSONB as string
-	Settings     string     `json:"settings" db:"settings"` // JSONB as string
-	BillingTier  string     `json:"billing_tier" db:"billing_tier"`
-	MaxUsers     int        `json:"max_users" db:"max_users"`
-	MaxResources int        `json:"max_resources" db:"max_resources"`
-	Status       string     `json:"status" db:"status"`
-	CreatedAt    time.Time  `json:"created_at" db:"created_at"`
-	UpdatedAt    time.Time  `json:"updated_at" db:"updated_at"`
-	DeletedAt    *time.Time `json:"deleted_at" db:"deleted_at"`
+	ID             string     `json:"id" db:"id"`
+	Name           string     `json:"name" db:"name"`
+	Slug           string     `json:"slug" db:"slug"`
+	ParentID       *string    `json:"parent_id" db:"parent_id"`
+	Description    *string    `json:"description" db:"description"`
+	Metadata       string     `json:"metadata" db:"metadata"` // JSONB as string
+	Settings       string     `json:"settings" db:"settings"` // JSONB as string
+	AllowedOrigins []string   `json:"allowed_origins" db:"allowed_origins"`
+	BillingTier    string     `json:"billing_tier" db:"billing_tier"`
+	MaxUsers       int        `json:"max_users" db:"max_users"`
+	MaxResources   int        `json:"max_resources" db:"max_resources"`
+	Status         string     `json:"status" db:"status"`
+	CreatedAt      time.Time  `json:"created_at" db:"created_at"`
+	UpdatedAt      time.Time  `json:"updated_at" db:"updated_at"`
+	DeletedAt      *time.Time `json:"deleted_at" db:"deleted_at"`
 }
 
 // ServiceAccount represents a machine identity

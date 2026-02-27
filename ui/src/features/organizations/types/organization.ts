@@ -9,6 +9,7 @@ export interface Organization {
     billing_tier: string;
     max_users: number;
     max_resources: number;
+    allowed_origins?: string[];
     status: 'active' | 'suspended';
     created_at: string;
     updated_at: string;

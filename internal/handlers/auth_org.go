@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"errors"
+	"strings"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -13,11 +14,12 @@ import (
 
 // RegisterOrganizationRequest defines the payload for registering a new organization
 type RegisterOrganizationRequest struct {
-	OrganizationName string `json:"organization_name" validate:"required,min=3,max=100"`
-	Username         string `json:"username" validate:"required,min=3,max=50"`
-	Email            string `json:"email" validate:"required,email"`
-	Password         string `json:"password" validate:"required,min=8"`
-	DisplayName      string `json:"display_name" validate:"required"`
+	OrganizationName string   `json:"organization_name" validate:"required,min=3,max=100"`
+	Username         string   `json:"username" validate:"required,min=3,max=50"`
+	Email            string   `json:"email" validate:"required,email"`
+	Password         string   `json:"password" validate:"required,min=8"`
+	DisplayName      string   `json:"display_name" validate:"required"`
+	AllowedOrigins   []string `json:"allowed_origins,omitempty"` // optional: explicit frontend origins for CORS
 }
 
 // RegisterOrganization creates a new organization and its first admin user
@@ -159,6 +161,35 @@ func (h *AuthHandler) RegisterOrganization(c *fiber.Ctx) error {
 		}
 	} else {
 		h.logger.Warn("Failed to fetch organization for name update: %v", err)
+	}
+
+	// Auto-register CORS origins for the new organization so the admin's
+	// frontend can immediately call APIs without a manual PUT /origins step.
+	// Sources: 1) the Origin header of this request, 2) explicit allowed_origins in the payload.
+	if h.cors != nil {
+		originSet := make(map[string]bool)
+		// Capture the Origin header — this is the frontend the admin is registering from.
+		if reqOrigin := c.Get("Origin"); reqOrigin != "" {
+			originSet[reqOrigin] = true
+		}
+		// Merge any explicitly provided origins from the request body.
+		for _, o := range req.AllowedOrigins {
+			o = strings.TrimSpace(o)
+			if o != "" && (strings.HasPrefix(o, "http://") || strings.HasPrefix(o, "https://")) {
+				originSet[o] = true
+			}
+		}
+		if len(originSet) > 0 {
+			origins := make([]string, 0, len(originSet))
+			for o := range originSet {
+				origins = append(origins, o)
+			}
+			if err := h.cors.UpdateOrganizationOrigins(c.Context(), user.OrganizationID, origins); err != nil {
+				h.logger.Warn("Failed to set CORS origins for new org %s: %v", user.OrganizationID, err)
+			} else {
+				h.logger.Info("CORS origins auto-registered for org %s: %v", user.OrganizationID, origins)
+			}
+		}
 	}
 
 	h.logger.Info("Organization registered successfully: %s", user.OrganizationID)

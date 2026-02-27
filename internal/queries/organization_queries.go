@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/lib/pq"
 	"github.com/redis/go-redis/v9"
 	"github.com/the-monkeys/monkeys-identity/internal/database"
 	"github.com/the-monkeys/monkeys-identity/internal/models"
@@ -77,7 +78,7 @@ func (q *organizationQueries) ListOrganizations(params ListParams, orgFilter str
 
 	if orgFilter != "" {
 		query = `
-			SELECT id, name, slug, parent_id, description, metadata, settings, billing_tier,
+			SELECT id, name, slug, parent_id, description, metadata, settings, allowed_origins, billing_tier,
 			       max_users, max_resources, status, created_at, updated_at, deleted_at,
 			       COUNT(*) OVER() as total_count
 			FROM organizations
@@ -87,7 +88,7 @@ func (q *organizationQueries) ListOrganizations(params ListParams, orgFilter str
 		args = []interface{}{limit, offset, orgFilter}
 	} else {
 		query = `
-			SELECT id, name, slug, parent_id, description, metadata, settings, billing_tier,
+			SELECT id, name, slug, parent_id, description, metadata, settings, allowed_origins, billing_tier,
 			       max_users, max_resources, status, created_at, updated_at, deleted_at,
 			       COUNT(*) OVER() as total_count
 			FROM organizations
@@ -114,9 +115,12 @@ func (q *organizationQueries) ListOrganizations(params ListParams, orgFilter str
 	for rows.Next() {
 		var org models.Organization
 		if err := rows.Scan(&org.ID, &org.Name, &org.Slug, &org.ParentID, &org.Description,
-			&org.Metadata, &org.Settings, &org.BillingTier, &org.MaxUsers, &org.MaxResources,
+			&org.Metadata, &org.Settings, pq.Array(&org.AllowedOrigins), &org.BillingTier, &org.MaxUsers, &org.MaxResources,
 			&org.Status, &org.CreatedAt, &org.UpdatedAt, &org.DeletedAt, &total); err != nil {
 			return nil, err
+		}
+		if org.AllowedOrigins == nil {
+			org.AllowedOrigins = []string{}
 		}
 		items = append(items, org)
 	}
@@ -126,37 +130,43 @@ func (q *organizationQueries) ListOrganizations(params ListParams, orgFilter str
 }
 
 func (q *organizationQueries) CreateOrganization(org *models.Organization) error {
-	query := `INSERT INTO organizations (id, name, slug, parent_id, description, metadata, settings, billing_tier, max_users, max_resources, status)
-			  VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+	if org.AllowedOrigins == nil {
+		org.AllowedOrigins = []string{}
+	}
+	query := `INSERT INTO organizations (id, name, slug, parent_id, description, metadata, settings, allowed_origins, billing_tier, max_users, max_resources, status)
+			  VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
 			  RETURNING created_at, updated_at`
 	var err error
 	if q.tx != nil {
 		err = q.tx.QueryRowContext(q.ctx, query, org.ID, org.Name, org.Slug, org.ParentID, org.Description,
-			org.Metadata, org.Settings, org.BillingTier, org.MaxUsers, org.MaxResources, org.Status).Scan(&org.CreatedAt, &org.UpdatedAt)
+			org.Metadata, org.Settings, pq.Array(org.AllowedOrigins), org.BillingTier, org.MaxUsers, org.MaxResources, org.Status).Scan(&org.CreatedAt, &org.UpdatedAt)
 	} else {
 		err = q.db.QueryRowContext(q.ctx, query, org.ID, org.Name, org.Slug, org.ParentID, org.Description,
-			org.Metadata, org.Settings, org.BillingTier, org.MaxUsers, org.MaxResources, org.Status).Scan(&org.CreatedAt, &org.UpdatedAt)
+			org.Metadata, org.Settings, pq.Array(org.AllowedOrigins), org.BillingTier, org.MaxUsers, org.MaxResources, org.Status).Scan(&org.CreatedAt, &org.UpdatedAt)
 	}
 	return err
 }
 
 func (q *organizationQueries) GetOrganization(id string) (*models.Organization, error) {
-	query := `SELECT id, name, slug, parent_id, description, metadata, settings, billing_tier, max_users, max_resources, status, created_at, updated_at, deleted_at
+	query := `SELECT id, name, slug, parent_id, description, metadata, settings, allowed_origins, billing_tier, max_users, max_resources, status, created_at, updated_at, deleted_at
 			  FROM organizations WHERE id = $1 AND status != 'deleted'`
 	var org models.Organization
 	var err error
 	if q.tx != nil {
 		err = q.tx.QueryRowContext(q.ctx, query, id).Scan(&org.ID, &org.Name, &org.Slug, &org.ParentID, &org.Description,
-			&org.Metadata, &org.Settings, &org.BillingTier, &org.MaxUsers, &org.MaxResources, &org.Status, &org.CreatedAt, &org.UpdatedAt, &org.DeletedAt)
+			&org.Metadata, &org.Settings, pq.Array(&org.AllowedOrigins), &org.BillingTier, &org.MaxUsers, &org.MaxResources, &org.Status, &org.CreatedAt, &org.UpdatedAt, &org.DeletedAt)
 	} else {
 		err = q.db.QueryRowContext(q.ctx, query, id).Scan(&org.ID, &org.Name, &org.Slug, &org.ParentID, &org.Description,
-			&org.Metadata, &org.Settings, &org.BillingTier, &org.MaxUsers, &org.MaxResources, &org.Status, &org.CreatedAt, &org.UpdatedAt, &org.DeletedAt)
+			&org.Metadata, &org.Settings, pq.Array(&org.AllowedOrigins), &org.BillingTier, &org.MaxUsers, &org.MaxResources, &org.Status, &org.CreatedAt, &org.UpdatedAt, &org.DeletedAt)
 	}
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, fmt.Errorf("organization not found")
 		}
 		return nil, err
+	}
+	if org.AllowedOrigins == nil {
+		org.AllowedOrigins = []string{}
 	}
 	return &org, nil
 }
