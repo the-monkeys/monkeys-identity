@@ -330,6 +330,9 @@ func (h *GroupHandler) AddGroupMember(c *fiber.Ctx) error {
 	organizationID := c.Locals("organization_id").(string)
 	membership := &models.GroupMembership{ID: uuid.New().String(), GroupID: id, PrincipalID: req.PrincipalID, PrincipalType: req.PrincipalType, RoleInGroup: req.RoleInGroup, ExpiresAt: expires, AddedBy: addedBy}
 	if err := h.queries.Group.AddGroupMember(membership, organizationID); err != nil {
+		if isNotFoundErr(err) {
+			return c.Status(fiber.StatusNotFound).JSON(ErrorResponse{Status: fiber.StatusNotFound, Error: "not_found", Message: "Group or principal not found"})
+		}
 		h.logger.Error("add group member failed: %v", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{Status: fiber.StatusInternalServerError, Error: "internal_server_error", Message: "Failed to add group member"})
 	}
@@ -509,6 +512,9 @@ func (h *ResourceHandler) CreateResource(c *fiber.Ctx) error {
 	}
 
 	if err := h.queries.Resource.CreateResource(&resource); err != nil {
+		if isConflictErr(err) {
+			return c.Status(fiber.StatusConflict).JSON(ErrorResponse{Status: fiber.StatusConflict, Error: "conflict", Message: "A resource with this identifier already exists"})
+		}
 		h.logger.Error("create resource failed: %v", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{Status: fiber.StatusInternalServerError, Error: "internal_server_error", Message: "Failed to create resource"})
 	}
@@ -1402,6 +1408,12 @@ func (h *PolicyHandler) GetPolicyVersions(c *fiber.Ctx) error {
 	organizationID := c.Locals("organization_id").(string)
 	versions, err := h.queries.Policy.GetPolicyVersions(id, organizationID)
 	if err != nil {
+		if isNotFoundErr(err) {
+			return c.Status(fiber.StatusNotFound).JSON(ErrorResponse{
+				Error:   "policy_not_found",
+				Message: "Policy not found",
+			})
+		}
 		h.logger.Error("Failed to get policy versions: %v (policy_id: %s)", err, id)
 		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{
 			Error:   "internal_server_error",

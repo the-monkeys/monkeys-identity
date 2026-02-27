@@ -1,7 +1,7 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import {
     ArrowLeft, User as UserIcon, Mail, Clock, Shield, ShieldCheck, ShieldOff,
-    AlertCircle, Edit3, Trash2, Pause, Play
+    AlertCircle, Edit3, Trash2, Pause, Play, Key, Building
 } from 'lucide-react';
 import { useUser, useDeleteUser, useSuspendUser, useActivateUser } from '../api/useUsers';
 import { cn } from '@/components/ui/utils';
@@ -153,6 +153,16 @@ const UserDetailPage = () => {
                                     Verified
                                 </span>
                             )}
+                            {user.role && (
+                                <span className={cn(
+                                    "px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border flex items-center gap-1",
+                                    user.role === 'admin'
+                                        ? 'bg-amber-100/10 border-amber-500/30 text-amber-400'
+                                        : 'bg-primary/10 border-primary/30 text-primary'
+                                )}>
+                                    <Key size={10} /> {user.role}
+                                </span>
+                            )}
                         </div>
 
                         <div className="flex flex-wrap gap-6 text-gray-400 text-sm">
@@ -163,6 +173,10 @@ const UserDetailPage = () => {
                             <div className="flex items-center gap-2">
                                 <UserIcon size={14} />
                                 <span>@{user.username}</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <Building size={14} />
+                                <span className="font-mono text-xs">{user.organization_id?.slice(0, 8)}...</span>
                             </div>
                             <div className="flex items-center gap-2">
                                 <Clock size={14} />
@@ -188,6 +202,7 @@ const UserDetailPage = () => {
                             { label: 'Organization ID', value: user.organization_id, mono: true },
                             { label: 'Username', value: user.username },
                             { label: 'Display Name', value: user.display_name },
+                            { label: 'Role', value: user.role || 'user' },
                             { label: 'Failed Login Attempts', value: String(user.failed_login_attempts ?? 0) },
                             { label: 'Account Created', value: formatDate(user.created_at) },
                             { label: 'Last Updated', value: formatDate(user.updated_at) },

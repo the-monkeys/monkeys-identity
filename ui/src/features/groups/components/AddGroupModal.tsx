@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { X, Users } from 'lucide-react';
 import { useCreateGroup } from '../api/useGroups';
 import { useAuth } from '@/context/AuthContext';
+import { extractErrorMessage } from '@/pkg/api/errorUtils';
 
 interface AddGroupModalProps {
     onClose: () => void;
@@ -69,7 +70,7 @@ const AddGroupModal = ({ onClose, onSave }: AddGroupModalProps) => {
                 <form onSubmit={handleSubmit} className="px-6 py-6 space-y-4">
                     {createGroupMutation.isError && (
                         <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-lg text-red-400 text-sm">
-                            {(createGroupMutation.error as any)?.response?.data?.message || 'Failed to create group'}
+                            {extractErrorMessage(createGroupMutation.error, 'Failed to create group')}
                         </div>
                     )}
 

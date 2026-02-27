@@ -3,6 +3,7 @@ import { X, Users, UserPlus, Trash2, Search } from 'lucide-react';
 import { useGroupMembers, useAddGroupMember, useRemoveGroupMember } from '../api/useGroups';
 import { Group, AddGroupMemberRequest } from '../types/group';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { extractErrorMessage } from '@/pkg/api/errorUtils';
 
 interface GroupMembersModalProps {
     group: Group;
@@ -121,7 +122,7 @@ const GroupMembersModal = ({ group, onClose }: GroupMembersModalProps) => {
                         <form onSubmit={handleAddMember} className="p-4 bg-slate-900 rounded-lg border border-border-color-dark space-y-3">
                             {addMemberMutation.isError && (
                                 <div className="p-2 bg-red-500/10 border border-red-500/30 rounded text-red-400 text-xs">
-                                    {(addMemberMutation.error as any)?.response?.data?.message || 'Failed to add member'}
+                                    {extractErrorMessage(addMemberMutation.error, 'Failed to add member')}
                                 </div>
                             )}
 

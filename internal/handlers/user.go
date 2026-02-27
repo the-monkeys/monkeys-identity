@@ -3,6 +3,7 @@ package handlers
 import (
 	"crypto/rand"
 	"encoding/hex"
+	"fmt"
 	"strconv"
 	"strings"
 	"time"
@@ -38,6 +39,27 @@ func hashPassword(password string) (string, error) {
 		return "", err
 	}
 	return string(hashedPassword), nil
+}
+
+// ensureAndAssignUserRole creates a "user" role for the org if it doesn't exist
+// and assigns it to the given user.
+func (h *UserHandler) ensureAndAssignUserRole(userID, orgID, assignedBy string) error {
+	// Upsert the "user" role for this organization
+	roleID := ""
+	err := h.queries.Role.EnsureRoleByName("user", "Standard user with basic access", orgID, &roleID)
+	if err != nil {
+		return fmt.Errorf("failed to ensure user role: %w", err)
+	}
+
+	// Assign the role to the user
+	assignment := &models.RoleAssignment{
+		ID:            uuid.NewString(),
+		RoleID:        roleID,
+		PrincipalID:   userID,
+		PrincipalType: "user",
+		AssignedBy:    assignedBy,
+	}
+	return h.queries.Role.AssignRole(assignment, orgID)
 }
 
 // ListUsers retrieves a paginated list of users
@@ -82,10 +104,7 @@ func (h *UserHandler) ListUsers(c *fiber.Ctx) error {
 	result, err := h.queries.User.ListUsers(params, organizationID)
 	if err != nil {
 		h.logger.Error("Failed to list users: %v", err)
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error":   "Failed to retrieve users",
-			"success": false,
-		})
+		return apiError(c, fiber.StatusInternalServerError, "server_error", "Failed to retrieve users. Please try again later.")
 	}
 
 	return c.JSON(fiber.Map{
@@ -101,6 +120,14 @@ func (h *UserHandler) ListUsers(c *fiber.Ctx) error {
 	})
 }
 
+// CreateUserRequest is the request body for creating a new user.
+type CreateUserRequest struct {
+	Username    string `json:"username"`
+	Email       string `json:"email"`
+	DisplayName string `json:"display_name"`
+	Password    string `json:"password"`
+}
+
 // CreateUser creates a new user account
 //
 //	@Summary		Create user
@@ -108,7 +135,7 @@ func (h *UserHandler) ListUsers(c *fiber.Ctx) error {
 //	@Tags			User Management
 //	@Accept			json
 //	@Produce		json
-//	 @Param      request body   models.User true "User creation details"
+//	 @Param      request body   CreateUserRequest true "User creation details"
 //	@Success		201		{object}	SuccessResponse		"User created successfully"
 //	@Failure		400		{object}	ErrorResponse		"Invalid request format"
 //	@Failure		409		{object}	ErrorResponse		"User already exists"
@@ -119,42 +146,40 @@ func (h *UserHandler) ListUsers(c *fiber.Ctx) error {
 //	@Router			/users [post]
 func (h *UserHandler) CreateUser(c *fiber.Ctx) error {
 
-	var req models.User
+	var req CreateUserRequest
 
 	if err := c.BodyParser(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   "Invalid request body",
-			"success": false,
-		})
+		return apiError(c, fiber.StatusBadRequest, "invalid_request", "Invalid request body")
+	}
+
+	// Validate required fields
+	req.Email = strings.TrimSpace(strings.ToLower(req.Email))
+	if req.Email == "" || req.Password == "" {
+		return apiError(c, fiber.StatusBadRequest, "validation_error", "Email and password are required")
 	}
 
 	// Check if user already exists
 	organizationID := c.Locals("organization_id").(string)
 	existingUser, err := h.queries.Auth.GetUserByEmail(req.Email, organizationID)
 	if err == nil && existingUser != nil {
-		return c.Status(fiber.StatusConflict).JSON(fiber.Map{
-			"error":   "User with this email already exists",
-			"success": false,
-		})
+		return apiError(c, fiber.StatusConflict, "conflict", "A user with this email already exists in your organization")
 	}
 
 	// Hash password using bcrypt
-	hashedPassword, err := hashPassword(req.PasswordHash)
+	hashedPassword, err := hashPassword(req.Password)
 	if err != nil {
 		h.logger.Error("Failed to hash password: %v", err)
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error":   "Failed to process user creation",
-			"success": false,
-		})
+		return apiError(c, fiber.StatusInternalServerError, "server_error", "Failed to process user creation. Please try again.")
 	}
 
-	// Create new user
+	// Create new user — always scope to the caller's org
+	callerOrgID := c.Locals("organization_id").(string)
 	user := &models.User{
 		ID:             uuid.NewString(),
 		Email:          req.Email,
 		Username:       req.Username,
 		DisplayName:    req.DisplayName,
-		OrganizationID: req.OrganizationID,
+		OrganizationID: callerOrgID,
 		PasswordHash:   hashedPassword,
 		EmailVerified:  false,
 		Status:         "active",
@@ -164,10 +189,19 @@ func (h *UserHandler) CreateUser(c *fiber.Ctx) error {
 
 	if err := h.queries.User.CreateUser(user); err != nil {
 		h.logger.Error("Failed to create user: %v", err)
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error":   "Failed to create user",
-			"success": false,
-		})
+		if strings.Contains(err.Error(), "unique_username_per_org") {
+			return apiError(c, fiber.StatusConflict, "conflict", "A user with this username already exists in your organization")
+		}
+		if strings.Contains(err.Error(), "unique_email_per_org") {
+			return apiError(c, fiber.StatusConflict, "conflict", "A user with this email already exists in your organization")
+		}
+		return apiError(c, fiber.StatusInternalServerError, "server_error", "Failed to create user. Please try again.")
+	}
+
+	// Assign default "user" role — ensure the role exists for this org first
+	if err := h.ensureAndAssignUserRole(user.ID, callerOrgID, c.Locals("user_id").(string)); err != nil {
+		h.logger.Warn("Failed to assign default user role: %v", err)
+		// Non-fatal: user is created, role assignment is best-effort
 	}
 
 	// Don't return password hash
@@ -184,11 +218,7 @@ func (h *UserHandler) CreateUser(c *fiber.Ctx) error {
 		Severity:       "MEDIUM",
 	})
 
-	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
-		"success": true,
-		"message": "User created successfully",
-		"data":    user,
-	})
+	return apiSuccess(c, fiber.StatusCreated, "User created successfully", user)
 }
 
 // GetUser retrieves a user by ID
@@ -207,29 +237,23 @@ func (h *UserHandler) CreateUser(c *fiber.Ctx) error {
 func (h *UserHandler) GetUser(c *fiber.Ctx) error {
 	userID := c.Params("id")
 	if userID == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   "User ID is required",
-			"success": false,
-		})
+		return apiError(c, fiber.StatusBadRequest, "invalid_request", "User ID is required")
 	}
 
 	organizationID := c.Locals("organization_id").(string)
 	user, err := h.queries.User.GetUser(userID, organizationID)
 	if err != nil {
+		if isNotFoundErr(err) {
+			return apiError(c, fiber.StatusNotFound, "not_found", "User not found")
+		}
 		h.logger.Error("Failed to get user: %v", err)
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-			"error":   "User not found",
-			"success": false,
-		})
+		return apiError(c, fiber.StatusInternalServerError, "server_error", "Failed to retrieve user")
 	}
 
 	// Don't return password hash
 	user.PasswordHash = ""
 
-	return c.JSON(fiber.Map{
-		"success": true,
-		"data":    user,
-	})
+	return apiSuccess(c, fiber.StatusOK, "User retrieved successfully", user)
 }
 
 // UpdateUser updates a user's details
@@ -250,10 +274,7 @@ func (h *UserHandler) GetUser(c *fiber.Ctx) error {
 func (h *UserHandler) UpdateUser(c *fiber.Ctx) error {
 	userID := c.Params("id")
 	if userID == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   "User ID is required",
-			"success": false,
-		})
+		return apiError(c, fiber.StatusBadRequest, "invalid_request", "User ID is required")
 	}
 
 	var req struct {
@@ -265,20 +286,18 @@ func (h *UserHandler) UpdateUser(c *fiber.Ctx) error {
 	}
 
 	if err := c.BodyParser(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   "Invalid request body",
-			"success": false,
-		})
+		return apiError(c, fiber.StatusBadRequest, "invalid_request", "Invalid request body")
 	}
 
 	// Get existing user
 	organizationID := c.Locals("organization_id").(string)
 	user, err := h.queries.User.GetUser(userID, organizationID)
 	if err != nil {
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-			"error":   "User not found",
-			"success": false,
-		})
+		if isNotFoundErr(err) {
+			return apiError(c, fiber.StatusNotFound, "not_found", "User not found")
+		}
+		h.logger.Error("Failed to get user for update: %v", err)
+		return apiError(c, fiber.StatusInternalServerError, "server_error", "Failed to retrieve user")
 	}
 
 	// Update fields if provided
@@ -302,10 +321,10 @@ func (h *UserHandler) UpdateUser(c *fiber.Ctx) error {
 
 	if err := h.queries.User.UpdateUser(user, organizationID); err != nil {
 		h.logger.Error("Failed to update user: %v", err)
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error":   "Failed to update user",
-			"success": false,
-		})
+		if isConflictErr(err) {
+			return apiError(c, fiber.StatusConflict, "conflict", "A user with that username or email already exists")
+		}
+		return apiError(c, fiber.StatusInternalServerError, "server_error", "Failed to update user. Please try again.")
 	}
 
 	// Don't return password hash
@@ -313,11 +332,7 @@ func (h *UserHandler) UpdateUser(c *fiber.Ctx) error {
 
 	h.logger.Info("User updated successfully: %s", user.ID)
 
-	return c.JSON(fiber.Map{
-		"success": true,
-		"message": "User updated successfully",
-		"data":    user,
-	})
+	return apiSuccess(c, fiber.StatusOK, "User updated successfully", user)
 }
 
 // DeleteUser deletes a user account
@@ -337,36 +352,28 @@ func (h *UserHandler) UpdateUser(c *fiber.Ctx) error {
 func (h *UserHandler) DeleteUser(c *fiber.Ctx) error {
 	userID := c.Params("id")
 	if userID == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   "User ID is required",
-			"success": false,
-		})
+		return apiError(c, fiber.StatusBadRequest, "invalid_request", "User ID is required")
 	}
 
 	// Check if user exists
 	organizationID := c.Locals("organization_id").(string)
 	_, err := h.queries.User.GetUser(userID, organizationID)
 	if err != nil {
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-			"error":   "User not found",
-			"success": false,
-		})
+		if isNotFoundErr(err) {
+			return apiError(c, fiber.StatusNotFound, "not_found", "User not found")
+		}
+		h.logger.Error("Failed to check user existence: %v", err)
+		return apiError(c, fiber.StatusInternalServerError, "server_error", "Failed to delete user")
 	}
 
 	if err := h.queries.User.DeleteUser(userID, organizationID); err != nil {
 		h.logger.Error("Failed to delete user: %v", err)
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error":   "Failed to delete user",
-			"success": false,
-		})
+		return apiError(c, fiber.StatusInternalServerError, "server_error", "Failed to delete user. Please try again.")
 	}
 
 	h.logger.Info("User deleted successfully: %s", userID)
 
-	return c.JSON(fiber.Map{
-		"success": true,
-		"message": "User deleted successfully",
-	})
+	return apiSuccess(c, fiber.StatusOK, "User deleted successfully", nil)
 }
 
 // GetUserProfile retrieves a user's profile information
@@ -385,30 +392,24 @@ func (h *UserHandler) DeleteUser(c *fiber.Ctx) error {
 func (h *UserHandler) GetUserProfile(c *fiber.Ctx) error {
 	userID := c.Params("id")
 	if userID == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   "User ID is required",
-			"success": false,
-		})
+		return apiError(c, fiber.StatusBadRequest, "invalid_request", "User ID is required")
 	}
 
 	organizationID := c.Locals("organization_id").(string)
 	user, err := h.queries.User.GetUserProfile(userID, organizationID)
 	if err != nil {
+		if isNotFoundErr(err) {
+			return apiError(c, fiber.StatusNotFound, "not_found", "User profile not found")
+		}
 		h.logger.Error("Failed to get user profile: %v", err)
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-			"error":   "User profile not found",
-			"success": false,
-		})
+		return apiError(c, fiber.StatusInternalServerError, "server_error", "Failed to retrieve user profile")
 	}
 
 	// Don't return sensitive information
 	user.PasswordHash = ""
 	user.MFABackupCodes = nil
 
-	return c.JSON(fiber.Map{
-		"success": true,
-		"data":    user,
-	})
+	return apiSuccess(c, fiber.StatusOK, "User profile retrieved successfully", user)
 }
 
 // UpdateUserProfile updates a user's profile information
@@ -443,10 +444,7 @@ func (h *UserHandler) UpdateUserProfile(c *fiber.Ctx) error {
 	}
 
 	if err := c.BodyParser(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   "Invalid request body",
-			"success": false,
-		})
+		return apiError(c, fiber.StatusBadRequest, "invalid_request", "Invalid request body")
 	}
 
 	// Build updates map
@@ -466,26 +464,17 @@ func (h *UserHandler) UpdateUserProfile(c *fiber.Ctx) error {
 	updates["updated_at"] = time.Now()
 
 	if len(updates) == 1 { // Only updated_at
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   "No valid fields to update",
-			"success": false,
-		})
+		return apiError(c, fiber.StatusBadRequest, "validation_error", "No valid fields to update")
 	}
 
 	if err := h.queries.User.UpdateUserProfile(userID, updates); err != nil {
 		h.logger.Error("Failed to update user profile: %v", err)
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error":   "Failed to update user profile",
-			"success": false,
-		})
+		return apiError(c, fiber.StatusInternalServerError, "server_error", "Failed to update user profile")
 	}
 
 	h.logger.Info("User profile updated successfully: %s", userID)
 
-	return c.JSON(fiber.Map{
-		"success": true,
-		"message": "User profile updated successfully",
-	})
+	return apiSuccess(c, fiber.StatusOK, "User profile updated successfully", nil)
 }
 
 // ChangePassword allows a user to change their own password
@@ -506,19 +495,13 @@ func (h *UserHandler) UpdateUserProfile(c *fiber.Ctx) error {
 func (h *UserHandler) ChangePassword(c *fiber.Ctx) error {
 	userID := c.Params("id")
 	if userID == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   "User ID is required",
-			"success": false,
-		})
+		return apiError(c, fiber.StatusBadRequest, "invalid_request", "User ID is required")
 	}
 
 	// Ensure user can only change their own password
 	authenticatedUserID := c.Locals("user_id").(string)
 	if userID != authenticatedUserID {
-		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
-			"error":   "You can only change your own password",
-			"success": false,
-		})
+		return apiError(c, fiber.StatusForbidden, "forbidden", "You can only change your own password")
 	}
 
 	var req struct {
@@ -527,52 +510,38 @@ func (h *UserHandler) ChangePassword(c *fiber.Ctx) error {
 	}
 
 	if err := c.BodyParser(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   "Invalid request body",
-			"success": false,
-		})
+		return apiError(c, fiber.StatusBadRequest, "invalid_request", "Invalid request body")
 	}
 
 	if req.CurrentPassword == "" || req.NewPassword == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   "Both current and new password are required",
-			"success": false,
-		})
+		return apiError(c, fiber.StatusBadRequest, "validation_error", "Both current and new password are required")
 	}
 
 	if len(req.NewPassword) < 8 {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   "New password must be at least 8 characters",
-			"success": false,
-		})
+		return apiError(c, fiber.StatusBadRequest, "validation_error", "New password must be at least 8 characters")
 	}
 
 	// Get user to verify current password
 	organizationID := c.Locals("organization_id").(string)
 	user, err := h.queries.Auth.GetUserByID(userID, organizationID)
 	if err != nil {
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-			"error":   "User not found",
-			"success": false,
-		})
+		if isNotFoundErr(err) {
+			return apiError(c, fiber.StatusNotFound, "not_found", "User not found")
+		}
+		h.logger.Error("Failed to get user for password change: %v", err)
+		return apiError(c, fiber.StatusInternalServerError, "server_error", "Failed to retrieve user")
 	}
 
 	// Verify current password
 	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(req.CurrentPassword)); err != nil {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"error":   "Current password is incorrect",
-			"success": false,
-		})
+		return apiError(c, fiber.StatusUnauthorized, "invalid_credentials", "Current password is incorrect")
 	}
 
 	// Hash new password
 	newHash, err := hashPassword(req.NewPassword)
 	if err != nil {
 		h.logger.Error("Failed to hash new password: %v", err)
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error":   "Failed to process password change",
-			"success": false,
-		})
+		return apiError(c, fiber.StatusInternalServerError, "server_error", "Failed to process password change")
 	}
 
 	// Update password
@@ -583,10 +552,7 @@ func (h *UserHandler) ChangePassword(c *fiber.Ctx) error {
 
 	if err := h.queries.User.UpdateUser(user, organizationID); err != nil {
 		h.logger.Error("Failed to update password: %v", err)
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error":   "Failed to change password",
-			"success": false,
-		})
+		return apiError(c, fiber.StatusInternalServerError, "server_error", "Failed to change password")
 	}
 
 	h.audit.LogEvent(c.Context(), models.AuditEvent{
@@ -602,10 +568,7 @@ func (h *UserHandler) ChangePassword(c *fiber.Ctx) error {
 
 	h.logger.Info("Password changed successfully for user: %s", userID)
 
-	return c.JSON(fiber.Map{
-		"success": true,
-		"message": "Password changed successfully",
-	})
+	return apiSuccess(c, fiber.StatusOK, "Password changed successfully", nil)
 }
 
 // SuspendUser suspends a user account
@@ -626,43 +589,31 @@ func (h *UserHandler) ChangePassword(c *fiber.Ctx) error {
 func (h *UserHandler) SuspendUser(c *fiber.Ctx) error {
 	userID := c.Params("id")
 	if userID == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   "User ID is required",
-			"success": false,
-		})
+		return apiError(c, fiber.StatusBadRequest, "invalid_request", "User ID is required")
 	}
 
 	var req SuspendUserRequest
 
 	if err := c.BodyParser(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   "Invalid request body",
-			"success": false,
-		})
+		return apiError(c, fiber.StatusBadRequest, "invalid_request", "Invalid request body")
 	}
 
 	if req.Reason == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   "Suspension reason is required",
-			"success": false,
-		})
+		return apiError(c, fiber.StatusBadRequest, "validation_error", "Suspension reason is required")
 	}
 
 	organizationID := c.Locals("organization_id").(string)
 	if err := h.queries.User.SuspendUser(userID, organizationID, req.Reason); err != nil {
+		if isNotFoundErr(err) {
+			return apiError(c, fiber.StatusNotFound, "not_found", "User not found")
+		}
 		h.logger.Error("Failed to suspend user: %v", err)
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error":   "Failed to suspend user",
-			"success": false,
-		})
+		return apiError(c, fiber.StatusInternalServerError, "server_error", "Failed to suspend user")
 	}
 
 	h.logger.Info("User suspended successfully: %s, reason: %s", userID, req.Reason)
 
-	return c.JSON(fiber.Map{
-		"success": true,
-		"message": "User suspended successfully",
-	})
+	return apiSuccess(c, fiber.StatusOK, "User suspended successfully", nil)
 }
 
 // ActivateUser activates a suspended user account
@@ -696,19 +647,16 @@ func (h *UserHandler) ActivateUser(c *fiber.Ctx) error {
 
 	organizationID := c.Locals("organization_id").(string)
 	if err := h.queries.User.ActivateUser(userID, organizationID); err != nil {
+		if isNotFoundErr(err) {
+			return apiError(c, fiber.StatusNotFound, "not_found", "User not found")
+		}
 		h.logger.Error("Failed to activate user: %v", err)
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error":   "Failed to activate user",
-			"success": false,
-		})
+		return apiError(c, fiber.StatusInternalServerError, "server_error", "Failed to activate user")
 	}
 
 	h.logger.Info("User activated successfully: %s", userID)
 
-	return c.JSON(fiber.Map{
-		"success": true,
-		"message": "User activated successfully",
-	})
+	return apiSuccess(c, fiber.StatusOK, "User activated successfully", nil)
 }
 
 // GetUserSessions retrieves all active sessions for a user
@@ -727,26 +675,17 @@ func (h *UserHandler) ActivateUser(c *fiber.Ctx) error {
 func (h *UserHandler) GetUserSessions(c *fiber.Ctx) error {
 	userID := c.Params("id")
 	if userID == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   "User ID is required",
-			"success": false,
-		})
+		return apiError(c, fiber.StatusBadRequest, "invalid_request", "User ID is required")
 	}
 
 	organizationID := c.Locals("organization_id").(string)
 	sessions, err := h.queries.User.GetUserSessions(userID, organizationID)
 	if err != nil {
 		h.logger.Error("Failed to get user sessions: %v", err)
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error":   "Failed to retrieve user sessions",
-			"success": false,
-		})
+		return apiError(c, fiber.StatusInternalServerError, "server_error", "Failed to retrieve user sessions")
 	}
 
-	return c.JSON(fiber.Map{
-		"success": true,
-		"data":    sessions,
-	})
+	return apiSuccess(c, fiber.StatusOK, "User sessions retrieved", sessions)
 }
 
 // RevokeUserSessions revokes all active sessions for a user
@@ -765,27 +704,18 @@ func (h *UserHandler) GetUserSessions(c *fiber.Ctx) error {
 func (h *UserHandler) RevokeUserSessions(c *fiber.Ctx) error {
 	userID := c.Params("id")
 	if userID == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   "User ID is required",
-			"success": false,
-		})
+		return apiError(c, fiber.StatusBadRequest, "invalid_request", "User ID is required")
 	}
 
 	organizationID := c.Locals("organization_id").(string)
 	if err := h.queries.User.RevokeUserSessions(userID, organizationID); err != nil {
 		h.logger.Error("Failed to revoke user sessions: %v", err)
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error":   "Failed to revoke user sessions",
-			"success": false,
-		})
+		return apiError(c, fiber.StatusInternalServerError, "server_error", "Failed to revoke user sessions")
 	}
 
 	h.logger.Info("User sessions revoked successfully: %s", userID)
 
-	return c.JSON(fiber.Map{
-		"success": true,
-		"message": "User sessions revoked successfully",
-	})
+	return apiSuccess(c, fiber.StatusOK, "User sessions revoked successfully", nil)
 }
 
 // Service Account endpoints
@@ -962,11 +892,18 @@ func (h *UserHandler) GetServiceAccount(c *fiber.Ctx) error {
 	// Call query layer
 	sa, err := h.queries.User.GetServiceAccount(saID, organizationID)
 	if err != nil {
+		if isNotFoundErr(err) {
+			return c.Status(fiber.StatusNotFound).JSON(ErrorResponse{
+				Status:  fiber.StatusNotFound,
+				Error:   "not_found",
+				Message: "Service account not found",
+			})
+		}
 		h.logger.Error("Failed to get service account: %v", err)
-		return c.Status(fiber.StatusNotFound).JSON(ErrorResponse{
-			Status:  fiber.StatusNotFound,
-			Error:   "not_found",
-			Message: "Service account not found",
+		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{
+			Status:  fiber.StatusInternalServerError,
+			Error:   "server_error",
+			Message: "Failed to retrieve service account",
 		})
 	}
 
@@ -1010,10 +947,18 @@ func (h *UserHandler) UpdateServiceAccount(c *fiber.Ctx) error {
 	// Fetch existing SA to preserve unchanged values (like status)
 	existingSa, err := h.queries.User.GetServiceAccount(saID, organizationID)
 	if err != nil {
-		return c.Status(fiber.StatusNotFound).JSON(ErrorResponse{
-			Status:  fiber.StatusNotFound,
-			Error:   "not_found",
-			Message: "Service account not found",
+		if isNotFoundErr(err) {
+			return c.Status(fiber.StatusNotFound).JSON(ErrorResponse{
+				Status:  fiber.StatusNotFound,
+				Error:   "not_found",
+				Message: "Service account not found",
+			})
+		}
+		h.logger.Error("Failed to get service account for update: %v", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{
+			Status:  fiber.StatusInternalServerError,
+			Error:   "server_error",
+			Message: "Failed to retrieve service account",
 		})
 	}
 
@@ -1091,6 +1036,13 @@ func (h *UserHandler) DeleteServiceAccount(c *fiber.Ctx) error {
 	// Call query layer
 	err := h.queries.User.DeleteServiceAccount(saID, organizationID)
 	if err != nil {
+		if isNotFoundErr(err) {
+			return c.Status(fiber.StatusNotFound).JSON(ErrorResponse{
+				Status:  fiber.StatusNotFound,
+				Error:   "not_found",
+				Message: "Service account not found",
+			})
+		}
 		h.logger.Error("Failed to delete service account: %v", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{
 			Status:  fiber.StatusInternalServerError,
@@ -1187,6 +1139,13 @@ func (h *UserHandler) GenerateAPIKey(c *fiber.Ctx) error {
 	// Call query layer
 	err = h.queries.User.GenerateAPIKey(saID, &apiKey, organizationID)
 	if err != nil {
+		if isNotFoundErr(err) {
+			return c.Status(fiber.StatusNotFound).JSON(ErrorResponse{
+				Status:  fiber.StatusNotFound,
+				Error:   "not_found",
+				Message: "Service account not found",
+			})
+		}
 		h.logger.Error("Failed to generate API key: %v", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{
 			Status:  fiber.StatusInternalServerError,
@@ -1231,6 +1190,13 @@ func (h *UserHandler) ListAPIKeys(c *fiber.Ctx) error {
 	// Call query layer
 	keys, err := h.queries.User.ListAPIKeys(saID, organizationID)
 	if err != nil {
+		if isNotFoundErr(err) {
+			return c.Status(fiber.StatusNotFound).JSON(ErrorResponse{
+				Status:  fiber.StatusNotFound,
+				Error:   "not_found",
+				Message: "Service account not found",
+			})
+		}
 		h.logger.Error("Failed to list API keys: %v", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{
 			Status:  fiber.StatusInternalServerError,
@@ -1268,6 +1234,13 @@ func (h *UserHandler) RevokeAPIKey(c *fiber.Ctx) error {
 	// Call query layer
 	err := h.queries.User.RevokeAPIKey(saID, keyID, organizationID)
 	if err != nil {
+		if isNotFoundErr(err) {
+			return c.Status(fiber.StatusNotFound).JSON(ErrorResponse{
+				Status:  fiber.StatusNotFound,
+				Error:   "not_found",
+				Message: "API key not found",
+			})
+		}
 		h.logger.Error("Failed to revoke API key: %v", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{
 			Status:  fiber.StatusInternalServerError,
@@ -1303,6 +1276,13 @@ func (h *UserHandler) RotateServiceAccountKeys(c *fiber.Ctx) error {
 	// Call query layer
 	err := h.queries.User.RotateServiceAccountKeys(saID, organizationID)
 	if err != nil {
+		if isNotFoundErr(err) {
+			return c.Status(fiber.StatusNotFound).JSON(ErrorResponse{
+				Status:  fiber.StatusNotFound,
+				Error:   "not_found",
+				Message: "Service account not found",
+			})
+		}
 		h.logger.Error("Failed to rotate service account keys: %v", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{
 			Status:  fiber.StatusInternalServerError,

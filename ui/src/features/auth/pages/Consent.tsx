@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { ShieldCheck, XCircle } from 'lucide-react';
 import client from '@/pkg/api/client';
+import { extractErrorMessage } from '@/pkg/api/errorUtils';
 
 interface ClientInfo {
     client_id: string;
@@ -39,7 +40,7 @@ const ConsentPage = () => {
                 setClientInfo(data);
             } catch (err: any) {
                 console.error(err);
-                setError('Failed to load client application details.');
+                setError(extractErrorMessage(err, 'Failed to load client application details.'));
             } finally {
                 setIsLoading(false);
             }
@@ -67,7 +68,7 @@ const ConsentPage = () => {
             }
         } catch (err: any) {
             console.error(err);
-            setError('Failed to process consent decision.');
+            setError(extractErrorMessage(err, 'Failed to process consent decision.'));
         } finally {
             setIsLoading(false);
         }

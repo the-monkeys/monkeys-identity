@@ -4,6 +4,7 @@ import { useAuth } from '@/context/AuthContext';
 import { profileAPI, UpdateProfileRequest } from '../api/profile';
 import { User } from '@/features/users/types/user';
 import { Loader2, Save, User as UserIcon } from 'lucide-react';
+import { extractErrorMessage } from '@/pkg/api/errorUtils';
 
 const ProfileForm = () => {
     const { user } = useAuth();
@@ -32,7 +33,7 @@ const ProfileForm = () => {
             setAvatarUrl(userData.avatar_url || '');
         } catch (error) {
             console.error('Failed to load profile:', error);
-            setMessage({ type: 'error', text: 'Failed to load profile data.' });
+            setMessage({ type: 'error', text: extractErrorMessage(error, 'Failed to load profile data.') });
         } finally {
             setIsLoading(false);
         }
@@ -58,7 +59,7 @@ const ProfileForm = () => {
             loadProfile(user.id);
         } catch (error) {
             console.error('Failed to update profile:', error);
-            setMessage({ type: 'error', text: 'Failed to save changes.' });
+            setMessage({ type: 'error', text: extractErrorMessage(error, 'Failed to save changes.') });
         } finally {
             setIsSaving(false);
         }

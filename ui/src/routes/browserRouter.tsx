@@ -10,6 +10,7 @@ const UsersManagement = lazy(() => import('../features/users/pages/UsersManageme
 const UserDetailPage = lazy(() => import('../features/users/pages/UserDetailPage'));
 const ForgotPasswordPage = lazy(() => import('../features/auth/pages/ForgotPassword'));
 const ResetPasswordPage = lazy(() => import('../features/auth/pages/ResetPassword'));
+const VerifyEmailPage = lazy(() => import('../features/auth/pages/VerifyEmail'));
 const GroupsManagement = lazy(() => import('../features/groups/pages/GroupsManagement'));
 const OrganizationsManagement = lazy(() => import('../features/organizations/pages/OrganizationsManagement'));
 const AuditLogsPage = lazy(() => import('../features/audit/pages/AuditLogsPage'));
@@ -24,6 +25,8 @@ const ResourceDetailPage = lazy(() => import('../features/resources/pages/Resour
 const ServiceAccountsManagement = lazy(() => import('../features/service-accounts/pages/ServiceAccountsManagement'));
 const ServiceAccountDetailPage = lazy(() => import('../features/service-accounts/pages/ServiceAccountDetailPage'));
 const OIDCClientManagement = lazy(() => import('../features/oidc/pages/OIDCClientManagement'));
+const ContentManagement = lazy(() => import('../features/content/pages/ContentManagement'));
+const ContentDetailPage = lazy(() => import('../features/content/pages/ContentDetailPage'));
 const HomePage = lazy(() => import('../features/landing/pages/HomePage'));
 const DocumentationPage = lazy(() => import('../features/landing/pages/DocumentationPage'));
 
@@ -70,6 +73,10 @@ export const router = createBrowserRouter([
                 path: '/reset-password',
                 element: <ResetPasswordPage />,
             },
+            {
+                path: '/verify-email',
+                element: <VerifyEmailPage />,
+            },
         ],
     },
     {
@@ -101,25 +108,7 @@ export const router = createBrowserRouter([
             },
             {
                 path: '/policies',
-                element: <PolicyManagement />,
-            },
-            {
-                path: '/policies/create',
-                element: <CreatePolicy />,
-            },
-            {
-                path: '/policies/:policyId/edit',
-                element: <CreatePolicy />,
-            },
-            {
-                path: '/policies/:policyId',
-                element: <PolicyDetail />,
-                path: '/audit-logs',
-                element: <AuditLogsPage />,
-            },
-            {
-                path: '/account-settings',
-                element: <AccountSettingsPage />,
+                element: <PoliciesManagement />,
             },
             {
                 path: '/roles',
@@ -130,12 +119,16 @@ export const router = createBrowserRouter([
                 element: <RoleDetailPage />,
             },
             {
-                path: '/policies',
-                element: <PoliciesManagement />,
-            },
-            {
                 path: '/policies/:id',
                 element: <PolicyDetailPage />,
+            },
+            {
+                path: '/audit-logs',
+                element: <AuditLogsPage />,
+            },
+            {
+                path: '/account-settings',
+                element: <AccountSettingsPage />,
             },
             {
                 path: '/sessions',
@@ -161,6 +154,14 @@ export const router = createBrowserRouter([
             {
                 path: '/ecosystem',
                 element: <OIDCClientManagement />,
+            },
+            {
+                path: '/content',
+                element: <ContentManagement />,
+            },
+            {
+                path: '/content/:id',
+                element: <ContentDetailPage />,
             },
         ],
     },

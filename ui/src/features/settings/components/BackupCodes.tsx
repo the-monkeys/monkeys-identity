@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { ShieldCheck, Copy, RefreshCw, AlertTriangle, CheckCircle } from 'lucide-react';
 import { authAPI } from '@/features/auth/api/auth';
+import { extractErrorMessage } from '@/pkg/api/errorUtils';
 
 interface BackupCodesProps {
     initialCodes?: string[];
@@ -26,7 +27,7 @@ export const BackupCodes: React.FC<BackupCodesProps> = ({ initialCodes, onCodesG
             setMessage({ type: 'success', text: 'New backup codes generated successfully.' });
         } catch (error) {
             console.error('Failed to generate backup codes:', error);
-            setMessage({ type: 'error', text: 'Failed to generate backup codes.' });
+            setMessage({ type: 'error', text: extractErrorMessage(error, 'Failed to generate backup codes.') });
         } finally {
             setIsLoading(false);
         }

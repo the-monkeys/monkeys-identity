@@ -18,6 +18,7 @@ export interface User {
   failed_login_attempts: number;
   locked_until: string;
   status: 'active' | 'suspended' | 'inactive';
+  role?: string; // User role (e.g. "admin", "user")
   created_at: string;
   updated_at: string;
   deleted_at?: string;

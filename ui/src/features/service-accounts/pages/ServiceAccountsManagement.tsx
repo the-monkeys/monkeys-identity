@@ -6,6 +6,8 @@ import { ServiceAccount, CreateServiceAccountRequest, UpdateServiceAccountReques
 import { DataTable, Column } from '@/components/ui/DataTable';
 import { cn } from '@/components/ui/utils';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { useAuth } from '@/context/AuthContext';
+import { extractErrorMessage } from '@/pkg/api/errorUtils';
 
 const ServiceAccountsManagement = () => {
     const [searchQuery, setSearchQuery] = useState('');
@@ -23,6 +25,7 @@ const ServiceAccountsManagement = () => {
     });
 
     const navigate = useNavigate();
+    const { isAdmin } = useAuth();
 
     const { data: serviceAccounts = [], isLoading, error } = useServiceAccounts();
     const createSAMutation = useCreateServiceAccount();
@@ -116,7 +119,7 @@ const ServiceAccountsManagement = () => {
         {
             header: 'Actions',
             className: 'text-right w-24',
-            cell: (sa) => (
+            cell: (sa) => isAdmin() ? (
                 <div className="flex items-center justify-end space-x-1">
                     <button
                         onClick={(e) => { e.stopPropagation(); handleEditClick(sa); }}
@@ -133,7 +136,7 @@ const ServiceAccountsManagement = () => {
                         <Trash2 size={16} />
                     </button>
                 </div>
-            )
+            ) : null
         }
     ];
 
@@ -142,7 +145,7 @@ const ServiceAccountsManagement = () => {
             <div className="flex items-center justify-center h-64">
                 <div className="text-red-400 flex items-center space-x-2 bg-red-500/10 p-4 rounded-lg border border-red-500/20">
                     <AlertCircle size={20} />
-                    <span>Failed to load service accounts</span>
+                    <span>{extractErrorMessage(error, 'Failed to load service accounts')}</span>
                 </div>
             </div>
         );
@@ -158,12 +161,14 @@ const ServiceAccountsManagement = () => {
                     </h1>
                     <p className="text-sm text-gray-400">Manage machine-to-machine identities and API keys</p>
                 </div>
+                {isAdmin() && (
                 <button
                     onClick={() => setShowCreateModal(true)}
                     className="px-4 py-2 bg-primary/80 text-white rounded-lg text-sm font-semibold flex items-center space-x-2 hover:bg-primary/90 transition-all shadow-lg shadow-primary/20"
                 >
                     <Plus size={16} /> <span>Create Service Account</span>
                 </button>
+                )}
             </div>
 
             <div className="flex items-center gap-2 bg-bg-card-dark p-1 rounded-lg border border-border-color-dark w-full md:w-auto self-start">

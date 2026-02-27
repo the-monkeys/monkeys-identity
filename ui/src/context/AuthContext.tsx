@@ -24,16 +24,23 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const login = async (email: string, password: string, organizationID?: string) => {
         try {
             const response = await authAPI.login(email, password, organizationID);
-            const { access_token, user: userData } = response.data.data;
+            const { access_token, user: userData, role } = response.data.data;
+
+            // Attach the resolved role to the user object
+            const userWithRole = { ...userData, role: role || 'user' };
 
             localStorage.setItem('access_token', access_token);
-            localStorage.setItem('user', JSON.stringify(userData));
-            setUser(userData);
+            localStorage.setItem('user', JSON.stringify(userWithRole));
+            setUser(userWithRole);
             return { success: true };
         } catch (error: any) {
+            const msg =
+                error.response?.data?.message ||
+                error.response?.data?.error ||
+                'Login failed';
             return {
                 success: false,
-                error: error.response?.data?.message || 'Login failed'
+                error: msg
             };
         }
     };
@@ -45,7 +52,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     };
 
     const isAdmin = () => {
-        return user?.status === 'active';
+        return user?.role === 'admin';
     };
 
     return (

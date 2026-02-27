@@ -166,6 +166,35 @@ func (am *AuthMiddleware) RequireRole(allowedRoles ...string) fiber.Handler {
 	}
 }
 
+// RequireOrgAccess ensures the :id route parameter matches the caller's organization_id from JWT.
+// This prevents org admins from accessing resources belonging to other organizations.
+func (am *AuthMiddleware) RequireOrgAccess() fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		callerOrgID := c.Locals("organization_id")
+		if callerOrgID == nil {
+			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+				"error":   "Organization context not found",
+				"success": false,
+			})
+		}
+
+		targetOrgID := c.Params("id")
+		if targetOrgID == "" {
+			// No :id param — let the handler decide
+			return c.Next()
+		}
+
+		if callerOrgID.(string) != targetOrgID {
+			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+				"error":   "Access denied: you can only manage your own organization",
+				"success": false,
+			})
+		}
+
+		return c.Next()
+	}
+}
+
 // RequirePermission validates user has specific permission using AuthzService
 func (am *AuthMiddleware) RequirePermission(authzSvc services.AuthzService, action string) fiber.Handler {
 	return func(c *fiber.Ctx) error {

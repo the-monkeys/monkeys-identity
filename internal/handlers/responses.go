@@ -1,5 +1,11 @@
 package handlers
 
+import (
+	"strings"
+
+	"github.com/gofiber/fiber/v2"
+)
+
 // Common response structures for API documentation
 
 // ErrorResponse represents an error response
@@ -15,6 +21,57 @@ type SuccessResponse struct {
 	Message string      `json:"message" example:"Operation completed successfully"`
 	Data    interface{} `json:"data,omitempty"`
 } //@name SuccessResponse
+
+// ── Error classification helpers ───────────────────────────────────────
+
+// isNotFoundErr returns true when the error message indicates a "not found" scenario
+// from the query layer (e.g. sql.ErrNoRows, custom "not found" wrappers).
+func isNotFoundErr(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := strings.ToLower(err.Error())
+	return strings.Contains(msg, "not found")
+}
+
+// isConflictErr returns true when a unique-constraint / duplicate-key violation occurred.
+func isConflictErr(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := strings.ToLower(err.Error())
+	return strings.Contains(msg, "unique") ||
+		strings.Contains(msg, "duplicate key") ||
+		strings.Contains(msg, "already exists") ||
+		strings.Contains(msg, "conflict")
+}
+
+// ── Standardized response helpers ──────────────────────────────────────
+
+// apiError sends a uniform JSON error response.
+//
+//	{ "success": false, "error": "<code>", "message": "<human-readable>" }
+func apiError(c *fiber.Ctx, httpStatus int, code string, message string) error {
+	return c.Status(httpStatus).JSON(fiber.Map{
+		"success": false,
+		"error":   code,
+		"message": message,
+	})
+}
+
+// apiSuccess sends a uniform JSON success response.
+//
+//	{ "success": true, "message": "<msg>", "data": <payload> }
+func apiSuccess(c *fiber.Ctx, httpStatus int, message string, data interface{}) error {
+	resp := fiber.Map{
+		"success": true,
+		"message": message,
+	}
+	if data != nil {
+		resp["data"] = data
+	}
+	return c.Status(httpStatus).JSON(resp)
+}
 
 // RefreshTokenRequest represents a refresh token request
 type RefreshTokenRequest struct {

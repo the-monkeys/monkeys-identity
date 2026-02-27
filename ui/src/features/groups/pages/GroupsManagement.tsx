@@ -9,8 +9,11 @@ import GroupDetailsModal from '../components/GroupDetailsModal';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { DataTable, Column } from '@/components/ui/DataTable';
 import { cn } from '@/components/ui/utils';
+import { useAuth } from '@/context/AuthContext';
+import { extractErrorMessage } from '@/pkg/api/errorUtils';
 
 const GroupsManagement = () => {
+    const { isAdmin } = useAuth();
     // State
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedGroup, setSelectedGroup] = useState<Group | null>(null);
@@ -116,7 +119,7 @@ const GroupsManagement = () => {
         {
             header: 'Actions',
             className: 'text-right',
-            cell: (group) => (
+            cell: (group) => isAdmin() ? (
                 <div className="flex items-center justify-end space-x-1">
                     <button
                         onClick={(e) => { e.stopPropagation(); handleMembersClick(group); }}
@@ -140,7 +143,7 @@ const GroupsManagement = () => {
                         <Trash2 size={16} />
                     </button>
                 </div>
-            )
+            ) : null
         }
     ];
 
@@ -149,7 +152,7 @@ const GroupsManagement = () => {
             <div className="flex items-center justify-center h-64">
                 <div className="text-red-400 flex items-center space-x-2 bg-red-500/10 p-4 rounded-lg border border-red-500/20">
                     <AlertCircle size={20} />
-                    <span>{(error as any)?.response?.data?.message || 'Failed to load groups'}</span>
+                    <span>{extractErrorMessage(error, 'Failed to load groups')}</span>
                 </div>
             </div>
         );
@@ -163,12 +166,14 @@ const GroupsManagement = () => {
                     <h1 className="text-2xl font-bold text-text-main-dark">Groups Management</h1>
                     <p className="text-sm text-gray-400">Manage groups and their members</p>
                 </div>
-                <button
-                    onClick={() => setShowAddModal(true)}
-                    className="px-4 py-2 bg-primary/80 text-white rounded-lg text-sm font-semibold flex items-center space-x-2 hover:bg-primary/90 transition-all shadow-lg shadow-primary/20"
-                >
-                    <Plus size={16} /> <span>Add new group</span>
-                </button>
+                {isAdmin() && (
+                    <button
+                        onClick={() => setShowAddModal(true)}
+                        className="px-4 py-2 bg-primary/80 text-white rounded-lg text-sm font-semibold flex items-center space-x-2 hover:bg-primary/90 transition-all shadow-lg shadow-primary/20"
+                    >
+                        <Plus size={16} /> <span>Add new group</span>
+                    </button>
+                )}
             </div>
 
             {/* Search & Filter Section */}

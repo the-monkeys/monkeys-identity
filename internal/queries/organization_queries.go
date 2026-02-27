@@ -16,7 +16,8 @@ type OrganizationQueries interface {
 	WithTx(tx *sql.Tx) OrganizationQueries
 	WithContext(ctx context.Context) OrganizationQueries
 	// Organization CRUD
-	ListOrganizations(params ListParams) (*ListResult[models.Organization], error)
+	// orgFilter: empty string returns all orgs (root access); non-empty scopes to that org ID.
+	ListOrganizations(params ListParams, orgFilter string) (*ListResult[models.Organization], error)
 	CreateOrganization(org *models.Organization) error
 	GetOrganization(id string) (*models.Organization, error)
 	UpdateOrganization(org *models.Organization) error
@@ -53,17 +54,15 @@ func (q *organizationQueries) WithContext(ctx context.Context) OrganizationQueri
 	return &organizationQueries{db: q.db, redis: q.redis, tx: q.tx, ctx: ctx}
 }
 
-// ListOrganizations returns paginated organizations (excluding deleted)
-func (q *organizationQueries) ListOrganizations(params ListParams) (*ListResult[models.Organization], error) {
-	query := `
-		SELECT id, name, slug, parent_id, description, metadata, settings, billing_tier,
-		       max_users, max_resources, status, created_at, updated_at, deleted_at,
-		       COUNT(*) OVER() as total_count
-		FROM organizations
-		WHERE status != 'deleted'
-		ORDER BY created_at DESC
-		LIMIT $1 OFFSET $2`
-
+// ListOrganizations returns paginated organizations (excluding deleted).
+//
+// The orgFilter parameter controls tenant scoping:
+//   - "" (empty): no filter — returns all organizations (root user view)
+//   - non-empty: returns only the organization matching that ID
+//
+// The caller is responsible for computing orgFilter via TenantContext.OrgFilter()
+// in the middleware layer. This keeps the query layer free of authorization logic.
+func (q *organizationQueries) ListOrganizations(params ListParams, orgFilter string) (*ListResult[models.Organization], error) {
 	limit := params.Limit
 	if limit <= 0 || limit > 1000 {
 		limit = 50
@@ -73,12 +72,37 @@ func (q *organizationQueries) ListOrganizations(params ListParams) (*ListResult[
 		offset = 0
 	}
 
+	var query string
+	var args []interface{}
+
+	if orgFilter != "" {
+		query = `
+			SELECT id, name, slug, parent_id, description, metadata, settings, billing_tier,
+			       max_users, max_resources, status, created_at, updated_at, deleted_at,
+			       COUNT(*) OVER() as total_count
+			FROM organizations
+			WHERE status != 'deleted' AND id = $3
+			ORDER BY created_at DESC
+			LIMIT $1 OFFSET $2`
+		args = []interface{}{limit, offset, orgFilter}
+	} else {
+		query = `
+			SELECT id, name, slug, parent_id, description, metadata, settings, billing_tier,
+			       max_users, max_resources, status, created_at, updated_at, deleted_at,
+			       COUNT(*) OVER() as total_count
+			FROM organizations
+			WHERE status != 'deleted'
+			ORDER BY created_at DESC
+			LIMIT $1 OFFSET $2`
+		args = []interface{}{limit, offset}
+	}
+
 	var rows *sql.Rows
 	var err error
 	if q.tx != nil {
-		rows, err = q.tx.QueryContext(q.ctx, query, limit, offset)
+		rows, err = q.tx.QueryContext(q.ctx, query, args...)
 	} else {
-		rows, err = q.db.QueryContext(q.ctx, query, limit, offset)
+		rows, err = q.db.QueryContext(q.ctx, query, args...)
 	}
 	if err != nil {
 		return nil, err

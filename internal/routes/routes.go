@@ -1,6 +1,7 @@
 package routes
 
 import (
+	"context"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
@@ -59,6 +60,16 @@ func SetupRoutes(
 	// Initialize middleware with the guaranteed key
 	authMiddleware := middleware.NewAuthMiddleware(cfg.JWTSecret, cfg.JWTPrivateKey, redis)
 
+	// Resolve system organization by slug (not hardcoded UUID).
+	// This determines root-user detection at the middleware level.
+	systemOrgID := middleware.ResolveSystemOrgID(context.Background(), db.DB, redis, middleware.SystemOrgSlug)
+	if systemOrgID != "" {
+		logger.Info("System organization resolved: %s", systemOrgID)
+	} else {
+		logger.Warn("System organization not found — root user detection disabled")
+	}
+	tenantMw := middleware.NewTenantMiddleware(systemOrgID)
+
 	// Initialize queries
 	q := queries.New(db, redis)
 
@@ -77,6 +88,8 @@ func SetupRoutes(
 	roleHandler := handlers.NewRoleHandler(db, redis, logger)
 	sessionHandler := handlers.NewSessionHandler(db, redis, logger)
 	oidcHandler := handlers.NewOIDCHandler(oidcSvc, q, *logger, cfg)
+
+	contentHandler := handlers.NewContentHandler(db, redis, logger)
 
 	// Create queries instance for audit handler
 	auditQueries := queries.New(db, redis)
@@ -141,8 +154,8 @@ func SetupRoutes(
 	mfa.Post("/backup-codes", authMiddleware.RequireAuth(), authHandler.GenerateBackupCodes)
 	mfa.Delete("/disable", authMiddleware.RequireAuth(), authHandler.DisableMFA)
 
-	// Protected routes (authentication required)
-	protected := api.Group("/", authMiddleware.RequireAuth())
+	// Protected routes (authentication + tenant resolution required)
+	protected := api.Group("/", authMiddleware.RequireAuth(), tenantMw.ResolveTenant())
 
 	// User management routes
 	users := protected.Group("/users")
@@ -160,19 +173,25 @@ func SetupRoutes(
 	users.Post("/:id/change-password", userHandler.ChangePassword)
 
 	// Organization management routes
+	// Authorization is enforced at the middleware level via TenantMiddleware:
+	// - Root user (system org): full CRUD on all organizations
+	// - Org Admin: CRUD on their own organization only
+	// - Regular User: no org-level admin access (blocked by RequireAdmin/RequireOrgAdmin)
 	orgs := protected.Group("/organizations")
-	orgs.Get("/", organizationHandler.ListOrganizations)
-	orgs.Post("/", authMiddleware.RequireRole("admin"), organizationHandler.CreateOrganization)
-	orgs.Get("/:id", organizationHandler.GetOrganization)
-	orgs.Put("/:id", authMiddleware.RequireRole("admin"), organizationHandler.UpdateOrganization)
-	orgs.Delete("/:id", authMiddleware.RequireRole("admin"), organizationHandler.DeleteOrganization)
-	orgs.Get("/:id/users", organizationHandler.GetOrganizationUsers)
-	orgs.Get("/:id/groups", organizationHandler.GetOrganizationGroups)
-	orgs.Get("/:id/resources", organizationHandler.GetOrganizationResources)
-	orgs.Get("/:id/policies", organizationHandler.GetOrganizationPolicies)
-	orgs.Get("/:id/roles", organizationHandler.GetOrganizationRoles)
-	orgs.Get("/:id/settings", organizationHandler.GetOrganizationSettings)
-	orgs.Put("/:id/settings", authMiddleware.RequireRole("admin"), organizationHandler.UpdateOrganizationSettings)
+	orgs.Get("/", tenantMw.RequireAdmin(), organizationHandler.ListOrganizations)
+	// Create org API temporarily muted — org creation happens via /auth/register-org during signup.
+	// An org admin can add more users to their org but should not create new orgs via this endpoint.
+	// orgs.Post("/", tenantMw.RequireRoot(), organizationHandler.CreateOrganization)
+	orgs.Get("/:id", tenantMw.RequireOrgAccess(), organizationHandler.GetOrganization)
+	orgs.Put("/:id", tenantMw.RequireOrgAdmin(), organizationHandler.UpdateOrganization)
+	orgs.Delete("/:id", tenantMw.RequireOrgAdmin(), organizationHandler.DeleteOrganization)
+	orgs.Get("/:id/users", tenantMw.RequireOrgAccess(), organizationHandler.GetOrganizationUsers)
+	orgs.Get("/:id/groups", tenantMw.RequireOrgAccess(), organizationHandler.GetOrganizationGroups)
+	orgs.Get("/:id/resources", tenantMw.RequireOrgAccess(), organizationHandler.GetOrganizationResources)
+	orgs.Get("/:id/policies", tenantMw.RequireOrgAccess(), organizationHandler.GetOrganizationPolicies)
+	orgs.Get("/:id/roles", tenantMw.RequireOrgAccess(), organizationHandler.GetOrganizationRoles)
+	orgs.Get("/:id/settings", tenantMw.RequireOrgAccess(), organizationHandler.GetOrganizationSettings)
+	orgs.Put("/:id/settings", tenantMw.RequireOrgAdmin(), organizationHandler.UpdateOrganizationSettings)
 
 	// Group management routes
 	groups := protected.Group("/groups")
@@ -277,4 +296,19 @@ func SetupRoutes(
 	admin.Delete("/maintenance-mode", auditHandler.DisableMaintenanceMode)
 	admin.Get("/settings", organizationHandler.GetGlobalSettings)
 	admin.Put("/settings", organizationHandler.UpdateGlobalSettings)
+
+	// Content routes — scalable per-item authorization via content_collaborators table.
+	// Any authenticated user can create content; per-item permissions are checked
+	// inline by the handler (O(1) PK lookup) rather than through IAM resource_shares.
+	// Supports blogs, videos, tweets, comments, and any future content type.
+	content := protected.Group("/content")
+	content.Post("/", contentHandler.CreateContent)
+	content.Get("/", contentHandler.ListContent)
+	content.Get("/:id", contentHandler.GetContent)
+	content.Put("/:id", contentHandler.UpdateContent)
+	content.Delete("/:id", contentHandler.DeleteContent)
+	content.Patch("/:id/status", contentHandler.UpdateContentStatus)
+	content.Post("/:id/collaborators", contentHandler.InviteCollaborator)
+	content.Get("/:id/collaborators", contentHandler.ListCollaborators)
+	content.Delete("/:id/collaborators/:user_id", contentHandler.RemoveCollaborator)
 }

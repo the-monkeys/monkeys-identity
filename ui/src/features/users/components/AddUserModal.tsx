@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { X, UserPlus, Eye, EyeOff } from 'lucide-react';
 import { useCreateUser } from '../api/useUsers';
 import { useAuth } from '@/context/AuthContext';
+import { extractErrorMessage } from '@/pkg/api/errorUtils';
 
 interface AddUserModalProps {
     onClose: () => void;
@@ -16,7 +17,7 @@ const AddUserModal = ({ onClose, onSave }: AddUserModalProps) => {
         username: '',
         email: '',
         display_name: '',
-        password_hash: '',
+        password: '',
         organization_id: currentUser?.organization_id || '',
     });
 
@@ -65,7 +66,7 @@ const AddUserModal = ({ onClose, onSave }: AddUserModalProps) => {
                 <form onSubmit={handleSubmit} className="px-6 py-6 space-y-4">
                     {createUserMutation.isError && (
                         <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-lg text-red-400 text-sm">
-                            {(createUserMutation.error as any)?.response?.data?.message || 'Failed to create user'}
+                            {extractErrorMessage(createUserMutation.error, 'Failed to create user')}
                         </div>
                     )}
 
@@ -109,8 +110,8 @@ const AddUserModal = ({ onClose, onSave }: AddUserModalProps) => {
                         <div className="relative">
                             <input
                                 type={showPassword ? "text" : "password"}
-                                value={formData.password_hash}
-                                onChange={(e) => handleChange('password_hash', e.target.value)}
+                                value={formData.password}
+                                onChange={(e) => handleChange('password', e.target.value)}
                                 className="w-full px-4 py-2 bg-slate-900 border border-border-color-dark rounded-lg focus:outline-none focus:border-primary transition-all text-sm"
                                 placeholder="Min 8 characters"
                                 required

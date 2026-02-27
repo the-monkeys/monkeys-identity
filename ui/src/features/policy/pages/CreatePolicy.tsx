@@ -4,6 +4,7 @@ import { ChevronRight, Save, X, Code } from 'lucide-react';
 
 import client from '@/pkg/api/client';
 import { useAuth } from '@/context/AuthContext';
+import { extractErrorMessage } from '@/pkg/api/errorUtils';
 import { useParams } from 'react-router-dom';
 import { useGetPolicyById } from '@/hooks/policy/useGetPolicyById';
 import { useUpdatePolicy } from '@/hooks/policy/useUpdatePolicy';
@@ -42,13 +43,16 @@ const CreatePolicy = () => {
             setVersion(existingPolicy.version || '1.0.0');
             setIsSystemPolicy(existingPolicy.is_system_policy);
 
-            let doc = existingPolicy.document;
-            if (typeof doc === 'string') {
+            let doc: Record<string, unknown> = {};
+            const rawDoc = existingPolicy.document;
+            if (typeof rawDoc === 'string') {
                 try {
-                    doc = JSON.parse(doc);
+                    doc = JSON.parse(rawDoc);
                 } catch (e) {
                     console.error('Failed to parse document string', e);
                 }
+            } else if (rawDoc && typeof rawDoc === 'object') {
+                doc = JSON.parse(JSON.stringify(rawDoc));
             }
 
             // Ensure fields are in document for sync
@@ -181,7 +185,7 @@ const CreatePolicy = () => {
             navigate('/policies');
         } catch (e: any) {
             console.error(e);
-            const message = e.response?.data?.error || e.message || (isEditMode ? 'Failed to update policy' : 'Failed to create policy');
+            const message = extractErrorMessage(e, isEditMode ? 'Failed to update policy' : 'Failed to create policy');
             setFormError(message);
         } finally {
             setLoading(false);

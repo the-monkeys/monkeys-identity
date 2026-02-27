@@ -5,6 +5,7 @@ import { AlertCircle, AlertTriangle } from 'lucide-react';
 import { authAPI } from '../api/auth';
 import { SignupFormData, SignupFormErrors } from '../types/auth';
 import { validateSignupForm } from '@/utils/validateSignupForm';
+import { extractErrorMessage } from '@/pkg/api/errorUtils';
 
 const SignupPage = () => {
     const [formErrors, setFormErrors] = useState<SignupFormErrors>({});
@@ -68,7 +69,7 @@ const SignupPage = () => {
                 navigate('/login');
             } catch (error: any) {
                 console.error("Signup failed:", error);
-                setApiError(error.response?.data?.message || 'Failed to create account. Please try again.');
+                setApiError(extractErrorMessage(error, 'Failed to create account. Please try again.'));
             } finally {
                 setIsSubmitting(false);
             }
@@ -85,7 +86,7 @@ const SignupPage = () => {
                 </div>
                 <div className="bg-bg-card-dark border border-border-color-dark rounded p-10 shadow-sm">
                     <h2 className="text-2xl font-semibold mb-6 flex items-center text-text-main-dark">
-                        Create admin account
+                        Create organizational account
                     </h2>
 
                     {apiError && (
@@ -221,7 +222,7 @@ const SignupPage = () => {
                         <div className="space-y-4">
                             <div className="space-y-1">
                                 <label htmlFor="password" className="text-sm font-semibold text-white flex items-center">
-                                    Root user password
+                                    Account password
                                     <div className="relative group ml-2">
                                         <AlertCircle className="w-4 h-4 text-gray-500 cursor-help" />
                                         <div className="absolute left-full top-1/2 -translate-y-1/2 ml-3 w-72 p-3 bg-gray-900 text-white text-xs rounded shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 pointer-events-none">
@@ -267,7 +268,7 @@ const SignupPage = () => {
                                 disabled={isSubmitting}
                                 className={`w-full px-8 py-3 bg-primary text-white font-bold rounded shadow-sm hover:bg-opacity-90 transition-all ${isSubmitting ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
                             >
-                                {isSubmitting ? 'Creating Account...' : 'Verify & Create Admin Account'}
+                                {isSubmitting ? 'Creating Account...' : 'Verify & Create Account'}
                             </button>
                         </div>
                     </form>

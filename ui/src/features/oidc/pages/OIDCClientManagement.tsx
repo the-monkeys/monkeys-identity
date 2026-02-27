@@ -4,6 +4,7 @@ import { useOIDCUnits, useRegisterClient, useDeleteClient, useUpdateClient, OAut
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { DataTable, Column } from '@/components/ui/DataTable';
 import { cn } from '@/components/ui/utils';
+import { useAuth } from '@/context/AuthContext';
 
 const OIDCClientManagement = () => {
     const [searchQuery, setSearchQuery] = useState('');
@@ -29,6 +30,7 @@ const OIDCClientManagement = () => {
     });
 
     const { data: clients = [], isLoading } = useOIDCUnits();
+    const { isAdmin } = useAuth();
     const registerMutation = useRegisterClient();
     const deleteMutation = useDeleteClient();
     const updateMutation = useUpdateClient();
@@ -169,7 +171,7 @@ const OIDCClientManagement = () => {
         {
             header: 'Actions',
             className: 'text-right w-24',
-            cell: (c) => (
+            cell: (c) => isAdmin() ? (
                 <div className="flex justify-end gap-1">
                     <button
                         onClick={(e) => { e.stopPropagation(); handleEditClick(c); }}
@@ -186,7 +188,7 @@ const OIDCClientManagement = () => {
                         <Trash2 size={16} />
                     </button>
                 </div>
-            )
+            ) : null
         }
     ];
 
@@ -197,12 +199,14 @@ const OIDCClientManagement = () => {
                     <h1 className="text-2xl font-bold text-text-main-dark">Ecosystem Integration</h1>
                     <p className="text-sm text-gray-400">Manage OIDC clients to enable Single Sign-On for your company's applications</p>
                 </div>
+                {isAdmin() && (
                 <button
                     onClick={() => setShowRegisterModal(true)}
                     className="px-4 py-2 bg-primary/80 text-white rounded-lg text-sm font-semibold flex items-center space-x-2 hover:bg-primary/90 transition-all shadow-lg shadow-primary/20"
                 >
                     <Plus size={16} /> <span>Register Application</span>
                 </button>
+                )}
             </div>
 
             <div className="flex items-center gap-2 bg-bg-card-dark p-1 rounded-lg border border-border-color-dark w-full md:w-auto self-start">

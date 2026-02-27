@@ -6,6 +6,7 @@ import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { DataTable, Column } from '@/components/ui/DataTable';
 import { cn } from '@/components/ui/utils';
 import { useAuth } from '@/context/AuthContext';
+import { extractErrorMessage } from '@/pkg/api/errorUtils';
 
 const RolesManagement = () => {
     const [searchQuery, setSearchQuery] = useState('');
@@ -13,7 +14,7 @@ const RolesManagement = () => {
     const [showEditModal, setShowEditModal] = useState(false);
     const [showDeleteDialog, setShowDeleteDialog] = useState(false);
     const [selectedRole, setSelectedRole] = useState<Role | null>(null);
-    const { user: currentUser } = useAuth();
+    const { user: currentUser, isAdmin } = useAuth();
     const [newRole, setNewRole] = useState({ name: '', description: '', organization_id: currentUser?.organization_id || '' });
     const [editRoleData, setEditRoleData] = useState({ name: '', description: '' });
     const navigate = useNavigate();
@@ -120,7 +121,7 @@ const RolesManagement = () => {
         {
             header: 'Actions',
             className: 'text-right',
-            cell: (role) => (
+            cell: (role) => isAdmin() ? (
                 <div className="flex items-center justify-end space-x-1">
                     <button
                         onClick={(e) => { e.stopPropagation(); handleEditClick(role); }}
@@ -138,7 +139,7 @@ const RolesManagement = () => {
                         <Trash2 size={16} className={role.is_system_role ? 'opacity-30' : ''} />
                     </button>
                 </div>
-            )
+            ) : null
         }
     ];
 
@@ -147,7 +148,7 @@ const RolesManagement = () => {
             <div className="flex items-center justify-center h-64">
                 <div className="text-red-400 flex items-center space-x-2 bg-red-500/10 p-4 rounded-lg border border-red-500/20">
                     <AlertCircle size={20} />
-                    <span>Failed to load roles</span>
+                    <span>{extractErrorMessage(error, 'Failed to load roles')}</span>
                 </div>
             </div>
         );
@@ -161,12 +162,14 @@ const RolesManagement = () => {
                     <h1 className="text-2xl font-bold text-text-main-dark">Role-Based Access Control</h1>
                     <p className="text-sm text-gray-400">Define roles and assign policies to control user permissions across your ecosystem</p>
                 </div>
-                <button
-                    onClick={() => setShowCreateModal(true)}
-                    className="px-4 py-2 bg-primary/80 text-white rounded-lg text-sm font-semibold flex items-center space-x-2 hover:bg-primary/90 transition-all shadow-lg shadow-primary/20"
-                >
-                    <Plus size={16} /> <span>Create Role</span>
-                </button>
+                {isAdmin() && (
+                    <button
+                        onClick={() => setShowCreateModal(true)}
+                        className="px-4 py-2 bg-primary/80 text-white rounded-lg text-sm font-semibold flex items-center space-x-2 hover:bg-primary/90 transition-all shadow-lg shadow-primary/20"
+                    >
+                        <Plus size={16} /> <span>Create Role</span>
+                    </button>
+                )}
             </div>
 
             {/* Stats Cards */}

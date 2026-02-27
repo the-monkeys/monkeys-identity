@@ -11,7 +11,8 @@ import {
     Building,
     Link,
     Box,
-    Server
+    Server,
+    FileText
 } from 'lucide-react';
 
 export const sidebarMenuItems = [
@@ -64,6 +65,11 @@ export const sidebarMenuItems = [
         icon: React.createElement(Link, { size: 20 }),
         label: 'Ecosystem',
         id: 'ecosystem'
+    },
+    {
+        icon: React.createElement(FileText, { size: 20 }),
+        label: 'Content',
+        id: 'content'
     }
 ];
 

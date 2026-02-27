@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Plus, Edit, Trash2, Search, AlertCircle } from 'lucide-react';
+import { Edit, Trash2, Search, AlertCircle } from 'lucide-react';
 import { useOrganizations, useDeleteOrganization } from '../api/useOrganizations';
 import { Organization } from '../types/organization';
 import EditOrganizationModal from '../components/EditOrganizationModal';
@@ -7,6 +7,7 @@ import AddOrganizationModal from '../components/AddOrganizationModal';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { DataTable, Column } from '@/components/ui/DataTable';
 import { cn } from '@/components/ui/utils';
+import { extractErrorMessage } from '@/pkg/api/errorUtils';
 
 const OrganizationsManagement = () => {
     // State
@@ -133,7 +134,7 @@ const OrganizationsManagement = () => {
             <div className="flex items-center justify-center h-64">
                 <div className="text-red-400 flex items-center space-x-2 bg-red-500/10 p-4 rounded-lg border border-red-500/20">
                     <AlertCircle size={20} />
-                    <span>{(error as any)?.response?.data?.message || 'Failed to load organizations'}</span>
+                    <span>{extractErrorMessage(error, 'Failed to load organizations')}</span>
                 </div>
             </div>
         );
@@ -147,12 +148,14 @@ const OrganizationsManagement = () => {
                     <h1 className="text-2xl font-bold text-text-main-dark">Organizations</h1>
                     <p className="text-sm text-gray-400">Manage tenants and billing</p>
                 </div>
+                {/* New Organization button disabled — org creation happens via signup (/auth/register-org).
                 <button
                     onClick={() => setShowAddModal(true)}
                     className="px-4 py-2 bg-primary/80 text-white rounded-lg text-sm font-semibold flex items-center space-x-2 hover:bg-primary/90 transition-all shadow-lg shadow-primary/20"
                 >
                     <Plus size={16} /> <span>New Organization</span>
                 </button>
+                */}
             </div>
 
             {/* Search */}

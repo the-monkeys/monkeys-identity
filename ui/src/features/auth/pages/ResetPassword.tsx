@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { AlertCircle, CheckCircle2, ArrowLeft, Lock, Loader2, Eye, EyeOff } from 'lucide-react';
 import client from '@/pkg/api/client';
+import { extractErrorMessage } from '@/pkg/api/errorUtils';
 
 const ResetPasswordPage = () => {
     const [searchParams] = useSearchParams();
@@ -37,7 +38,7 @@ const ResetPasswordPage = () => {
             await client.post('/auth/reset-password', { token, new_password: password });
             setDone(true);
         } catch (err: any) {
-            setError(err?.response?.data?.error || 'Failed to reset password. The link may have expired. Please try again.');
+            setError(extractErrorMessage(err, 'Failed to reset password. The link may have expired. Please try again.'));
         } finally {
             setIsLoading(false);
         }

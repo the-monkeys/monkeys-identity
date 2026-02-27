@@ -50,6 +50,7 @@ type LoginResponse struct {
 	ExpiresIn    int64       `json:"expires_in"`
 	TokenType    string      `json:"token_type"`
 	User         models.User `json:"user"`
+	Role         string      `json:"role"`
 }
 
 type CreateAdminRequest struct {
@@ -105,10 +106,7 @@ func (h *AuthHandler) Login(c *fiber.Ctx) error {
 	var req LoginRequest
 	if err := c.BodyParser(&req); err != nil {
 		h.logger.Warn("Invalid login request: %v", err)
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   "Invalid request format",
-			"success": false,
-		})
+		return apiError(c, fiber.StatusBadRequest, "invalid_request", "Invalid request format")
 	}
 
 	// Trim spaces and normalize email
@@ -116,10 +114,7 @@ func (h *AuthHandler) Login(c *fiber.Ctx) error {
 
 	// Validate input
 	if req.Email == "" || req.Password == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   "Email and password are required",
-			"success": false,
-		})
+		return apiError(c, fiber.StatusBadRequest, "validation_error", "Email and password are required")
 	}
 
 	// Get user from database
@@ -127,28 +122,22 @@ func (h *AuthHandler) Login(c *fiber.Ctx) error {
 	if err != nil {
 		h.logger.Warn("User not found: %s", req.Email)
 		h.audit.LogLogin(c.Context(), "", "", c.IP(), c.Get("User-Agent"), false, "user_not_found")
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"error":   "Invalid credentials",
-			"success": false,
-		})
+		return apiError(c, fiber.StatusUnauthorized, "invalid_credentials", "Invalid email or password")
 	}
 
 	// Check password
 	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(req.Password)); err != nil {
 		h.logger.Warn("Invalid password for user: %s", req.Email)
 		h.audit.LogLogin(c.Context(), user.OrganizationID, user.ID, c.IP(), c.Get("User-Agent"), false, "invalid_password")
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"error":   "Invalid credentials",
-			"success": false,
-		})
+		return apiError(c, fiber.StatusUnauthorized, "invalid_credentials", "Invalid email or password")
 	}
 
 	// Check if user is active
+	if user.Status == "suspended" {
+		return apiError(c, fiber.StatusForbidden, "account_suspended", "Your account has been suspended. Contact your administrator.")
+	}
 	if user.Status != "active" {
-		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
-			"error":   "Account is not active",
-			"success": false,
-		})
+		return apiError(c, fiber.StatusForbidden, "account_inactive", "Your account is not active. Please verify your email or contact your administrator.")
 	}
 
 	// Check if MFA is enabled
@@ -160,10 +149,7 @@ func (h *AuthHandler) Login(c *fiber.Ctx) error {
 		err = h.redis.Set(c.Context(), "mfa_login:"+mfaToken, user.ID+":"+user.OrganizationID, 5*time.Minute).Err()
 		if err != nil {
 			h.logger.Error("Failed to store MFA login token: %v", err)
-			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-				"error":   "Internal server error",
-				"success": false,
-			})
+			return apiError(c, fiber.StatusInternalServerError, "server_error", "An internal error occurred. Please try again later.")
 		}
 
 		return c.JSON(fiber.Map{
@@ -179,10 +165,15 @@ func (h *AuthHandler) Login(c *fiber.Ctx) error {
 	accessToken, refreshToken, expiresIn, err := h.generateTokens(user, accessID, refreshID)
 	if err != nil {
 		h.logger.Error("Failed to generate tokens: %v", err)
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error":   "Failed to generate authentication tokens",
-			"success": false,
-		})
+		return apiError(c, fiber.StatusInternalServerError, "token_error", "Failed to generate authentication tokens. Please try again.")
+	}
+
+	// Resolve user role for the response
+	userRole := "user"
+	if h.queries != nil && h.queries.Auth != nil {
+		if fetchedRole, err := h.queries.Auth.GetPrimaryRoleForUser(user.ID, user.OrganizationID); err == nil && fetchedRole != "" {
+			userRole = fetchedRole
+		}
 	}
 
 	// Create session
@@ -228,15 +219,13 @@ func (h *AuthHandler) Login(c *fiber.Ctx) error {
 		Domain:   h.config.CookieDomain,
 	})
 
-	return c.JSON(fiber.Map{
-		"success": true,
-		"data": LoginResponse{
-			AccessToken:  accessToken,
-			RefreshToken: refreshToken,
-			ExpiresIn:    expiresIn,
-			TokenType:    "Bearer",
-			User:         *user,
-		},
+	return apiSuccess(c, fiber.StatusOK, "Login successful", LoginResponse{
+		AccessToken:  accessToken,
+		RefreshToken: refreshToken,
+		ExpiresIn:    expiresIn,
+		TokenType:    "Bearer",
+		User:         *user,
+		Role:         userRole,
 	})
 }
 
@@ -425,6 +414,12 @@ func (h *AuthHandler) Register(c *fiber.Ctx) error {
 	}
 
 	if err := h.queries.Auth.CreateUser(user); err != nil {
+		if isConflictErr(err) {
+			return c.Status(fiber.StatusConflict).JSON(fiber.Map{
+				"error":   "A user with this email or username already exists",
+				"success": false,
+			})
+		}
 		h.logger.Error("Failed to create user: %v", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error":   "Failed to create user account",
@@ -819,6 +814,12 @@ func (h *AuthHandler) SetupMFA(c *fiber.Ctx) error {
 	// Get user to check if MFA is already enabled
 	user, err := h.queries.Auth.GetUserByID(userID, orgID)
 	if err != nil {
+		if isNotFoundErr(err) {
+			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+				"error":   "User not found",
+				"success": false,
+			})
+		}
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error":   "Failed to retrieve user",
 			"success": false,
@@ -957,6 +958,12 @@ func (h *AuthHandler) GenerateBackupCodes(c *fiber.Ctx) error {
 	// Verify MFA is enabled before regenerating backup codes
 	user, err := h.queries.Auth.GetUserByID(userID, orgID)
 	if err != nil {
+		if isNotFoundErr(err) {
+			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+				"error":   "User not found",
+				"success": false,
+			})
+		}
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error":   "Failed to retrieve user",
 			"success": false,
@@ -1030,6 +1037,12 @@ func (h *AuthHandler) DisableMFA(c *fiber.Ctx) error {
 	// Verify user identity with password before disabling MFA
 	user, err := h.queries.Auth.GetUserByID(userID, orgID)
 	if err != nil {
+		if isNotFoundErr(err) {
+			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+				"error":   "User not found",
+				"success": false,
+			})
+		}
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error":   "Failed to retrieve user",
 			"success": false,

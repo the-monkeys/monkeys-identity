@@ -21,6 +21,7 @@ type Queries struct {
 	Audit          AuditQueries
 	GlobalSettings GlobalSettingsQueries
 	OIDC           OIDCQueries
+	Content        ContentQueries
 	db             *database.DB
 	redis          *redis.Client
 }
@@ -39,6 +40,7 @@ func New(db *database.DB, redis *redis.Client) *Queries {
 		Audit:          NewAuditQueries(db, redis),
 		GlobalSettings: NewGlobalSettingsQueries(db, redis),
 		OIDC:           NewOIDCQueries(db, redis),
+		Content:        NewContentQueries(db, redis),
 		db:             db,
 		redis:          redis,
 	}
@@ -58,6 +60,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		Audit:          q.Audit.WithTx(tx),
 		GlobalSettings: q.GlobalSettings.WithTx(tx),
 		OIDC:           q.OIDC.WithTx(tx),
+		Content:        q.Content.WithTx(tx),
 		db:             q.db,
 		redis:          q.redis,
 	}
@@ -77,6 +80,7 @@ func (q *Queries) WithContext(ctx context.Context) *Queries {
 		Audit:          q.Audit.WithContext(ctx),
 		GlobalSettings: q.GlobalSettings.WithContext(ctx),
 		OIDC:           q.OIDC.WithContext(ctx),
+		Content:        q.Content.WithContext(ctx),
 		db:             q.db,
 		redis:          q.redis,
 	}
