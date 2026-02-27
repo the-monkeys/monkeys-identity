@@ -3,6 +3,7 @@ package services
 import (
 	"crypto/rand"
 	"crypto/rsa"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"time"
@@ -15,6 +16,8 @@ import (
 	"github.com/the-monkeys/monkeys-identity/pkg/utils"
 	"golang.org/x/crypto/bcrypt"
 )
+
+const jwksKeyID = "monkeys-iam-main-key"
 
 type OIDCService interface {
 	ValidateClient(clientID, clientSecret, redirectURI string) (*models.OAuthClient, error)
@@ -157,6 +160,7 @@ func (s *oidcService) ExchangeCodeForToken(code, clientID, clientSecret string) 
 	}
 
 	idToken := jwt.NewWithClaims(jwt.SigningMethodRS256, idClaims)
+	idToken.Header["kid"] = jwksKeyID
 	idTokenString, err := idToken.SignedString(s.privateKey)
 	if err != nil {
 		return nil, fmt.Errorf("failed to sign id_token: %w", err)
@@ -176,6 +180,7 @@ func (s *oidcService) ExchangeCodeForToken(code, clientID, clientSecret string) 
 	}
 
 	accessToken := jwt.NewWithClaims(jwt.SigningMethodRS256, accessClaims)
+	accessToken.Header["kid"] = jwksKeyID
 	accessTokenString, err := accessToken.SignedString(s.privateKey)
 	if err != nil {
 		return nil, fmt.Errorf("failed to sign access_token: %w", err)
@@ -234,16 +239,18 @@ func (s *oidcService) GetJWKS() (map[string]interface{}, error) {
 
 	publicKey := s.privateKey.Public().(*rsa.PublicKey)
 
-	// In a complete implementation, use an actual JWKS library or properly encode N and E
-	// This is a simplified JWK for demonstration/standard use
+	// RFC 7517: n and e must be base64url-encoded (no padding)
+	nBytes := publicKey.N.Bytes()
+	nBase64 := base64.RawURLEncoding.EncodeToString(nBytes)
+
 	return map[string]interface{}{
 		"keys": []map[string]interface{}{
 			{
 				"kty": "RSA",
 				"alg": "RS256",
 				"use": "sig",
-				"kid": "monkeys-iam-main-key",
-				"n":   fmt.Sprintf("%x", publicKey.N), // Simplified, should be Base64URL
+				"kid": jwksKeyID,
+				"n":   nBase64,
 				"e":   "AQAB",
 			},
 		},
