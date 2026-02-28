@@ -19,8 +19,13 @@ export default defineConfig(({ mode }) => {
       tsconfigPaths(),
     ],
     server: {
+      allowedHosts: ['identity.monkeys.support'],
       proxy: {
         '/api': {
+          target: proxyTarget,
+          changeOrigin: true,
+        },
+        '/.well-known': {
           target: proxyTarget,
           changeOrigin: true,
         },
