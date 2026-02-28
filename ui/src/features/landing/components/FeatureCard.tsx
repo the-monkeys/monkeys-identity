@@ -1,10 +1,10 @@
 export const FeatureCard: React.FC<{ icon: React.ReactNode; title: string; description: string }> = ({ icon, title, description }) => (
-  <div className="p-8 bg-bg-card-dark border border-border-color-dark rounded-xl transition-all hover:shadow-xl hover:border-primary/30 group">
-    <div className="w-12 h-12 flex items-center justify-center rounded-lg bg-slate-800 border border-border-color-dark text-primary mb-6 group-hover:scale-110 transition-transform">
+  <div className="h-full rounded-xl border border-border-color-dark bg-bg-card-dark p-6 transition-all group hover:border-primary/30 hover:shadow-xl sm:p-8">
+    <div className="mb-5 flex h-11 w-11 items-center justify-center rounded-lg border border-border-color-dark bg-slate-800 text-primary transition-transform group-hover:scale-105 sm:mb-6 sm:h-12 sm:w-12">
       {icon}
     </div>
-    <h3 className="text-xl font-bold mb-3 text-text-main-dark">{title}</h3>
-    <p className="text-gray-400 leading-relaxed text-sm">
+    <h3 className="mb-3 text-lg font-bold text-text-main-dark sm:text-xl">{title}</h3>
+    <p className="text-sm leading-relaxed text-gray-400 sm:text-base">
       {description}
     </p>
   </div>
@@ -14,7 +14,7 @@ export default FeatureCard;
 
 export const CodeCard = () => {
   return (
-    <pre className="text-gray-300">
+    <pre className="whitespace-pre text-gray-300">
       <code>{`{
   "Version": "2025-01-01",
   "Statement": [
