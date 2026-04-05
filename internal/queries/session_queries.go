@@ -10,6 +10,7 @@ import (
 	"github.com/redis/go-redis/v9"
 	"github.com/the-monkeys/monkeys-identity/internal/database"
 	"github.com/the-monkeys/monkeys-identity/internal/models"
+	"github.com/the-monkeys/monkeys-identity/pkg/logger"
 )
 
 // SessionQueries defines all session management database operations
@@ -70,22 +71,23 @@ type SessionActivity struct {
 }
 
 type sessionQueries struct {
-	db    *database.DB
-	redis *redis.Client
-	tx    *sql.Tx
-	ctx   context.Context
+	db     *database.DB
+	redis  *redis.Client
+	logger *logger.Logger
+	tx     *sql.Tx
+	ctx    context.Context
 }
 
-func NewSessionQueries(db *database.DB, redis *redis.Client) SessionQueries {
-	return &sessionQueries{db: db, redis: redis, ctx: context.Background()}
+func NewSessionQueries(db *database.DB, redis *redis.Client, logger *logger.Logger) SessionQueries {
+	return &sessionQueries{db: db, redis: redis, logger: logger, ctx: context.Background()}
 }
 
 func (q *sessionQueries) WithTx(tx *sql.Tx) SessionQueries {
-	return &sessionQueries{db: q.db, redis: q.redis, tx: tx, ctx: q.ctx}
+	return &sessionQueries{db: q.db, redis: q.redis, logger: q.logger, tx: tx, ctx: q.ctx}
 }
 
 func (q *sessionQueries) WithContext(ctx context.Context) SessionQueries {
-	return &sessionQueries{db: q.db, redis: q.redis, tx: q.tx, ctx: ctx}
+	return &sessionQueries{db: q.db, redis: q.redis, logger: q.logger, tx: q.tx, ctx: ctx}
 }
 
 func (q *sessionQueries) CreateSession(session *models.Session) error {
@@ -120,7 +122,7 @@ func (q *sessionQueries) CreateSession(session *models.Session) error {
 		err = q.cacheSession(session)
 		if err != nil {
 			// Log error but don't fail the operation
-			// TODO: Add proper logging
+			q.logger.Error("Failed to cache session in Redis: %v", err)
 		}
 	}
 
@@ -250,7 +252,9 @@ func (q *sessionQueries) UpdateSession(session *models.Session, organizationID s
 
 	// Update cache
 	if q.redis != nil {
-		q.cacheSession(session)
+		if err := q.cacheSession(session); err != nil {
+			q.logger.Error("Failed to update session cache in Redis: %v", err)
+		}
 	}
 
 	return nil
@@ -280,7 +284,9 @@ func (q *sessionQueries) DeleteSession(sessionID, organizationID string) error {
 
 	// Remove from cache
 	if q.redis != nil {
-		q.removeCachedSession(sessionID)
+		if err := q.removeCachedSession(sessionID); err != nil {
+			q.logger.Error("Failed to remove session from Redis cache: %v", err)
+		}
 	}
 
 	return nil
@@ -460,7 +466,9 @@ func (q *sessionQueries) ExtendSession(sessionID, organizationID string, newExpi
 		if session, err := q.GetSession(sessionID, organizationID); err == nil {
 			session.ExpiresAt = newExpiresAt
 			session.LastUsedAt = time.Now()
-			q.cacheSession(session)
+			if err := q.cacheSession(session); err != nil {
+				q.logger.Error("Failed to update session cache in Redis during extension: %v", err)
+			}
 		}
 	}
 
@@ -491,7 +499,9 @@ func (q *sessionQueries) RevokeSession(sessionID, organizationID string) error {
 
 	// Remove from cache
 	if q.redis != nil {
-		q.removeCachedSession(sessionID)
+		if err := q.removeCachedSession(sessionID); err != nil {
+			q.logger.Error("Failed to remove session from Redis cache during revocation: %v", err)
+		}
 	}
 
 	return nil
@@ -519,7 +529,9 @@ func (q *sessionQueries) RevokeAllUserSessions(userID, organizationID string) er
 	if q.redis != nil && rows > 0 {
 		sessions, _ := q.ListUserSessions(userID, organizationID)
 		for _, session := range sessions {
-			q.removeCachedSession(session.ID)
+			if err := q.removeCachedSession(session.ID); err != nil {
+				q.logger.Error("Failed to remove session %s from Redis cache during bulk revocation: %v", session.ID, err)
+			}
 		}
 	}
 

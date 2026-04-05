@@ -10,6 +10,7 @@ import (
 	"github.com/redis/go-redis/v9"
 	"github.com/the-monkeys/monkeys-identity/internal/database"
 	"github.com/the-monkeys/monkeys-identity/internal/models"
+	"github.com/the-monkeys/monkeys-identity/pkg/logger"
 )
 
 // OrganizationQueries defines all organization management database operations
@@ -37,22 +38,23 @@ type OrganizationQueries interface {
 }
 
 type organizationQueries struct {
-	db    *database.DB
-	redis *redis.Client
-	tx    *sql.Tx
-	ctx   context.Context
+	db     *database.DB
+	redis  *redis.Client
+	logger *logger.Logger
+	tx     *sql.Tx
+	ctx    context.Context
 }
 
-func NewOrganizationQueries(db *database.DB, redis *redis.Client) OrganizationQueries {
-	return &organizationQueries{db: db, redis: redis, ctx: context.Background()}
+func NewOrganizationQueries(db *database.DB, redis *redis.Client, logger *logger.Logger) OrganizationQueries {
+	return &organizationQueries{db: db, redis: redis, logger: logger, ctx: context.Background()}
 }
 
 func (q *organizationQueries) WithTx(tx *sql.Tx) OrganizationQueries {
-	return &organizationQueries{db: q.db, redis: q.redis, tx: tx, ctx: q.ctx}
+	return &organizationQueries{db: q.db, redis: q.redis, logger: q.logger, tx: tx, ctx: q.ctx}
 }
 
 func (q *organizationQueries) WithContext(ctx context.Context) OrganizationQueries {
-	return &organizationQueries{db: q.db, redis: q.redis, tx: q.tx, ctx: ctx}
+	return &organizationQueries{db: q.db, redis: q.redis, logger: q.logger, tx: q.tx, ctx: ctx}
 }
 
 // ListOrganizations returns paginated organizations (excluding deleted).

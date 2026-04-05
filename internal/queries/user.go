@@ -10,6 +10,7 @@ import (
 	"github.com/redis/go-redis/v9"
 	"github.com/the-monkeys/monkeys-identity/internal/database"
 	"github.com/the-monkeys/monkeys-identity/internal/models"
+	"github.com/the-monkeys/monkeys-identity/pkg/logger"
 )
 
 // UserQueries defines all user management database operations
@@ -53,38 +54,42 @@ type UserQueries interface {
 
 // userQueries implements UserQueries
 type userQueries struct {
-	db    *database.DB
-	redis *redis.Client
-	tx    *sql.Tx
-	ctx   context.Context
+	db     *database.DB
+	redis  *redis.Client
+	logger *logger.Logger
+	tx     *sql.Tx
+	ctx    context.Context
 }
 
 // NewUserQueries creates a new UserQueries instance
-func NewUserQueries(db *database.DB, redis *redis.Client) UserQueries {
+func NewUserQueries(db *database.DB, redis *redis.Client, logger *logger.Logger) UserQueries {
 	return &userQueries{
-		db:    db,
-		redis: redis,
-		ctx:   context.Background(),
+		db:     db,
+		redis:  redis,
+		logger: logger,
+		ctx:    context.Background(),
 	}
 }
 
 // WithTx returns a new UserQueries instance that will run all SQL queries within a transaction
 func (q *userQueries) WithTx(tx *sql.Tx) UserQueries {
 	return &userQueries{
-		db:    q.db,
-		redis: q.redis,
-		tx:    tx,
-		ctx:   q.ctx,
+		db:     q.db,
+		redis:  q.redis,
+		logger: q.logger,
+		tx:     tx,
+		ctx:    q.ctx,
 	}
 }
 
 // WithContext returns a new UserQueries instance with context
 func (q *userQueries) WithContext(ctx context.Context) UserQueries {
 	return &userQueries{
-		db:    q.db,
-		redis: q.redis,
-		tx:    q.tx,
-		ctx:   ctx,
+		db:     q.db,
+		redis:  q.redis,
+		logger: q.logger,
+		tx:     q.tx,
+		ctx:    ctx,
 	}
 }
 

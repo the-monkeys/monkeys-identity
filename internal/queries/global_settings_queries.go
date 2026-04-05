@@ -8,6 +8,7 @@ import (
 	"github.com/redis/go-redis/v9"
 	"github.com/the-monkeys/monkeys-identity/internal/database"
 	"github.com/the-monkeys/monkeys-identity/internal/models"
+	"github.com/the-monkeys/monkeys-identity/pkg/logger"
 )
 
 type GlobalSettingsQueries interface {
@@ -19,38 +20,42 @@ type GlobalSettingsQueries interface {
 }
 
 type globalSettingsQueries struct {
-	db    *database.DB
-	tx    *sql.Tx
-	ctx   context.Context
-	redis *redis.Client
+	db     *database.DB
+	tx     *sql.Tx
+	ctx    context.Context
+	redis  *redis.Client
+	logger *logger.Logger
 }
 
 // NewGlobalSettingsQueries creates a new GlobalSettingsQueries instance
-func NewGlobalSettingsQueries(db *database.DB, redis *redis.Client) GlobalSettingsQueries {
+func NewGlobalSettingsQueries(db *database.DB, redis *redis.Client, logger *logger.Logger) GlobalSettingsQueries {
 	return &globalSettingsQueries{
-		db:    db,
-		ctx:   context.Background(),
-		redis: redis,
+		db:     db,
+		ctx:    context.Background(),
+		redis:  redis,
+		logger: logger,
 	}
 }
 
 // WithTx returns a new GlobalSettingsQueries instance that will run all SQL queries within a transaction
 func (q *globalSettingsQueries) WithTx(tx *sql.Tx) GlobalSettingsQueries {
 	return &globalSettingsQueries{
-		db:    q.db,
-		tx:    tx,
-		ctx:   q.ctx,
-		redis: q.redis,
+		db:     q.db,
+		tx:     tx,
+		ctx:    q.ctx,
+		redis:  q.redis,
+		logger: q.logger,
 	}
 }
 
 // WithContext returns a new GlobalSettingsQueries instance with context
 func (q *globalSettingsQueries) WithContext(ctx context.Context) GlobalSettingsQueries {
 	return &globalSettingsQueries{
-		db:    q.db,
-		tx:    q.tx,
-		ctx:   ctx,
-		redis: q.redis,
+		db:     q.db,
+		tx:     q.tx,
+		ctx:    ctx,
+		redis:  q.redis,
+		logger: q.logger,
 	}
 }
 

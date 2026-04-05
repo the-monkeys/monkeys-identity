@@ -9,6 +9,7 @@ import (
 	"github.com/redis/go-redis/v9"
 	"github.com/the-monkeys/monkeys-identity/internal/database"
 	"github.com/the-monkeys/monkeys-identity/internal/models"
+	"github.com/the-monkeys/monkeys-identity/pkg/logger"
 )
 
 // RoleQueries defines all role management database operations
@@ -38,22 +39,23 @@ type RoleQueries interface {
 }
 
 type roleQueries struct {
-	db    *database.DB
-	redis *redis.Client
-	tx    *sql.Tx
-	ctx   context.Context
+	db     *database.DB
+	redis  *redis.Client
+	logger *logger.Logger
+	tx     *sql.Tx
+	ctx    context.Context
 }
 
-func NewRoleQueries(db *database.DB, redis *redis.Client) RoleQueries {
-	return &roleQueries{db: db, redis: redis, ctx: context.Background()}
+func NewRoleQueries(db *database.DB, redis *redis.Client, logger *logger.Logger) RoleQueries {
+	return &roleQueries{db: db, redis: redis, logger: logger, ctx: context.Background()}
 }
 
 func (q *roleQueries) WithTx(tx *sql.Tx) RoleQueries {
-	return &roleQueries{db: q.db, redis: q.redis, tx: tx, ctx: q.ctx}
+	return &roleQueries{db: q.db, redis: q.redis, logger: q.logger, tx: tx, ctx: q.ctx}
 }
 
 func (q *roleQueries) WithContext(ctx context.Context) RoleQueries {
-	return &roleQueries{db: q.db, redis: q.redis, tx: q.tx, ctx: ctx}
+	return &roleQueries{db: q.db, redis: q.redis, logger: q.logger, tx: q.tx, ctx: ctx}
 }
 
 // Role-specific query methods

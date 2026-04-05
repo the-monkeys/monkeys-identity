@@ -10,6 +10,7 @@ import (
 	"github.com/redis/go-redis/v9"
 	"github.com/the-monkeys/monkeys-identity/internal/database"
 	"github.com/the-monkeys/monkeys-identity/internal/models"
+	"github.com/the-monkeys/monkeys-identity/pkg/logger"
 )
 
 // AuditQueries defines all audit and compliance database operations
@@ -39,22 +40,23 @@ type AuditQueries interface {
 }
 
 type auditQueries struct {
-	db    *database.DB
-	redis *redis.Client
-	tx    *sql.Tx
-	ctx   context.Context
+	db     *database.DB
+	redis  *redis.Client
+	logger *logger.Logger
+	tx     *sql.Tx
+	ctx    context.Context
 }
 
-func NewAuditQueries(db *database.DB, redis *redis.Client) AuditQueries {
-	return &auditQueries{db: db, redis: redis, ctx: context.Background()}
+func NewAuditQueries(db *database.DB, redis *redis.Client, logger *logger.Logger) AuditQueries {
+	return &auditQueries{db: db, redis: redis, logger: logger, ctx: context.Background()}
 }
 
 func (q *auditQueries) WithTx(tx *sql.Tx) AuditQueries {
-	return &auditQueries{db: q.db, redis: q.redis, tx: tx, ctx: q.ctx}
+	return &auditQueries{db: q.db, redis: q.redis, logger: q.logger, tx: tx, ctx: q.ctx}
 }
 
 func (q *auditQueries) WithContext(ctx context.Context) AuditQueries {
-	return &auditQueries{db: q.db, redis: q.redis, tx: q.tx, ctx: ctx}
+	return &auditQueries{db: q.db, redis: q.redis, logger: q.logger, tx: q.tx, ctx: ctx}
 }
 
 // getDB returns the appropriate database connection (transaction or regular)

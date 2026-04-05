@@ -10,6 +10,7 @@ import (
 	"github.com/redis/go-redis/v9"
 	"github.com/the-monkeys/monkeys-identity/internal/database"
 	"github.com/the-monkeys/monkeys-identity/internal/models"
+	"github.com/the-monkeys/monkeys-identity/pkg/logger"
 )
 
 // AuthQueries defines all authentication-related database operations
@@ -52,41 +53,45 @@ type AuthQueries interface {
 
 // authQueries implements AuthQueries
 type authQueries struct {
-	db    *database.DB
-	redis *redis.Client
-	tx    *sql.Tx
-	ctx   context.Context
+	db     *database.DB
+	redis  *redis.Client
+	logger *logger.Logger
+	tx     *sql.Tx
+	ctx    context.Context
 }
 
 // ErrOrganizationNotFound is returned when a referenced organization cannot be located
 var ErrOrganizationNotFound = errors.New("organization not found")
 
 // NewAuthQueries creates a new AuthQueries instance
-func NewAuthQueries(db *database.DB, redis *redis.Client) AuthQueries {
+func NewAuthQueries(db *database.DB, redis *redis.Client, logger *logger.Logger) AuthQueries {
 	return &authQueries{
-		db:    db,
-		redis: redis,
-		ctx:   context.Background(),
+		db:     db,
+		redis:  redis,
+		logger: logger,
+		ctx:    context.Background(),
 	}
 }
 
 // WithTx returns a new AuthQueries instance that will run all SQL queries within a transaction
 func (q *authQueries) WithTx(tx *sql.Tx) AuthQueries {
 	return &authQueries{
-		db:    q.db,
-		redis: q.redis,
-		tx:    tx,
-		ctx:   q.ctx,
+		db:     q.db,
+		redis:  q.redis,
+		logger: q.logger,
+		tx:     tx,
+		ctx:    q.ctx,
 	}
 }
 
 // WithContext returns a new AuthQueries instance with context
 func (q *authQueries) WithContext(ctx context.Context) AuthQueries {
 	return &authQueries{
-		db:    q.db,
-		redis: q.redis,
-		tx:    q.tx,
-		ctx:   ctx,
+		db:     q.db,
+		redis:  q.redis,
+		logger: q.logger,
+		tx:     q.tx,
+		ctx:    ctx,
 	}
 }
 

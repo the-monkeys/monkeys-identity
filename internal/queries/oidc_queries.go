@@ -9,6 +9,7 @@ import (
 	"github.com/redis/go-redis/v9"
 	"github.com/the-monkeys/monkeys-identity/internal/database"
 	"github.com/the-monkeys/monkeys-identity/internal/models"
+	"github.com/the-monkeys/monkeys-identity/pkg/logger"
 )
 
 type OIDCQueries interface {
@@ -29,35 +30,39 @@ type OIDCQueries interface {
 }
 
 type oidcQueries struct {
-	db    *database.DB
-	redis *redis.Client
-	ctx   context.Context
-	tx    *sql.Tx
+	db     *database.DB
+	redis  *redis.Client
+	logger *logger.Logger
+	ctx    context.Context
+	tx     *sql.Tx
 }
 
-func NewOIDCQueries(db *database.DB, redis *redis.Client) OIDCQueries {
+func NewOIDCQueries(db *database.DB, redis *redis.Client, logger *logger.Logger) OIDCQueries {
 	return &oidcQueries{
-		db:    db,
-		redis: redis,
-		ctx:   context.Background(),
+		db:     db,
+		redis:  redis,
+		logger: logger,
+		ctx:    context.Background(),
 	}
 }
 
 func (q *oidcQueries) WithTx(tx *sql.Tx) OIDCQueries {
 	return &oidcQueries{
-		db:    q.db,
-		redis: q.redis,
-		ctx:   q.ctx,
-		tx:    tx,
+		db:     q.db,
+		redis:  q.redis,
+		logger: q.logger,
+		ctx:    q.ctx,
+		tx:     tx,
 	}
 }
 
 func (q *oidcQueries) WithContext(ctx context.Context) OIDCQueries {
 	return &oidcQueries{
-		db:    q.db,
-		redis: q.redis,
-		ctx:   ctx,
-		tx:    q.tx,
+		db:     q.db,
+		redis:  q.redis,
+		logger: q.logger,
+		ctx:    ctx,
+		tx:     q.tx,
 	}
 }
 

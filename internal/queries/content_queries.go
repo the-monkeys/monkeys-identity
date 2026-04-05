@@ -10,6 +10,7 @@ import (
 	"github.com/redis/go-redis/v9"
 	"github.com/the-monkeys/monkeys-identity/internal/database"
 	"github.com/the-monkeys/monkeys-identity/internal/models"
+	"github.com/the-monkeys/monkeys-identity/pkg/logger"
 )
 
 // ── Interface ──────────────────────────────────────────────────────────
@@ -42,22 +43,23 @@ type ContentQueries interface {
 // ── Implementation ─────────────────────────────────────────────────────
 
 type contentQueries struct {
-	db    *database.DB
-	redis *redis.Client
-	tx    *sql.Tx
-	ctx   context.Context
+	db     *database.DB
+	redis  *redis.Client
+	logger *logger.Logger
+	tx     *sql.Tx
+	ctx    context.Context
 }
 
-func NewContentQueries(db *database.DB, redis *redis.Client) ContentQueries {
-	return &contentQueries{db: db, redis: redis, ctx: context.Background()}
+func NewContentQueries(db *database.DB, redis *redis.Client, logger *logger.Logger) ContentQueries {
+	return &contentQueries{db: db, redis: redis, logger: logger, ctx: context.Background()}
 }
 
 func (q *contentQueries) WithTx(tx *sql.Tx) ContentQueries {
-	return &contentQueries{db: q.db, redis: q.redis, tx: tx, ctx: q.ctx}
+	return &contentQueries{db: q.db, redis: q.redis, logger: q.logger, tx: tx, ctx: q.ctx}
 }
 
 func (q *contentQueries) WithContext(ctx context.Context) ContentQueries {
-	return &contentQueries{db: q.db, redis: q.redis, tx: q.tx, ctx: ctx}
+	return &contentQueries{db: q.db, redis: q.redis, logger: q.logger, tx: q.tx, ctx: ctx}
 }
 
 func (q *contentQueries) conn() DBTX {

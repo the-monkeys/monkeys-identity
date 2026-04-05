@@ -12,6 +12,7 @@ import (
 	"github.com/redis/go-redis/v9"
 	"github.com/the-monkeys/monkeys-identity/internal/database"
 	"github.com/the-monkeys/monkeys-identity/internal/models"
+	"github.com/the-monkeys/monkeys-identity/pkg/logger"
 )
 
 // ErrGroupNameConflict is returned when attempting to create/update a group with a name that already exists in the organization
@@ -39,22 +40,23 @@ type GroupQueries interface {
 }
 
 type groupQueries struct {
-	db    *database.DB
-	redis *redis.Client
-	tx    *sql.Tx
-	ctx   context.Context
+	db     *database.DB
+	redis  *redis.Client
+	logger *logger.Logger
+	tx     *sql.Tx
+	ctx    context.Context
 }
 
-func NewGroupQueries(db *database.DB, redis *redis.Client) GroupQueries {
-	return &groupQueries{db: db, redis: redis, ctx: context.Background()}
+func NewGroupQueries(db *database.DB, redis *redis.Client, logger *logger.Logger) GroupQueries {
+	return &groupQueries{db: db, redis: redis, logger: logger, ctx: context.Background()}
 }
 
 func (q *groupQueries) WithTx(tx *sql.Tx) GroupQueries {
-	return &groupQueries{db: q.db, redis: q.redis, tx: tx, ctx: q.ctx}
+	return &groupQueries{db: q.db, redis: q.redis, logger: q.logger, tx: tx, ctx: q.ctx}
 }
 
 func (q *groupQueries) WithContext(ctx context.Context) GroupQueries {
-	return &groupQueries{db: q.db, redis: q.redis, tx: q.tx, ctx: ctx}
+	return &groupQueries{db: q.db, redis: q.redis, logger: q.logger, tx: q.tx, ctx: ctx}
 }
 
 // helper selection list

@@ -10,6 +10,7 @@ import (
 	"github.com/redis/go-redis/v9"
 	"github.com/the-monkeys/monkeys-identity/internal/database"
 	"github.com/the-monkeys/monkeys-identity/internal/models"
+	"github.com/the-monkeys/monkeys-identity/pkg/logger"
 )
 
 // DBTX interface for both *sql.DB and *sql.Tx
@@ -79,22 +80,23 @@ type ResourceAccessLog struct {
 }
 
 type resourceQueries struct {
-	db    *database.DB
-	redis *redis.Client
-	tx    *sql.Tx
-	ctx   context.Context
+	db     *database.DB
+	redis  *redis.Client
+	logger *logger.Logger
+	tx     *sql.Tx
+	ctx    context.Context
 }
 
-func NewResourceQueries(db *database.DB, redis *redis.Client) ResourceQueries {
-	return &resourceQueries{db: db, redis: redis, ctx: context.Background()}
+func NewResourceQueries(db *database.DB, redis *redis.Client, logger *logger.Logger) ResourceQueries {
+	return &resourceQueries{db: db, redis: redis, logger: logger, ctx: context.Background()}
 }
 
 func (q *resourceQueries) WithTx(tx *sql.Tx) ResourceQueries {
-	return &resourceQueries{db: q.db, redis: q.redis, tx: tx, ctx: q.ctx}
+	return &resourceQueries{db: q.db, redis: q.redis, logger: q.logger, tx: tx, ctx: q.ctx}
 }
 
 func (q *resourceQueries) WithContext(ctx context.Context) ResourceQueries {
-	return &resourceQueries{db: q.db, redis: q.redis, tx: q.tx, ctx: ctx}
+	return &resourceQueries{db: q.db, redis: q.redis, logger: q.logger, tx: q.tx, ctx: ctx}
 }
 
 func (q *resourceQueries) ListResources(params ListParams, organizationID string) (*ListResult[*models.Resource], error) {

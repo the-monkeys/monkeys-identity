@@ -28,7 +28,7 @@ type PublicOrganization struct {
 }
 
 func NewOrganizationHandler(db *database.DB, redis *redis.Client, logger *logger.Logger) *OrganizationHandler {
-	return &OrganizationHandler{db: db, redis: redis, logger: logger, queries: queries.New(db, redis)}
+	return &OrganizationHandler{db: db, redis: redis, logger: logger, queries: queries.New(db, redis, logger)}
 }
 
 // SetCORS injects the DynamicCORS reference so origin management endpoints

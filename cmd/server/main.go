@@ -124,7 +124,7 @@ func main() {
 	v1 := api.Group("/v1")
 
 	// Initialize services
-	auditQueries := queries.New(db, redis).Audit
+	auditQueries := queries.New(db, redis, appLogger).Audit
 	auditService := services.NewAuditService(auditQueries, appLogger)
 	auditService.Start(context.Background())
 	defer auditService.Stop()

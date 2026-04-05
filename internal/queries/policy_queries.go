@@ -13,6 +13,7 @@ import (
 	"github.com/redis/go-redis/v9"
 	"github.com/the-monkeys/monkeys-identity/internal/database"
 	"github.com/the-monkeys/monkeys-identity/internal/models"
+	"github.com/the-monkeys/monkeys-identity/pkg/logger"
 )
 
 // PolicyQueries defines all policy management database operations
@@ -134,22 +135,23 @@ type EffectivePermission struct {
 }
 
 type policyQueries struct {
-	db    *database.DB
-	redis *redis.Client
-	tx    *sql.Tx
-	ctx   context.Context
+	db     *database.DB
+	redis  *redis.Client
+	logger *logger.Logger
+	tx     *sql.Tx
+	ctx    context.Context
 }
 
-func NewPolicyQueries(db *database.DB, redis *redis.Client) PolicyQueries {
-	return &policyQueries{db: db, redis: redis, ctx: context.Background()}
+func NewPolicyQueries(db *database.DB, redis *redis.Client, logger *logger.Logger) PolicyQueries {
+	return &policyQueries{db: db, redis: redis, logger: logger, ctx: context.Background()}
 }
 
 func (q *policyQueries) WithTx(tx *sql.Tx) PolicyQueries {
-	return &policyQueries{db: q.db, redis: q.redis, tx: tx, ctx: q.ctx}
+	return &policyQueries{db: q.db, redis: q.redis, logger: q.logger, tx: tx, ctx: q.ctx}
 }
 
 func (q *policyQueries) WithContext(ctx context.Context) PolicyQueries {
-	return &policyQueries{db: q.db, redis: q.redis, tx: q.tx, ctx: ctx}
+	return &policyQueries{db: q.db, redis: q.redis, logger: q.logger, tx: q.tx, ctx: ctx}
 }
 
 func (q *policyQueries) ListPolicies(params ListParams, organizationID string) (*ListResult[*models.Policy], error) {
